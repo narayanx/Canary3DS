@@ -1,5 +1,5 @@
 main.o: \
- /home/narayan/projects/dev_3ds/music_player/application/source/main.c \
+ /home/narayan/projects/dev_3ds/music_player/application/source/main.cpp \
  /opt/devkitpro/libctru/include/3ds.h \
  /opt/devkitpro/libctru/include/3ds/types.h \
  /opt/devkitpro/libctru/include/3ds/result.h \
@@ -21,6 +21,9 @@ main.o: \
  /opt/devkitpro/libctru/include/3ds/allocator/mappable.h \
  /opt/devkitpro/libctru/include/3ds/allocator/vram.h \
  /opt/devkitpro/libctru/include/3ds/services/ac.h \
+ /opt/devkitpro/libctru/include/3ds/services/act.h \
+ /opt/devkitpro/libctru/include/3ds/services/frd.h \
+ /opt/devkitpro/libctru/include/3ds/mii.h \
  /opt/devkitpro/libctru/include/3ds/services/am.h \
  /opt/devkitpro/libctru/include/3ds/services/fs.h \
  /opt/devkitpro/libctru/include/3ds/services/ampxi.h \
@@ -34,8 +37,6 @@ main.o: \
  /opt/devkitpro/libctru/include/3ds/services/dsp.h \
  /opt/devkitpro/libctru/include/3ds/services/fspxi.h \
  /opt/devkitpro/libctru/include/3ds/services/fsreg.h \
- /opt/devkitpro/libctru/include/3ds/services/frd.h \
- /opt/devkitpro/libctru/include/3ds/mii.h \
  /opt/devkitpro/libctru/include/3ds/services/gsplcd.h \
  /opt/devkitpro/libctru/include/3ds/services/hid.h \
  /opt/devkitpro/libctru/include/3ds/services/irrst.h \
@@ -64,6 +65,7 @@ main.o: \
  /opt/devkitpro/libctru/include/3ds/services/nfc.h \
  /opt/devkitpro/libctru/include/3ds/services/news.h \
  /opt/devkitpro/libctru/include/3ds/services/qtm.h \
+ /opt/devkitpro/libctru/include/3ds/services/qtmc.h \
  /opt/devkitpro/libctru/include/3ds/services/srvpm.h \
  /opt/devkitpro/libctru/include/3ds/services/loader.h \
  /opt/devkitpro/libctru/include/3ds/services/mcuhwc.h \
@@ -83,7 +85,31 @@ main.o: \
  /opt/devkitpro/libctru/include/3ds/romfs.h \
  /opt/devkitpro/libctru/include/3ds/font.h \
  /opt/devkitpro/libctru/include/3ds/gdbhio_dev.h \
- /opt/devkitpro/libctru/include/3ds/3dslink.h
+ /opt/devkitpro/libctru/include/3ds/3dslink.h \
+ /opt/devkitpro/libctru/include/citro2d.h \
+ /opt/devkitpro/libctru/include/citro3d.h \
+ /opt/devkitpro/libctru/include/c3d/types.h \
+ /opt/devkitpro/libctru/include/c3d/maths.h \
+ /opt/devkitpro/libctru/include/c3d/mtxstack.h \
+ /opt/devkitpro/libctru/include/c3d/uniforms.h \
+ /opt/devkitpro/libctru/include/c3d/attribs.h \
+ /opt/devkitpro/libctru/include/c3d/buffers.h \
+ /opt/devkitpro/libctru/include/c3d/base.h \
+ /opt/devkitpro/libctru/include/c3d/texenv.h \
+ /opt/devkitpro/libctru/include/c3d/effect.h \
+ /opt/devkitpro/libctru/include/c3d/texture.h \
+ /opt/devkitpro/libctru/include/c3d/proctex.h \
+ /opt/devkitpro/libctru/include/c3d/light.h \
+ /opt/devkitpro/libctru/include/c3d/lightlut.h \
+ /opt/devkitpro/libctru/include/c3d/fog.h \
+ /opt/devkitpro/libctru/include/c3d/framebuffer.h \
+ /opt/devkitpro/libctru/include/c3d/renderqueue.h \
+ /opt/devkitpro/libctru/include/tex3ds.h \
+ /opt/devkitpro/libctru/include/c2d/base.h \
+ /opt/devkitpro/libctru/include/c2d/spritesheet.h \
+ /opt/devkitpro/libctru/include/c2d/sprite.h \
+ /opt/devkitpro/libctru/include/c2d/text.h \
+ /opt/devkitpro/libctru/include/c2d/font.h
 /opt/devkitpro/libctru/include/3ds.h:
 /opt/devkitpro/libctru/include/3ds/types.h:
 /opt/devkitpro/libctru/include/3ds/result.h:
@@ -105,6 +131,9 @@ main.o: \
 /opt/devkitpro/libctru/include/3ds/allocator/mappable.h:
 /opt/devkitpro/libctru/include/3ds/allocator/vram.h:
 /opt/devkitpro/libctru/include/3ds/services/ac.h:
+/opt/devkitpro/libctru/include/3ds/services/act.h:
+/opt/devkitpro/libctru/include/3ds/services/frd.h:
+/opt/devkitpro/libctru/include/3ds/mii.h:
 /opt/devkitpro/libctru/include/3ds/services/am.h:
 /opt/devkitpro/libctru/include/3ds/services/fs.h:
 /opt/devkitpro/libctru/include/3ds/services/ampxi.h:
@@ -118,8 +147,6 @@ main.o: \
 /opt/devkitpro/libctru/include/3ds/services/dsp.h:
 /opt/devkitpro/libctru/include/3ds/services/fspxi.h:
 /opt/devkitpro/libctru/include/3ds/services/fsreg.h:
-/opt/devkitpro/libctru/include/3ds/services/frd.h:
-/opt/devkitpro/libctru/include/3ds/mii.h:
 /opt/devkitpro/libctru/include/3ds/services/gsplcd.h:
 /opt/devkitpro/libctru/include/3ds/services/hid.h:
 /opt/devkitpro/libctru/include/3ds/services/irrst.h:
@@ -148,6 +175,7 @@ main.o: \
 /opt/devkitpro/libctru/include/3ds/services/nfc.h:
 /opt/devkitpro/libctru/include/3ds/services/news.h:
 /opt/devkitpro/libctru/include/3ds/services/qtm.h:
+/opt/devkitpro/libctru/include/3ds/services/qtmc.h:
 /opt/devkitpro/libctru/include/3ds/services/srvpm.h:
 /opt/devkitpro/libctru/include/3ds/services/loader.h:
 /opt/devkitpro/libctru/include/3ds/services/mcuhwc.h:
@@ -168,3 +196,27 @@ main.o: \
 /opt/devkitpro/libctru/include/3ds/font.h:
 /opt/devkitpro/libctru/include/3ds/gdbhio_dev.h:
 /opt/devkitpro/libctru/include/3ds/3dslink.h:
+/opt/devkitpro/libctru/include/citro2d.h:
+/opt/devkitpro/libctru/include/citro3d.h:
+/opt/devkitpro/libctru/include/c3d/types.h:
+/opt/devkitpro/libctru/include/c3d/maths.h:
+/opt/devkitpro/libctru/include/c3d/mtxstack.h:
+/opt/devkitpro/libctru/include/c3d/uniforms.h:
+/opt/devkitpro/libctru/include/c3d/attribs.h:
+/opt/devkitpro/libctru/include/c3d/buffers.h:
+/opt/devkitpro/libctru/include/c3d/base.h:
+/opt/devkitpro/libctru/include/c3d/texenv.h:
+/opt/devkitpro/libctru/include/c3d/effect.h:
+/opt/devkitpro/libctru/include/c3d/texture.h:
+/opt/devkitpro/libctru/include/c3d/proctex.h:
+/opt/devkitpro/libctru/include/c3d/light.h:
+/opt/devkitpro/libctru/include/c3d/lightlut.h:
+/opt/devkitpro/libctru/include/c3d/fog.h:
+/opt/devkitpro/libctru/include/c3d/framebuffer.h:
+/opt/devkitpro/libctru/include/c3d/renderqueue.h:
+/opt/devkitpro/libctru/include/tex3ds.h:
+/opt/devkitpro/libctru/include/c2d/base.h:
+/opt/devkitpro/libctru/include/c2d/spritesheet.h:
+/opt/devkitpro/libctru/include/c2d/sprite.h:
+/opt/devkitpro/libctru/include/c2d/text.h:
+/opt/devkitpro/libctru/include/c2d/font.h:

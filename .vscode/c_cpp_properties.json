@@ -4,10 +4,10 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                        "${workspaceFolder}/**",
-                        "/opt/devkitpro/libctru/include/**",
-                        "/opt/devkitpro/devkitARM/include/**",
-                        "/opt/devkitpro/portlibs/3ds/include/**"
+                "${workspaceFolder}/**",
+                "/opt/devkitpro/libctru/include/**",
+                "/opt/devkitpro/devkitARM/include/**",
+                "/opt/devkitpro/portlibs/3ds/include/**"
             ],
             "defines": [],
             "compilerPath": "/opt/devkitpro/devkitARM/bin/arm-none-eabi-gcc",
@@ -15,7 +15,6 @@
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64"
         }
-        
     ],
     "version": 4
 }
