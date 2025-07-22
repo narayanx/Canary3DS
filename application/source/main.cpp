@@ -202,6 +202,7 @@ int main(int argc, char* argv[])
 			if (last_slash_idx != ROOT_SLASH_IDX && last_slash_idx != cwd.npos) {
 				// include slash
 				cwd = cwd.substr(0, last_slash_idx+1);
+				selected_file = 0; // reset selected file to first file in new directory
 			}
 		}
 
