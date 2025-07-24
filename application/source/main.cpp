@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
 			}
 		}
 		
-		// DPad Right/Circle Pad Right: go down in tone
+		// DPad Right/Circle Pad Right: go up in tone
 		if (kDown & KEY_RIGHT) {
 			if ((size_t)note < sizeof(notefreq)/sizeof(notefreq[0]) - 1) {
 				note++;
