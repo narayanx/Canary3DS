@@ -163,6 +163,59 @@ bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
 
     return true;
 }
+
+// Pause until user presses a button
+void waitForInput(void) {
+    printf("Press any button to exit...\n");
+    while(aptMainLoop())
+    {
+        gspWaitForVBlank();
+        gfxSwapBuffers();
+        hidScanInput();
+
+        if(hidKeysDown())
+            break;
+    }
+}
+
+// Audio initialisation code
+// This sets up NDSP and our primary audio buffer
+bool audioInit(void) {
+    // Setup NDSP
+    ndspChnReset(0);
+    ndspSetOutputMode(NDSP_OUTPUT_STEREO);
+    ndspChnSetInterp(0, NDSP_INTERP_POLYPHASE);
+    ndspChnSetRate(0, SAMPLE_RATE);
+    ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
+
+    // Allocate audio buffer
+    const size_t bufferSize = WAVEBUF_SIZE * ARRAY_SIZE(s_waveBufs);
+    s_audioBuffer = (int16_t *)linearAlloc(bufferSize);
+    if(!s_audioBuffer) {
+        printf("Failed to allocate audio buffer\n");
+        return false;
+    }
+
+    // Setup waveBufs for NDSP
+    memset(&s_waveBufs, 0, sizeof(s_waveBufs));
+    int16_t *buffer = s_audioBuffer;
+
+    for(size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
+        s_waveBufs[i].data_vaddr = buffer;
+        s_waveBufs[i].status     = NDSP_WBUF_DONE;
+
+        buffer += WAVEBUF_SIZE / sizeof(buffer[0]);
+    }
+
+    return true;
+}
+
+// Audio de-initialisation code
+// Stops playback and frees the primary audio buffer
+void audioExit(void) {
+    ndspChnReset(0);
+    linearFree(s_audioBuffer);
+}
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
 
 
@@ -359,60 +412,60 @@ void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles
 //     }
 // }
 
-// Pause until user presses a button
-void waitForInput(void) {
-    printf("Press any button to exit...\n");
-    while(aptMainLoop())
-    {
-        gspWaitForVBlank();
-        gfxSwapBuffers();
-        hidScanInput();
+// // Pause until user presses a button
+// void waitForInput(void) {
+//     printf("Press any button to exit...\n");
+//     while(aptMainLoop())
+//     {
+//         gspWaitForVBlank();
+//         gfxSwapBuffers();
+//         hidScanInput();
 
-        if(hidKeysDown())
-            break;
-    }
-}
+//         if(hidKeysDown())
+//             break;
+//     }
+// }
 
-// ---- END HELPER FUNCTIONS ----
+// // ---- END HELPER FUNCTIONS ----
 
-// Audio initialisation code
-// This sets up NDSP and our primary audio buffer
-bool audioInit(void) {
-    // Setup NDSP
-    ndspChnReset(0);
-    ndspSetOutputMode(NDSP_OUTPUT_STEREO);
-    ndspChnSetInterp(0, NDSP_INTERP_POLYPHASE);
-    ndspChnSetRate(0, SAMPLE_RATE);
-    ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
+// // Audio initialisation code
+// // This sets up NDSP and our primary audio buffer
+// bool audioInit(void) {
+//     // Setup NDSP
+//     ndspChnReset(0);
+//     ndspSetOutputMode(NDSP_OUTPUT_STEREO);
+//     ndspChnSetInterp(0, NDSP_INTERP_POLYPHASE);
+//     ndspChnSetRate(0, SAMPLE_RATE);
+//     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
 
-    // Allocate audio buffer
-    const size_t bufferSize = WAVEBUF_SIZE * ARRAY_SIZE(s_waveBufs);
-    s_audioBuffer = (int16_t *)linearAlloc(bufferSize);
-    if(!s_audioBuffer) {
-        printf("Failed to allocate audio buffer\n");
-        return false;
-    }
+//     // Allocate audio buffer
+//     const size_t bufferSize = WAVEBUF_SIZE * ARRAY_SIZE(s_waveBufs);
+//     s_audioBuffer = (int16_t *)linearAlloc(bufferSize);
+//     if(!s_audioBuffer) {
+//         printf("Failed to allocate audio buffer\n");
+//         return false;
+//     }
 
-    // Setup waveBufs for NDSP
-    memset(&s_waveBufs, 0, sizeof(s_waveBufs));
-    int16_t *buffer = s_audioBuffer;
+//     // Setup waveBufs for NDSP
+//     memset(&s_waveBufs, 0, sizeof(s_waveBufs));
+//     int16_t *buffer = s_audioBuffer;
 
-    for(size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
-        s_waveBufs[i].data_vaddr = buffer;
-        s_waveBufs[i].status     = NDSP_WBUF_DONE;
+//     for(size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
+//         s_waveBufs[i].data_vaddr = buffer;
+//         s_waveBufs[i].status     = NDSP_WBUF_DONE;
 
-        buffer += WAVEBUF_SIZE / sizeof(buffer[0]);
-    }
+//         buffer += WAVEBUF_SIZE / sizeof(buffer[0]);
+//     }
 
-    return true;
-}
+//     return true;
+// }
 
-// Audio de-initialisation code
-// Stops playback and frees the primary audio buffer
-void audioExit(void) {
-    ndspChnReset(0);
-    linearFree(s_audioBuffer);
-}
+// // Audio de-initialisation code
+// // Stops playback and frees the primary audio buffer
+// void audioExit(void) {
+//     ndspChnReset(0);
+//     linearFree(s_audioBuffer);
+// }
 
 // // Main audio decoding logic
 // // This function pulls and decodes audio samples from opusFile_ to fill waveBuf_
