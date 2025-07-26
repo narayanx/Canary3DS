@@ -9,11 +9,6 @@
 #include <string>
 #include <vector>
 		
-// from 3ds-examples/audio/streaming START
-// #define SAMPLERATE 22050
-// #define SAMPLESPERBUF (SAMPLERATE / 30)
-// #define BYTESPERSAMPLE 4
-// from 3ds-examples/audio/streaming END
 
 // from 3ds-examples/audio/opus-decoding START
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -290,22 +285,6 @@ void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles
 	// printf("%s\n", files[0].d_name);
 	// printf("%s\n", files[1].d_name);
 }
-
-// from 3ds-examples/audio/streaming START
-
-// void fill_buffer(void *audioBuffer,size_t offset, size_t size, int frequency ) {
-// 	u32 *dest = (u32*)audioBuffer;
-	
-// 	for (size_t i=0; i<size; i++) {
-		
-// 		s16 sample = INT16_MAX * sin(frequency*(2*M_PI)*(offset+i)/SAMPLERATE);
-		
-// 		dest[i] = (sample<<16) | (sample & 0xffff);
-// 	}
-	
-// 	DSP_FlushDataCache(audioBuffer,size);
-// }
-// from 3ds-examples/audio/streaming END
 
 // from 3ds-examples/audio/opus-decoding START
 // ---- DEFINITIONS ----
@@ -643,45 +622,6 @@ int main(int argc, char* argv[])
 	// int curr_file = 0;
 	// zero index
 	size_t selected_file = 0;
-	// old 3ds-examples/audio/streaming START
-    // two buffers
-	// u32 *audioBuffer = (u32*)linearAlloc(SAMPLESPERBUF*BYTESPERSAMPLE*NUM_BUFFERS);
-	// // only 2 buffers so can use bool instead of int
-	// bool fillBlock = false;
-	
-    
-	// ndspSetOutputMode(NDSP_OUTPUT_STEREO);
-	// ndspChnSetInterp(0, NDSP_INTERP_LINEAR);
-	// ndspChnSetRate(0, SAMPLERATE);
-	// ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
-	
-	// float mix[12];
-	// memset(mix, 0, sizeof(mix));
-	// mix[0] = 1.0;
-	// mix[1] = 1.0;
-	// ndspChnSetMix(0, mix);
-    
-	// c4-c6
-	// int notefreq[] = {
-	// 	262, 294, 329, 349, 392, 440, 494, 523, 587, 659, 698, 784, 880, 988, 1046
-	// };
-
-	// int note = 0;
-
-	// memset(waveBuf,0,sizeof(waveBuf));
-	// waveBuf[0].data_vaddr = &audioBuffer[0];
-	// waveBuf[0].nsamples = SAMPLESPERBUF;
-	// waveBuf[1].data_vaddr = &audioBuffer[SAMPLESPERBUF];
-	// waveBuf[1].nsamples = SAMPLESPERBUF;
-
-	// size_t stream_offset = 0;
-
-	// fill_buffer(audioBuffer,stream_offset, SAMPLESPERBUF * 2, notefreq[note]);
-	// stream_offset += SAMPLESPERBUF;
-
-	// ndspChnWaveBufAdd(0, &waveBuf[0]);
-	// ndspChnWaveBufAdd(0, &waveBuf[1]);
-	// old 3ds-examples/audio/streaming END
 	
 
     bool update_files = true;
