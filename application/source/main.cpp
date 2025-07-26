@@ -1,16 +1,13 @@
+#include <3ds.h>
+#include <citro2d.h>
+#include <dirent.h>
+#include <opusfile.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <filesystem>
-#include <dirent.h>
 
-#include <3ds.h>
-#include <citro2d.h>
 #include <string>
-// #include <array>
 #include <vector>
-#include <opusfile.h>
-
 		
 // from 3ds-examples/audio/streaming START
 // #define SAMPLERATE 22050
