@@ -9,9 +9,10 @@
 #include <string>
 #include <vector>
 
-const int MAX_PATH_CHAR_LENGTH =
-    4096;                  // max file name seems to be 255, file paths are concatenated filenames
-const int MAX_FILES = 26;  // max files to display at once
+// max file name seems to be 255, file paths are concatenated filenames
+const int MAX_PATH_CHAR_LENGTH = 4096;
+// max files to display at once
+const int MAX_FILES = 26;
 
 // TODO kinda temporary for debuggging can probably remove later
 PrintConsole topConsole, bottomConsole;
@@ -318,11 +319,14 @@ int main(int argc, char *argv[]) {
     // start on top screen
     consoleSelect(&topConsole);
 
-    // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
-    ndspInit();
-
     // Enable N3DS 804MHz operation, where available
     // osSetSpeedupEnable(true);
+
+    // lets us keep playing when 3ds is closed
+    aptSetSleepAllowed(false);
+
+    // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
+    ndspInit();
 
     // producer consumer design pattern START
     LightEvent_Init(&opus_controller.startEvent, RESET_ONESHOT);
