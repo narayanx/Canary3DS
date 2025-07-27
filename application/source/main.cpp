@@ -332,7 +332,7 @@ int main(int argc, char *argv[]) {
     LightEvent_Init(&opus_controller.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opus_controller.doneEvent, RESET_ONESHOT);
 
-    // Attempt audioInit (we only need to initialize once)
+    // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
         printf("Failed to initialise audio\n");
         waitForInput();
