@@ -374,11 +374,6 @@ int main(int argc, char* argv[])
 
     ndspSetCallback(opusCallback, NULL);
     // producer consumer design pattern END
-
-	// alternate between two buffers to allow for filling one while the other is playing
-	// ndspWaveBuf waveBuf[NUM_BUFFERS];
-	
-	// chdir("/");
 	
 	// make sure to have trailing '/' character
 	const std::string START_PATH = "sdmc:/Music/";
@@ -401,8 +396,8 @@ int main(int argc, char* argv[])
 
     bool update_files = true;
     std::vector<dirent> files;
-	// Main loop
-	while (aptMainLoop())
+
+    while (aptMainLoop())
 	{
 		
 		gspWaitForVBlank();
@@ -410,10 +405,9 @@ int main(int argc, char* argv[])
 		hidScanInput();
 		
 		
-		// Your code goes here
 		u32 kDown = hidKeysDown();
 		if (kDown & KEY_START) {
-			break; // break in order to return to hbmenu
+			break;
 		}
 
 		// TODO test on 3ds how many files it takes to run out of memory (std::vector allocates on heap). Based on that decide if storing all files in cwd at once is viable or if smth different is needed 
@@ -423,14 +417,13 @@ int main(int argc, char* argv[])
             update_files = true; // only update screen when a button is pressed
         }
         bool opus_error = false;
-		// std::filesystem::path e(cwd);
-		// A: enter directory TODO: play file
+		// A: enter directory
 		if (kDown & KEY_A) {
 			auto file_type = files[selected_file].d_type;
 			if (file_type == DT_DIR) {
 				cwd += files[selected_file].d_name;
 				cwd += '/';
-				selected_file = 0; // reset selected file to first file in new directory
+				selected_file = 0;  // reset selected file to first file in new directory
 			} else if (file_type == DT_REG) {
                 if (opus_controller.songReady) {
                     // if song is already playing, stop playback
@@ -445,10 +438,6 @@ int main(int argc, char* argv[])
 			} 
 			
 		}
-		// if (kDown & KEY_Y) {
-		// 	// toggle playing
-		// 	playing = !playing;
-		// }
 
 		if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
@@ -487,35 +476,11 @@ int main(int argc, char* argv[])
 				selected_file = 0;
 			}
 		}
-		
-		// // DPad Left/Circle Pad Left: go down in tone
-		// if (kDown & KEY_LEFT) {
-		// 	if (note > 0) {
-		// 		note--;
-		// 	}
-		// }
-		
-		// // DPad Right/Circle Pad Right: go up in tone
-		// if (kDown & KEY_RIGHT) {
-		// 	if ((size_t)note < sizeof(notefreq)/sizeof(notefreq[0]) - 1) {
-		// 		note++;
-		// 	}
-		// }
-
-
-		// if (playing && waveBuf[fillBlock].status == NDSP_WBUF_DONE) {
-		// 	fill_buffer(waveBuf[fillBlock].data_pcm16, stream_offset, waveBuf[fillBlock].nsamples,notefreq[note]);
-
-		// 	ndspChnWaveBufAdd(0, &waveBuf[fillBlock]);
-		// 	stream_offset += waveBuf[fillBlock].nsamples;
-
-		// 	fillBlock = !fillBlock;
-		// }
 
 		// printf("cwd: %s\n", cwd.c_str());
         if (update_files && !opus_error) {
             files = get_files(cwd.c_str());
-         
+            
             consoleClear();
             print_files(files, selected_file);
         }
