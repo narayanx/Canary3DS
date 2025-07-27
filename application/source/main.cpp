@@ -10,11 +10,6 @@
 #include <vector>
 		
 
-// from 3ds-examples/audio/opus-decoding START
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-// from 3ds-examples/audio/opus-decoding END
-
-
 const int MAX_PATH_CHAR_LENGTH = 4096; // max file name seems to be 255, file paths are concatenated filenames
 const int MAX_FILES = 26; // max files to display at once
 
@@ -22,6 +17,7 @@ const int MAX_FILES = 26; // max files to display at once
 PrintConsole topConsole, bottomConsole;
 
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) START
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 ndspWaveBuf s_waveBufs[3];
 int16_t *s_audioBuffer = NULL;
 static const int SAMPLE_RATE = 48000;            // Opus is fixed at 48kHz
@@ -284,8 +280,6 @@ void opusCallback(void *arg) {
 
     LightEvent_Signal(&opus_controller.fillBufferEvent);
 }
-
-
 // producer consumer design pattern END
 
 
@@ -345,6 +339,7 @@ int main(int argc, char* argv[])
     // producer consumer design pattern START
     LightEvent_Init(&opus_controller.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opus_controller.doneEvent, RESET_ONESHOT);
+
 	// Attempt audioInit (we only need to initialize once)
     if(!audioInit()) {
         printf("Failed to initialise audio\n");
@@ -357,7 +352,6 @@ int main(int argc, char* argv[])
     }
     
     // Spawn audio thread
-
     // main thread priority
     int32_t priority = 0x30;
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
@@ -381,9 +375,6 @@ int main(int argc, char* argv[])
 	const size_t ROOT_SLASH_IDX = 5;
 	
 	std::string cwd = START_PATH;
-	// TODO try out filesystem, after changing flag in makefile to c++17 it compiles
-	// std::filesystem::path cwd_filesystem(START_PATH);
-	// std::filesystem::directory_iterator dir_iter(cwd_path);
 	
 	if (opendir(cwd.c_str()) == nullptr) {
 		cwd = "sdmc:/";
