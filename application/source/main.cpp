@@ -395,7 +395,6 @@ int main(int argc, char *argv[]) {
         if (kDown) {
             update_files = true;  // only update screen when a button is pressed
         }
-        bool opus_error = false;
         // A: enter directory
         if (kDown & KEY_A) {
             auto file_type = files[selected_file].d_type;
@@ -457,14 +456,13 @@ int main(int argc, char *argv[]) {
         }
 
         // printf("cwd: %s\n", cwd.c_str());
-        if (update_files && !opus_error) {
+        if (update_files) {
             files = get_files(cwd.c_str());
 
             consoleClear();
             print_files(files, selected_file);
         }
         update_files = false;  // reset update_files flag
-                               // list_files_in_dir(cwd);
     }
 
     // producer consumer design pattern START
