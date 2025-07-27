@@ -358,63 +358,22 @@ int main(int argc, char* argv[])
     
     // Spawn audio thread
 
-    // Set the thread priority to the main thread's priority ...
+    // main thread priority
     int32_t priority = 0x30;
     svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
-    // ... then subtract 1, as lower number => higher actual priority ...
+    // lower number => higher actual priority
     priority -= 1;
-    // ... finally, clamp it between 0x18 and 0x3F to guarantee that it's valid.
+    // thread priorities must be between 0x18 and 0x3F
     priority = priority < 0x18 ? 0x18 : priority;
     priority = priority > 0x3F ? 0x3F : priority;
 
-    // start thread, takes no args as it gets opus filepath from global state struct
+    // takes no args as it gets opus filepath from global state struct
     const Thread threadId = threadCreate(audioThread, nullptr,
                                          THREAD_STACK_SZ, priority,
                                          THREAD_AFFINITY, false);
 
     ndspSetCallback(opusCallback, NULL);
     // producer consumer design pattern END
-
-	// from 3ds-examples/audio/opus-decoding START
-
-    // // Setup LightEvent for synchronisation of audioThread
-    // LightEvent_Init(&s_event, RESET_ONESHOT);
-
-
-	// // Attempt audioInit
-    // if(!audioInit()) {
-    //     printf("Failed to initialise audio\n");
-    //     waitForInput();
-
-    //     gfxExit();
-    //     ndspExit();
-    //     romfsExit();
-    //     return EXIT_FAILURE;
-    // }
-
-
-    // // Set the ndsp sound frame callback which signals our audioThread
-    // // ndspSetCallback(audioCallback, NULL);
-
-    // // Spawn audio thread
-
-    // // Set the thread priority to the main thread's priority ...
-    // int32_t priority = 0x30;
-    // svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
-    // // ... then subtract 1, as lower number => higher actual priority ...
-    // priority -= 1;
-    // // ... finally, clamp it between 0x18 and 0x3F to guarantee that it's valid.
-    // priority = priority < 0x18 ? 0x18 : priority;
-    // priority = priority > 0x3F ? 0x3F : priority;
-
-    // kinda messed up this code from when I was implementing producer consumer (not a big deal though, this was mostly just for testing opus playback)
-    // OggOpusFile *opusfile = op_open_file(PATH, &error);
-    // // Start the thread, passing our opusFile as an argument.
-    // const Thread threadId = threadCreate(audioThread, opusFile,
-                                        //  THREAD_STACK_SZ, priority,
-                                        //  THREAD_AFFINITY, false);
-
-	// from 3ds-examples/audio/opus-decoding END
 
 	// alternate between two buffers to allow for filling one while the other is playing
 	// ndspWaveBuf waveBuf[NUM_BUFFERS];
