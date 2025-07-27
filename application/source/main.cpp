@@ -14,8 +14,6 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 // from 3ds-examples/audio/opus-decoding END
 
-// not designed to work with values other than 2 buffers, but that is not necessary
-// const int NUM_BUFFERS = 2;
 
 const int MAX_PATH_CHAR_LENGTH = 4096; // max file name seems to be 255, file paths are concatenated filenames
 const int MAX_FILES = 26; // max files to display at once
@@ -289,17 +287,6 @@ void opusCallback(void *arg) {
 
 
 // producer consumer design pattern END
-
-void exit_exception() {
-	while (aptMainLoop()) {
-		gspWaitForVBlank();
-		gfxSwapBuffers();
-		hidScanInput();
-		u32 kDown = hidKeysDown();
-		if (kDown & KEY_START)
-			return;
-	}
-}
 
 
 std::vector<dirent> get_files(const char* path) {
