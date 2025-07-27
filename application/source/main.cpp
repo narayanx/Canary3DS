@@ -504,22 +504,6 @@ int main(int argc, char* argv[])
     romfsExit();
     gfxExit();    
     // producer consumer design pattern END
-
-
-	// // from 3ds-examples/audio/opus-decoding START
-	// // Signal audio thread to quit
-    // s_quit = true;
-    // LightEvent_Signal(&s_event);
-	
-    // // Cleanup audio things and de-init platform features
-    // audioExit();
-    // ndspExit();
-    // op_free(opusFile);
-	
-    // romfsExit();
-    // gfxExit();
-	// // from 3ds-examples/audio/opus-decoding END
-
 	
 	return 0;
 }
