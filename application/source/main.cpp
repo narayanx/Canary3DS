@@ -249,7 +249,6 @@ void audioThread(void *arg) {
             LightEvent_Wait(&opus_controller.fillBufferEvent);
         }
         // reset flags
-        ndspChnReset(0);  // stop playback
         op_free(opus_controller.file);
         opus_controller.file = nullptr;
         opus_controller.songReady = false;
@@ -710,7 +709,11 @@ int main(int argc, char* argv[])
 				cwd += '/';
 				selected_file = 0; // reset selected file to first file in new directory
 			} else if (file_type == DT_REG) {
-				// TODO (prioritize) play file
+                if (opus_controller.songReady) {
+                    // if song is already playing, stop playback
+                    opus_controller.stopPlayback = true;
+                    LightEvent_Wait(&opus_controller.doneEvent);
+                }
                 char* play_path = files[selected_file].d_name;
                 PrintConsole *prev = consoleSelect(&bottomConsole);
 				printf("Playing file: %s%s\n", cwd.c_str(), play_path);
@@ -725,14 +728,22 @@ int main(int argc, char* argv[])
 		// }
 
 		if (kDown & KEY_B) {
-			// ignore last character (trailing '/')
-			size_t last_slash_idx = cwd.rfind('/', cwd.size()-2);
-			// should always find a '/' since we prevent going above the root
-			if (last_slash_idx != ROOT_SLASH_IDX && last_slash_idx != cwd.npos) {
-				// include slash
-				cwd = cwd.substr(0, last_slash_idx+1);
-				selected_file = 0; // reset selected file to first file in new directory
-			}
+            // if song is playing and user presses B, stop playback instead of going up a directory
+            if (opus_controller.songReady) {
+                opus_controller.stopPlayback = true;
+                LightEvent_Wait(&opus_controller.doneEvent);
+            } else {
+                // TODO: maybe extract going up dir into a function START
+                // ignore last character (trailing '/')
+                size_t last_slash_idx = cwd.rfind('/', cwd.size()-2);
+                // should always find a '/' since we prevent going above the root
+                if (last_slash_idx != ROOT_SLASH_IDX && last_slash_idx != cwd.npos) {
+                    // include slash
+                    cwd = cwd.substr(0, last_slash_idx+1);
+                    selected_file = 0; // reset selected file to first file in new directory
+                }
+                // maybe extract going up dir into a function END
+            }
 		}
 
 		// DPad Up/Circle Pad Up: select previous file
