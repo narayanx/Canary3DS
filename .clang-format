@@ -1,0 +1,7 @@
+BasedOnStyle: Google
+UseTab: Never
+IndentWidth: 4
+TabWidth: 4
+ColumnLimit: 100
+BreakBeforeBinaryOperators: NonAssignment  # break before +, &&, etc.
+AllowShortFunctionsOnASingleLine: Empty    # keep small {} on one line

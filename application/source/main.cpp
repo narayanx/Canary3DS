@@ -8,10 +8,10 @@
 
 #include <string>
 #include <vector>
-		
 
-const int MAX_PATH_CHAR_LENGTH = 4096; // max file name seems to be 255, file paths are concatenated filenames
-const int MAX_FILES = 26; // max files to display at once
+const int MAX_PATH_CHAR_LENGTH =
+    4096;                  // max file name seems to be 255, file paths are concatenated filenames
+const int MAX_FILES = 26;  // max files to display at once
 
 // TODO kinda temporary for debuggging can probably remove later
 PrintConsole topConsole, bottomConsole;
@@ -20,17 +20,17 @@ PrintConsole topConsole, bottomConsole;
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 ndspWaveBuf s_waveBufs[3];
 int16_t *s_audioBuffer = NULL;
-static const int SAMPLE_RATE = 48000;            // Opus is fixed at 48kHz
+static const int SAMPLE_RATE = 48000;                         // Opus is fixed at 48kHz
 static const int SAMPLES_PER_BUF = SAMPLE_RATE * 120 / 1000;  // 120ms buffer
-static const int CHANNELS_PER_SAMPLE = 2;        // We ask libopusfile for
-                                                 // stereo output; it will down
-                                                 // -mix for us as necessary.
+static const int CHANNELS_PER_SAMPLE = 2;                     // We ask libopusfile for
+                                                              // stereo output; it will down
+                                                              // -mix for us as necessary.
 
-static const int THREAD_AFFINITY = -1;           // Execute thread on any core
-static const int THREAD_STACK_SZ = 32 * 1024;    // 32kB stack for audio thread
+static const int THREAD_AFFINITY = -1;         // Execute thread on any core
+static const int THREAD_STACK_SZ = 32 * 1024;  // 32kB stack for audio thread
 
-static const size_t WAVEBUF_SIZE = SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE
-    * sizeof(int16_t);                           // Size of NDSP wavebufs
+static const size_t WAVEBUF_SIZE =
+    SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE * sizeof(int16_t);  // Size of NDSP wavebufs
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
 
 // producer consumer design pattern START
@@ -40,28 +40,25 @@ struct OpusController {
     std::string songPath;
     OggOpusFile *file;
     volatile bool songReady;
-    volatile bool stopPlayback;     
-    LightEvent startEvent;      // signal to start playback 
-    LightEvent doneEvent;       // signal that song is done playing
-    LightEvent fillBufferEvent; // signal to fill buffer
+    volatile bool stopPlayback;
+    LightEvent startEvent;       // signal to start playback
+    LightEvent doneEvent;        // signal that song is done playing
+    LightEvent fillBufferEvent;  // signal to fill buffer
 };
 
-OpusController opus_controller = {
-    .songPath = "",
-    .file = nullptr,
-    .songReady = false,
-    .stopPlayback = false,
-    .startEvent = {0},
-    .doneEvent = {0},
-    .fillBufferEvent = {0}
-};
+OpusController opus_controller = {.songPath = "",
+                                  .file = nullptr,
+                                  .songReady = false,
+                                  .stopPlayback = false,
+                                  .startEvent = {0},
+                                  .doneEvent = {0},
+                                  .fillBufferEvent = {0}};
 
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) START
 // Retrieve strings for libopusfile errors
 // Sourced from David Gow's example code: https://davidgow.net/files/opusal.cpp
-const char *opusStrError(int error)
-{
-    switch(error) {
+const char *opusStrError(int error) {
+    switch (error) {
         case OP_FALSE:
             return "OP_FALSE: A request did not succeed.";
         case OP_HOLE:
@@ -106,36 +103,33 @@ const char *opusStrError(int error)
 // Main audio decoding logic
 // This function pulls and decodes audio samples from opusFile_ to fill waveBuf_
 bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
-    #ifdef DEBUG
+#ifdef DEBUG
     // Setup timer for performance stats
     TickCounter timer;
     osTickCounterStart(&timer);
-    #endif  // DEBUG
+#endif  // DEBUG
 
     // Decode samples until our waveBuf is full
     int totalSamples = 0;
-    while(totalSamples < SAMPLES_PER_BUF) {
-        int16_t *buffer = waveBuf_->data_pcm16 + (totalSamples *
-            CHANNELS_PER_SAMPLE);
-        const size_t bufferSize = (SAMPLES_PER_BUF - totalSamples) *
-            CHANNELS_PER_SAMPLE;
+    while (totalSamples < SAMPLES_PER_BUF) {
+        int16_t *buffer = waveBuf_->data_pcm16 + (totalSamples * CHANNELS_PER_SAMPLE);
+        const size_t bufferSize = (SAMPLES_PER_BUF - totalSamples) * CHANNELS_PER_SAMPLE;
 
         // Decode bufferSize samples from opusFile_ into buffer,
         // storing the number of samples that were decoded (or error)
         const int samples = op_read_stereo(opusFile_, buffer, bufferSize);
-        if(samples <= 0) {
-            if(samples == 0) break;  // No error here
+        if (samples <= 0) {
+            if (samples == 0) break;  // No error here
 
-            printf("op_read_stereo: error %d (%s)", samples,
-                   opusStrError(samples));
+            printf("op_read_stereo: error %d (%s)", samples, opusStrError(samples));
             break;
         }
-        
+
         totalSamples += samples;
     }
 
     // If no samples were read in the last decode cycle, we're done
-    if(totalSamples == 0) {
+    if (totalSamples == 0) {
         printf("Playback complete, press Start to exit\n");
         return false;
     }
@@ -143,17 +137,16 @@ bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
     // Pass samples to NDSP
     waveBuf_->nsamples = totalSamples;
     ndspChnWaveBufAdd(0, waveBuf_);
-    DSP_FlushDataCache(waveBuf_->data_pcm16,
-        totalSamples * CHANNELS_PER_SAMPLE * sizeof(int16_t));
+    DSP_FlushDataCache(waveBuf_->data_pcm16, totalSamples * CHANNELS_PER_SAMPLE * sizeof(int16_t));
 
-    #ifdef DEBUG
+#ifdef DEBUG
     PrintConsole *prev = consoleSelect(&bottomConsole);
     // Print timing info
     osTickCounterUpdate(&timer);
     printf("fillBuffer %lfms in %lfms\n", totalSamples * 1000.0 / SAMPLE_RATE,
-        osTickCounterRead(&timer));
+           osTickCounterRead(&timer));
     consoleSelect(prev);
-    #endif  // DEBUG
+#endif  // DEBUG
 
     return true;
 }
@@ -161,14 +154,12 @@ bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
 // Pause until user presses a button
 void waitForInput(void) {
     printf("Press any button to exit...\n");
-    while(aptMainLoop())
-    {
+    while (aptMainLoop()) {
         gspWaitForVBlank();
         gfxSwapBuffers();
         hidScanInput();
 
-        if(hidKeysDown())
-            break;
+        if (hidKeysDown()) break;
     }
 }
 
@@ -185,7 +176,7 @@ bool audioInit(void) {
     // Allocate audio buffer
     const size_t bufferSize = WAVEBUF_SIZE * ARRAY_SIZE(s_waveBufs);
     s_audioBuffer = (int16_t *)linearAlloc(bufferSize);
-    if(!s_audioBuffer) {
+    if (!s_audioBuffer) {
         printf("Failed to allocate audio buffer\n");
         return false;
     }
@@ -194,9 +185,9 @@ bool audioInit(void) {
     memset(&s_waveBufs, 0, sizeof(s_waveBufs));
     int16_t *buffer = s_audioBuffer;
 
-    for(size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
+    for (size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
         s_waveBufs[i].data_vaddr = buffer;
-        s_waveBufs[i].status     = NDSP_WBUF_DONE;
+        s_waveBufs[i].status = NDSP_WBUF_DONE;
 
         buffer += WAVEBUF_SIZE / sizeof(buffer[0]);
     }
@@ -212,7 +203,6 @@ void audioExit(void) {
 }
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
 
-
 void audioThread(void *arg) {
     while (run_thread) {
         // wait until a song is ready to play
@@ -226,14 +216,14 @@ void audioThread(void *arg) {
         OggOpusFile *file = opus_controller.file;
 
         while (run_thread && !opus_controller.stopPlayback) {
-            for (size_t i=0; i<ARRAY_SIZE(s_waveBufs); ++i) {
+            for (size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
                 if (s_waveBufs[i].status != NDSP_WBUF_DONE) {
-                    continue; 
+                    continue;
                 }
 
                 // fill the buffer with audio data
                 if (!fillBuffer(file, &s_waveBufs[i])) {
-                    opus_controller.songReady = false; // song finished playing
+                    opus_controller.songReady = false;  // song finished playing
                     LightEvent_Signal(&opus_controller.doneEvent);
                     // get outside of while loop until next song is played
                     opus_controller.stopPlayback = true;
@@ -248,13 +238,13 @@ void audioThread(void *arg) {
         opus_controller.songReady = false;
         opus_controller.stopPlayback = false;
 
-        LightEvent_Signal(&opus_controller.doneEvent); // signal that playback is done
+        LightEvent_Signal(&opus_controller.doneEvent);  // signal that playback is done
     }
 }
 
 bool playSong(std::string path) {
     opus_controller.songPath = path;
-    
+
     int error = 0;
     opus_controller.file = op_open_file(opus_controller.songPath.c_str(), &error);
     if (error || opus_controller.file == nullptr) {
@@ -282,57 +272,55 @@ void opusCallback(void *arg) {
 }
 // producer consumer design pattern END
 
+std::vector<dirent> get_files(const char *path) {
+    std::vector<dirent> file_list;
+    DIR *dir = opendir(path);
+    if (dir == nullptr) {
+        printf("Failed to open directory: %s\n", path);
+        return file_list;
+    }
 
-std::vector<dirent> get_files(const char* path) {
-	std::vector<dirent> file_list;
-	DIR* dir = opendir(path);
-	if (dir == nullptr) {
-		printf("Failed to open directory: %s\n", path);
-		return file_list;
-	}
+    struct dirent *ent;
+    while ((ent = readdir(dir)) != nullptr) {
+        file_list.push_back(*ent);
+    }
 
-	struct dirent* ent;
-	while ((ent = readdir(dir)) != nullptr) {
-		file_list.push_back(*ent);
-	}
-
-	closedir(dir);
-	return file_list;
+    closedir(dir);
+    return file_list;
 }
 
 void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
-	for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES+selectedFile); i++) {
-		std::string result = "";
-		if (i == selectedFile) {
-			result += "-> ";
-		} else {
-			result += "   ";
-		}
-		result += files[i].d_name;
-		if (files[i].d_type == DT_DIR) {
-			result += "/";
-		}
-		printf("%s\n", result.c_str());
-		// printf("%s\n", files[i].d_name);
-	}
-	// printf("%s\n", files[0].d_name);
-	// printf("%s\n", files[1].d_name);
+    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
+         i++) {
+        std::string result = "";
+        if (i == selectedFile) {
+            result += "-> ";
+        } else {
+            result += "   ";
+        }
+        result += files[i].d_name;
+        if (files[i].d_type == DT_DIR) {
+            result += "/";
+        }
+        printf("%s\n", result.c_str());
+        // printf("%s\n", files[i].d_name);
+    }
+    // printf("%s\n", files[0].d_name);
+    // printf("%s\n", files[1].d_name);
 }
 
-
-int main(int argc, char* argv[])
-{
-	romfsInit();
-	gfxInitDefault();
+int main(int argc, char *argv[]) {
+    romfsInit();
+    gfxInitDefault();
 
     consoleInit(GFX_TOP, &topConsole);
     consoleInit(GFX_BOTTOM, &bottomConsole);
     // start on top screen
     consoleSelect(&topConsole);
-    
+
     // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
-	ndspInit();
-    
+    ndspInit();
+
     // Enable N3DS 804MHz operation, where available
     // osSetSpeedupEnable(true);
 
@@ -340,8 +328,8 @@ int main(int argc, char* argv[])
     LightEvent_Init(&opus_controller.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opus_controller.doneEvent, RESET_ONESHOT);
 
-	// Attempt audioInit (we only need to initialize once)
-    if(!audioInit()) {
+    // Attempt audioInit (we only need to initialize once)
+    if (!audioInit()) {
         printf("Failed to initialise audio\n");
         waitForInput();
 
@@ -350,7 +338,7 @@ int main(int argc, char* argv[])
         romfsExit();
         return EXIT_FAILURE;
     }
-    
+
     // Spawn audio thread
     // main thread priority
     int32_t priority = 0x30;
@@ -362,75 +350,70 @@ int main(int argc, char* argv[])
     priority = priority > 0x3F ? 0x3F : priority;
 
     // takes no args as it gets opus filepath from global state struct
-    const Thread threadId = threadCreate(audioThread, nullptr,
-                                         THREAD_STACK_SZ, priority,
-                                         THREAD_AFFINITY, false);
+    const Thread threadId =
+        threadCreate(audioThread, nullptr, THREAD_STACK_SZ, priority, THREAD_AFFINITY, false);
 
     ndspSetCallback(opusCallback, NULL);
     // producer consumer design pattern END
-	
-	// make sure to have trailing '/' character
-	const std::string START_PATH = "sdmc:/Music/";
-	// used to prevent the user from navigating about the root (`smdc:/` is 6 characters)
-	const size_t ROOT_SLASH_IDX = 5;
-	
-	std::string cwd = START_PATH;
-	
-	if (opendir(cwd.c_str()) == nullptr) {
-		cwd = "sdmc:/";
-	}
 
-	// int curr_file = 0;
-	// zero index
-	size_t selected_file = 0;
-	
+    // make sure to have trailing '/' character
+    const std::string START_PATH = "sdmc:/Music/";
+    // used to prevent the user from navigating about the root (`smdc:/` is 6 characters)
+    const size_t ROOT_SLASH_IDX = 5;
+
+    std::string cwd = START_PATH;
+
+    if (opendir(cwd.c_str()) == nullptr) {
+        cwd = "sdmc:/";
+    }
+
+    // int curr_file = 0;
+    // zero index
+    size_t selected_file = 0;
 
     bool update_files = true;
     std::vector<dirent> files;
 
-    while (aptMainLoop())
-	{
-		
-		gspWaitForVBlank();
-		gfxSwapBuffers();
-		hidScanInput();
-		
-		
-		u32 kDown = hidKeysDown();
-		if (kDown & KEY_START) {
-			break;
-		}
+    while (aptMainLoop()) {
+        gspWaitForVBlank();
+        gfxSwapBuffers();
+        hidScanInput();
 
-		// TODO test on 3ds how many files it takes to run out of memory (std::vector allocates on heap). Based on that decide if storing all files in cwd at once is viable or if smth different is needed 
-		// std::vector<dirent> files = get_files(cwd.c_str());
-        
+        u32 kDown = hidKeysDown();
+        if (kDown & KEY_START) {
+            break;
+        }
+
+        // TODO test on 3ds how many files it takes to run out of memory (std::vector allocates on
+        // heap). Based on that decide if storing all files in cwd at once is viable or if smth
+        // different is needed std::vector<dirent> files = get_files(cwd.c_str());
+
         if (kDown) {
-            update_files = true; // only update screen when a button is pressed
+            update_files = true;  // only update screen when a button is pressed
         }
         bool opus_error = false;
-		// A: enter directory
-		if (kDown & KEY_A) {
-			auto file_type = files[selected_file].d_type;
-			if (file_type == DT_DIR) {
-				cwd += files[selected_file].d_name;
-				cwd += '/';
-				selected_file = 0;  // reset selected file to first file in new directory
-			} else if (file_type == DT_REG) {
+        // A: enter directory
+        if (kDown & KEY_A) {
+            auto file_type = files[selected_file].d_type;
+            if (file_type == DT_DIR) {
+                cwd += files[selected_file].d_name;
+                cwd += '/';
+                selected_file = 0;  // reset selected file to first file in new directory
+            } else if (file_type == DT_REG) {
                 if (opus_controller.songReady) {
                     // if song is already playing, stop playback
                     opus_controller.stopPlayback = true;
                     LightEvent_Wait(&opus_controller.doneEvent);
                 }
-                char* play_path = files[selected_file].d_name;
+                char *play_path = files[selected_file].d_name;
                 PrintConsole *prev = consoleSelect(&bottomConsole);
-				printf("Playing file: %s%s\n", cwd.c_str(), play_path);
+                printf("Playing file: %s%s\n", cwd.c_str(), play_path);
                 consoleSelect(prev);
                 playSong(cwd + play_path);
-			} 
-			
-		}
+            }
+        }
 
-		if (kDown & KEY_B) {
+        if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
             if (opus_controller.songReady) {
                 opus_controller.stopPlayback = true;
@@ -438,47 +421,47 @@ int main(int argc, char* argv[])
             } else {
                 // TODO: maybe extract going up dir into a function START
                 // ignore last character (trailing '/')
-                size_t last_slash_idx = cwd.rfind('/', cwd.size()-2);
+                size_t last_slash_idx = cwd.rfind('/', cwd.size() - 2);
                 // should always find a '/' since we prevent going above the root
                 if (last_slash_idx != ROOT_SLASH_IDX && last_slash_idx != cwd.npos) {
                     // include slash
-                    cwd = cwd.substr(0, last_slash_idx+1);
-                    selected_file = 0; // reset selected file to first file in new directory
+                    cwd = cwd.substr(0, last_slash_idx + 1);
+                    selected_file = 0;  // reset selected file to first file in new directory
                 }
                 // maybe extract going up dir into a function END
             }
-		}
+        }
 
-		// DPad Up/Circle Pad Up: select previous file
-		if (kDown & KEY_UP) {
-			if (selected_file > 0) {
-				selected_file--;
-			} else {
-				// wraparound TODO make it so holding up doesn't wraparound, only when tapping when first file selected
-				selected_file = files.size() - 1; 
-			}
-		}
-	
-		// DPad Down/Circle Pad Down: select next file
-		if (kDown & KEY_DOWN) {
-			if (selected_file < files.size() - 1) {
-				selected_file++;
-			} else {
-				selected_file = 0;
-			}
-		}
+        // DPad Up/Circle Pad Up: select previous file
+        if (kDown & KEY_UP) {
+            if (selected_file > 0) {
+                selected_file--;
+            } else {
+                // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
+                // first file selected
+                selected_file = files.size() - 1;
+            }
+        }
 
-		// printf("cwd: %s\n", cwd.c_str());
+        // DPad Down/Circle Pad Down: select next file
+        if (kDown & KEY_DOWN) {
+            if (selected_file < files.size() - 1) {
+                selected_file++;
+            } else {
+                selected_file = 0;
+            }
+        }
+
+        // printf("cwd: %s\n", cwd.c_str());
         if (update_files && !opus_error) {
             files = get_files(cwd.c_str());
-            
+
             consoleClear();
             print_files(files, selected_file);
         }
-        update_files = false; // reset update_files flag
-		// list_files_in_dir(cwd);
-        
-	}
+        update_files = false;  // reset update_files flag
+                               // list_files_in_dir(cwd);
+    }
 
     // producer consumer design pattern START
     run_thread = false;
@@ -493,8 +476,8 @@ int main(int argc, char* argv[])
     ndspExit();
 
     romfsExit();
-    gfxExit();    
+    gfxExit();
     // producer consumer design pattern END
-	
-	return 0;
+
+    return 0;
 }
