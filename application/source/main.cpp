@@ -376,7 +376,23 @@ void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles
     // printf("%s\n", files[1].d_name);
 }
 
-void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
+void printC2DText(std::string msg, size_t lineOffset = 0) {
+    C2D_TextBufClear(g_dynamicBuf);
+
+    const float BASE_Y_OFFSET = 8.0f;
+    float y_offset = 16.0f * (lineOffset) + BASE_Y_OFFSET;
+
+    char buf[160];
+    C2D_Text dynText;
+    snprintf(buf, sizeof(buf), "%s", msg.c_str());
+    C2D_TextParse(&dynText, g_dynamicBuf, buf);
+    C2D_TextOptimize(&dynText);
+    C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
+                 C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
+}
+
+void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
+                size_t lineOffset = 0) {
     size_t iter = 0;
     for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
          i++) {
@@ -400,7 +416,7 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
         C2D_TextParse(&dynText, g_dynamicBuf, buf);
         C2D_TextOptimize(&dynText);
         const float BASE_Y_OFFSET = 8.0f;
-        float y_offset = 16.0f * iter + BASE_Y_OFFSET;
+        float y_offset = 16.0f * (iter + lineOffset) + BASE_Y_OFFSET;
         C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
                      C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
         iter++;
@@ -422,7 +438,6 @@ int main(int argc, char *argv[]) {
     // Initialize the scene
     sceneInit();
 
-    float size = 0.5f;
     // from 3ds-examples/graphics/printing/system-font/source/main.c END
 
     // consoleInit(GFX_TOP, &topConsole);
@@ -576,7 +591,8 @@ int main(int argc, char *argv[]) {
             const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
-            printFiles(files, selected_file);
+            printC2DText(cwd+", selected file: "+std::to_string(selected_file), 0);
+            printFiles(files, selected_file, 10, 1);
             C3D_FrameEnd(0);
         }
         // from 3ds-examples/graphics/printing/system-font/source/main.c START
