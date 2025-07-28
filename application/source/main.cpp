@@ -73,8 +73,8 @@ static void sceneExit(void) {
 
 // max file name seems to be 255, file paths are concatenated filenames
 const int MAX_PATH_CHAR_LENGTH = 4096;
-// max files to display at once
-const int MAX_FILES = 26;
+// max files to display at once TODO change back to 14 once I'm done debugging
+const int MAX_FILES = 10;
 
 // TODO kinda temporary for debuggging can probably remove later
 PrintConsole topConsole, bottomConsole;
@@ -378,14 +378,15 @@ void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles
 
 void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
     size_t iter = 0;
-    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile); i++) {
+    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
+         i++) {
         char buf[160];
-    	C2D_Text dynText;
-        
+        C2D_Text dynText;
+
         std::string fileName = "";
         std::string prefix = "";
         std::string postfix = "";
-        
+
         if (i == selectedFile) {
             prefix = "-> ";
         } else {
@@ -400,7 +401,8 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
         C2D_TextOptimize(&dynText);
         const float BASE_Y_OFFSET = 8.0f;
         float y_offset = 16.0f * iter + BASE_Y_OFFSET;
-        C2D_DrawText(&dynText, C2D_AlignCenter, 200.0f, y_offset, 0.5f, 0.5f, 0.5f);
+        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
+                     C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
         iter++;
     }
 }
@@ -570,12 +572,12 @@ int main(int argc, char *argv[]) {
             consoleClear();
             // print_files(files, selected_file);
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-            const u32 CLEAR_COLOR = C2D_Color32(0x2b, 0x19, 0x3d, 0xFF);
+            // const u32 CLEAR_COLOR = C2D_Color32(0x2b, 0x19, 0x3d, 0xFF);
+            const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
             printFiles(files, selected_file);
             C3D_FrameEnd(0);
-
         }
         // from 3ds-examples/graphics/printing/system-font/source/main.c START
         // Render the scene
