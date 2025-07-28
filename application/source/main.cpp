@@ -591,8 +591,9 @@ int main(int argc, char *argv[]) {
             const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
-            printC2DText(cwd+", selected file: "+std::to_string(selected_file), 0);
-            printFiles(files, selected_file, 10, 1);
+            printC2DText(cwd, 0);
+            printC2DText("selected file index: " + std::to_string(selected_file), 1);
+            printFiles(files, selected_file, 10, 2);
             C3D_FrameEnd(0);
         }
         // from 3ds-examples/graphics/printing/system-font/source/main.c START
