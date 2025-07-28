@@ -9,72 +9,11 @@
 #include <string>
 #include <vector>
 
-// from 3ds-examples/graphics/printing/system-font/source/main.c START
-static const char teststring[] =
-    "Hello World - now with citro2d!\n"
-    "The quick brown fox jumps over the lazy dog.\n"
-    "\n"
-    "En français: Vous ne devez pas éteindre votre console.\n"
-    "日本語文章を見せるのも出来ますよ。\n"
-    "Un poco de texto en español nunca queda mal.\n"
-    "Πού είναι η τουαλέτα;\n"
-    "Я очень рад, ведь я, наконец, возвращаюсь домой\n";
-
-C2D_TextBuf g_staticBuf, g_dynamicBuf;
-C2D_Text g_staticText[4];
-
-static void sceneInit(void) {
-    // Create two text buffers: one for static text, and another one for
-    // dynamic text - the latter will be cleared at each frame.
-    g_staticBuf = C2D_TextBufNew(4096);  // support up to 4096 glyphs in the buffer
-    g_dynamicBuf = C2D_TextBufNew(4096);
-
-    // Parse the static text strings
-    C2D_TextParse(&g_staticText[0], g_staticBuf, teststring);
-    C2D_TextParse(&g_staticText[1], g_staticBuf, "I am red skinny text!");
-    C2D_TextParse(&g_staticText[2], g_staticBuf, "I am blue fat text!");
-    C2D_TextParse(&g_staticText[3], g_staticBuf, "I am justified text!");
-
-    // Optimize the static text strings
-    C2D_TextOptimize(&g_staticText[0]);
-    C2D_TextOptimize(&g_staticText[1]);
-    C2D_TextOptimize(&g_staticText[2]);
-    C2D_TextOptimize(&g_staticText[3]);
-}
-
-static void sceneRender(float size) {
-    // Clear the dynamic text buffer
-    C2D_TextBufClear(g_dynamicBuf);
-
-    // Draw static text strings
-    C2D_DrawText(&g_staticText[0], 0, 8.0f, 8.0f, 0.5f, size, size);
-    C2D_DrawText(&g_staticText[1], C2D_AtBaseline | C2D_WithColor, 16.0f, 210.0f, 0.5f, 0.5f, 0.75f,
-                 C2D_Color32f(1.0f, 0.0f, 0.0f, 1.0f));
-    C2D_DrawText(&g_staticText[2], C2D_AtBaseline | C2D_WithColor | C2D_AlignRight, 384.0f, 210.0f,
-                 0.5f, 0.75f, 0.5f, C2D_Color32f(0.0f, 0.0f, 1.0f, 0.625f));
-    C2D_DrawText(&g_staticText[3], C2D_AtBaseline | C2D_AlignJustified | C2D_WordWrap, 100.0f,
-                 170.0f, 0.5f, 0.75f, 0.75f, 200.0f);
-
-    // Generate and draw dynamic text
-    char buf[160];
-    C2D_Text dynText;
-    snprintf(buf, sizeof(buf), "Current text size: %f (Use  to change)", size);
-    C2D_TextParse(&dynText, g_dynamicBuf, buf);
-    C2D_TextOptimize(&dynText);
-    C2D_DrawText(&dynText, C2D_AlignCenter, 200.0f, 220.0f, 0.5f, 0.5f, 0.5f);
-}
-
-static void sceneExit(void) {
-    // Delete the text buffers
-    C2D_TextBufDelete(g_dynamicBuf);
-    C2D_TextBufDelete(g_staticBuf);
-}
-// from 3ds-examples/graphics/printing/system-font/source/main.c END
-
 // max file name seems to be 255, file paths are concatenated filenames
 const int MAX_PATH_CHAR_LENGTH = 4096;
 // max files to display at once TODO change back to 14 once I'm done debugging
 const int MAX_FILES = 10;
+C2D_TextBuf g_dynamicBuf;
 
 // TODO kinda temporary for debuggging can probably remove later
 PrintConsole topConsole, bottomConsole;
@@ -95,7 +34,6 @@ static const int THREAD_STACK_SZ = 32 * 1024;  // 32kB stack for audio thread
 static const size_t WAVEBUF_SIZE =
     SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE * sizeof(int16_t);  // Size of NDSP wavebufs
 // SOURCE 3ds-examples/audio/opus-decoding END
-
 volatile bool run_thread = true;
 
 struct OpusController {
@@ -337,6 +275,15 @@ void opusCallback(void *arg) {
     }
 
     LightEvent_Signal(&opus_controller.fillBufferEvent);
+}
+
+static void sceneInit(void) {
+    g_dynamicBuf = C2D_TextBufNew(4096);
+}
+
+static void sceneExit(void) {
+    // Delete the text buffers
+    C2D_TextBufDelete(g_dynamicBuf);
 }
 
 std::vector<dirent> get_files(const char *path) {
