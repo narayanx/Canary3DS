@@ -421,9 +421,9 @@ int main(int argc, char *argv[]) {
         if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
             if (opus_controller.songReady) {
-                logToBottomScreen("Stopping playback...\n");
                 opus_controller.stopPlayback = true;
                 LightEvent_Wait(&opus_controller.doneEvent);
+                logToBottomScreen("Stopping playback...\n");
             } else {
                 // TODO: maybe extract going up dir into a function START
                 // ignore last character (trailing '/')
