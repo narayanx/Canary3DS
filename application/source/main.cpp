@@ -54,6 +54,12 @@ OpusController opus_controller = {.songPath = "",
                                   .startEvent = {0},
                                   .doneEvent = {0},
                                   .fillBufferEvent = {0}};
+// producer consumer design pattern END
+void logToBottomScreen(const char *message) {
+    PrintConsole *prev = consoleSelect(&bottomConsole);
+    printf("%s\n", message);
+    consoleSelect(prev);
+}
 
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) START
 // Retrieve strings for libopusfile errors
@@ -204,6 +210,7 @@ void audioExit(void) {
 }
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
 
+// producer consumer design pattern START
 void audioThread(void *arg) {
     while (run_thread) {
         // wait until a song is ready to play
@@ -419,6 +426,7 @@ int main(int argc, char *argv[]) {
         if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
             if (opus_controller.songReady) {
+                logToBottomScreen("Stopping playback...\n");
                 opus_controller.stopPlayback = true;
                 LightEvent_Wait(&opus_controller.doneEvent);
             } else {
