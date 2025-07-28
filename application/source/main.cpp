@@ -34,7 +34,6 @@ static const size_t WAVEBUF_SIZE =
     SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE * sizeof(int16_t);  // Size of NDSP wavebufs
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
 
-// producer consumer design pattern START
 volatile bool run_thread = true;
 
 struct OpusController {
@@ -54,7 +53,7 @@ OpusController opus_controller = {.songPath = "",
                                   .startEvent = {0},
                                   .doneEvent = {0},
                                   .fillBufferEvent = {0}};
-// producer consumer design pattern END
+
 void logToBottomScreen(const char *message) {
     PrintConsole *prev = consoleSelect(&bottomConsole);
     printf("%s\n", message);
@@ -210,7 +209,6 @@ void audioExit(void) {
 }
 // SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
 
-// producer consumer design pattern START
 void audioThread(void *arg) {
     while (run_thread) {
         // wait until a song is ready to play
@@ -278,7 +276,6 @@ void opusCallback(void *arg) {
 
     LightEvent_Signal(&opus_controller.fillBufferEvent);
 }
-// producer consumer design pattern END
 
 std::vector<dirent> get_files(const char *path) {
     std::vector<dirent> file_list;
@@ -335,7 +332,6 @@ int main(int argc, char *argv[]) {
     // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
     ndspInit();
 
-    // producer consumer design pattern START
     LightEvent_Init(&opus_controller.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opus_controller.doneEvent, RESET_ONESHOT);
 
@@ -365,7 +361,6 @@ int main(int argc, char *argv[]) {
         threadCreate(audioThread, nullptr, THREAD_STACK_SZ, priority, THREAD_AFFINITY, false);
 
     ndspSetCallback(opusCallback, NULL);
-    // producer consumer design pattern END
 
     // make sure to have trailing '/' character
     const std::string START_PATH = "sdmc:/Music/";
@@ -473,7 +468,6 @@ int main(int argc, char *argv[]) {
         update_files = false;  // reset update_files flag
     }
 
-    // producer consumer design pattern START
     run_thread = false;
     // signal audio thread (it finishes since the flag is set to false)
     LightEvent_Signal(&opus_controller.startEvent);
@@ -487,7 +481,6 @@ int main(int argc, char *argv[]) {
 
     romfsExit();
     gfxExit();
-    // producer consumer design pattern END
 
     return 0;
 }
