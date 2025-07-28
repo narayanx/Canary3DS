@@ -103,9 +103,9 @@ struct OpusController {
     OggOpusFile *file;
     volatile bool songReady;
     volatile bool stopPlayback;
-    LightEvent startEvent;       // signal to start playback
-    LightEvent doneEvent;        // signal that song is done playing
-    LightEvent fillBufferEvent;  // signal to fill buffer
+    LightEvent startEvent;       // tells audio thread to start playback
+    LightEvent doneEvent;        // for main thread to know when song actually stopped
+    LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
 };
 
 OpusController opus_controller = {.songPath = "",
@@ -376,14 +376,57 @@ void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles
     // printf("%s\n", files[1].d_name);
 }
 
+void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
+    size_t iter = 0;
+    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile); i++) {
+        char buf[160];
+    	C2D_Text dynText;
+        
+        std::string fileName = "";
+        std::string prefix = "";
+        std::string postfix = "";
+        
+        if (i == selectedFile) {
+            prefix = "-> ";
+        } else {
+            prefix = "   ";
+        }
+        fileName = files[i].d_name;
+        if (files[i].d_type == DT_DIR) {
+            postfix = "/";
+        }
+        snprintf(buf, sizeof(buf), "%s%s%s", prefix.c_str(), fileName.c_str(), postfix.c_str());
+        C2D_TextParse(&dynText, g_dynamicBuf, buf);
+        C2D_TextOptimize(&dynText);
+        const float BASE_Y_OFFSET = 8.0f;
+        float y_offset = 16.0f * iter + BASE_Y_OFFSET;
+        C2D_DrawText(&dynText, C2D_AlignCenter, 200.0f, y_offset, 0.5f, 0.5f, 0.5f);
+        iter++;
+    }
+}
+
 int main(int argc, char *argv[]) {
     romfsInit();
     gfxInitDefault();
 
-    consoleInit(GFX_TOP, &topConsole);
-    consoleInit(GFX_BOTTOM, &bottomConsole);
+    // from 3ds-examples/graphics/printing/system-font/source/main.c START
+    C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
+    C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
+    C2D_Prepare();
+
+    // Create screen
+    C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+
+    // Initialize the scene
+    sceneInit();
+
+    float size = 0.5f;
+    // from 3ds-examples/graphics/printing/system-font/source/main.c END
+
+    // consoleInit(GFX_TOP, &topConsole);
+    // consoleInit(GFX_BOTTOM, &bottomConsole);
     // start on top screen
-    consoleSelect(&topConsole);
+    // consoleSelect(&topConsole);
 
     // Enable N3DS 804MHz operation, where available
     // osSetSpeedupEnable(true);
@@ -443,8 +486,8 @@ int main(int argc, char *argv[]) {
     std::vector<dirent> files;
 
     while (aptMainLoop()) {
-        gspWaitForVBlank();
-        gfxSwapBuffers();
+        // gspWaitForVBlank();
+        // gfxSwapBuffers();
         hidScanInput();
 
         u32 kDown = hidKeysDown();
@@ -525,8 +568,24 @@ int main(int argc, char *argv[]) {
             files = get_files(cwd.c_str());
 
             consoleClear();
-            print_files(files, selected_file);
+            // print_files(files, selected_file);
+            C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+            const u32 CLEAR_COLOR = C2D_Color32(0x2b, 0x19, 0x3d, 0xFF);
+            C2D_TargetClear(top, CLEAR_COLOR);
+            C2D_SceneBegin(top);
+            printFiles(files, selected_file);
+            C3D_FrameEnd(0);
+
         }
+        // from 3ds-examples/graphics/printing/system-font/source/main.c START
+        // Render the scene
+        // C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+        // const u32 CLEAR_COLOR = C2D_Color32(0x2b, 0x19, 0x3d, 0xFF);
+        // C2D_TargetClear(top, CLEAR_COLOR);
+        // C2D_SceneBegin(top);
+        // // sceneRender(size);
+        // C3D_FrameEnd(0);
+        // from 3ds-examples/graphics/printing/system-font/source/main.c END
         update_files = false;  // reset update_files flag
     }
 
@@ -540,6 +599,15 @@ int main(int argc, char *argv[]) {
 
     audioExit();
     ndspExit();
+
+    // from 3ds-examples/graphics/printing/system-font/source/main.c START
+    // Deinitialize the scene
+    sceneExit();
+
+    // Deinitialize the libs
+    C2D_Fini();
+    C3D_Fini();
+    // from 3ds-examples/graphics/printing/system-font/source/main.c END
 
     romfsExit();
     gfxExit();
