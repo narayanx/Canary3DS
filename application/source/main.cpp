@@ -17,7 +17,7 @@ const int MAX_FILES = 26;
 // TODO kinda temporary for debuggging can probably remove later
 PrintConsole topConsole, bottomConsole;
 
-// SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) START
+// SOURCE 3ds-examples/audio/opus-decoding START
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 ndspWaveBuf s_waveBufs[3];
 int16_t *s_audioBuffer = NULL;
@@ -32,7 +32,7 @@ static const int THREAD_STACK_SZ = 32 * 1024;  // 32kB stack for audio thread
 
 static const size_t WAVEBUF_SIZE =
     SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE * sizeof(int16_t);  // Size of NDSP wavebufs
-// SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
+// SOURCE 3ds-examples/audio/opus-decoding END
 
 volatile bool run_thread = true;
 
@@ -60,7 +60,7 @@ void logToBottomScreen(const char *message) {
     consoleSelect(prev);
 }
 
-// SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) START
+// SOURCE 3ds-examples/audio/opus-decoding START
 // Retrieve strings for libopusfile errors
 // Sourced from David Gow's example code: https://davidgow.net/files/opusal.cpp
 const char *opusStrError(int error) {
@@ -207,7 +207,7 @@ void audioExit(void) {
     ndspChnReset(0);
     linearFree(s_audioBuffer);
 }
-// SOURCE 3ds-examples/audio/opus-decoding (FOR producer consumer design pattern) END
+// SOURCE 3ds-examples/audio/opus-decoding END
 
 void audioThread(void *arg) {
     while (run_thread) {
