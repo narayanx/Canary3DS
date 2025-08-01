@@ -21,6 +21,7 @@ C2D_TextBuf g_dynamicBuf;
 
 // TODO kinda temporary for debuggging can probably remove later
 PrintConsole topConsole, bottomConsole;
+C3D_RenderTarget *top, *bottom;
 
 // SOURCE 3ds-examples/audio/opus-decoding START
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -58,10 +59,35 @@ OpusController opus_controller = {.songPath = "",
                                   .doneEvent = {0},
                                   .fillBufferEvent = {0}};
 
+void printC2DText(std::string msg, size_t lineOffset = 0) {
+    C2D_TextBufClear(g_dynamicBuf);
+
+    const float BASE_Y_OFFSET = 8.0f;
+    float y_offset = 16.0f * (lineOffset) + BASE_Y_OFFSET;
+
+    char buf[160];
+    C2D_Text dynText;
+    snprintf(buf, sizeof(buf), "%s", msg.c_str());
+    C2D_TextParse(&dynText, g_dynamicBuf, buf);
+    C2D_TextOptimize(&dynText);
+    C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
+                 C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
+}
+
 void logToBottomScreen(const char *message) {
-    PrintConsole *prev = consoleSelect(&bottomConsole);
-    printf("%s\n", message);
-    consoleSelect(prev);
+    static int line = 0;
+    if (line == 0) {
+        C2D_TargetClear(bottom, CLEAR_COLOR);
+    }
+    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+    C2D_SceneBegin(bottom);
+    printC2DText(message, line);
+    C3D_FrameEnd(0);
+    line++;
+    // arbitrary cutoff
+    if (line >= 14) {
+        line = 0;
+    }
 }
 
 // SOURCE 3ds-examples/audio/opus-decoding START
@@ -327,21 +353,6 @@ std::vector<dirent> get_files(const char *path) {
 //     // printf("%s\n", files[1].d_name);
 // }
 
-void printC2DText(std::string msg, size_t lineOffset = 0) {
-    C2D_TextBufClear(g_dynamicBuf);
-
-    const float BASE_Y_OFFSET = 8.0f;
-    float y_offset = 16.0f * (lineOffset) + BASE_Y_OFFSET;
-
-    char buf[160];
-    C2D_Text dynText;
-    snprintf(buf, sizeof(buf), "%s", msg.c_str());
-    C2D_TextParse(&dynText, g_dynamicBuf, buf);
-    C2D_TextOptimize(&dynText);
-    C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
-                 C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
-}
-
 void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
                 size_t lineOffset = 0) {
     size_t iter = 0;
@@ -389,8 +400,8 @@ int main(int argc, char *argv[]) {
     C2D_Prepare();
 
     // Create screen
-    C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
-    C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+    top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+    bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
     // Initialize the scene
     sceneInit();
@@ -523,7 +534,7 @@ int main(int argc, char *argv[]) {
         }
 
         double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
-        
+
         bool firstFileSelected = selected_file == 0;
         bool shouldUpAutoRepeat =
             elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
@@ -541,7 +552,7 @@ int main(int argc, char *argv[]) {
 
         // DPad Down/Circle Pad Down: select next file
         double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
-        
+
         bool lastFileSelected = selected_file == files.size() - 1;
         bool shouldDownAutoRepeat =
             elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
