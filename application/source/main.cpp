@@ -453,12 +453,6 @@ int main(int argc, char *argv[]) {
     }
 
     // for holding down with scrolling to auto repeat
-    // TickCounter guiTimer;
-    // osTickCounterStart(&guiTimer);
-    // osTickCounterUpdate(&guiTimer);
-    // // double lastFrameTime_ms = osTickCounterRead(&guiTimer);
-    // double lastUpScrollTime_ms = osTickCounterRead(&guiTimer),
-    //        lastDownScrollTime_ms = osTickCounterRead(&guiTimer);
     u64 lastUpScrollTime_ms = osGetTime();
     u64 lastDownScrollTime_ms = osGetTime();
 
@@ -546,8 +540,6 @@ int main(int argc, char *argv[]) {
         }
 
         // DPad Down/Circle Pad Down: select next file
-        // double curr_ms = updateAndRead(&guiTimer);
-        // double elapsed_ms = curr_ms - lastDownScrollTime_ms;
         double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
         
         bool lastFileSelected = selected_file == files.size() - 1;
@@ -588,9 +580,6 @@ int main(int argc, char *argv[]) {
             C3D_FrameEnd(0);
         }
         update_files = false;  // reset update_files flag
-
-        // osTickCounterUpdate(&guiTimer);
-        // lastFrameTime_ms = osTickCounterRead(&guiTimer);
     }
 
     run_thread = false;
