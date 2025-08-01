@@ -490,8 +490,6 @@ int main(int argc, char *argv[]) {
     u64 lastDownScrollTime_ms = osGetTime();
 
     // int curr_file = 0;
-    // zero index
-    size_t selected_file = 0;
 
     bool update_files = true;
 
@@ -521,19 +519,19 @@ int main(int argc, char *argv[]) {
 
         // A: enter directory
         if (kDown & KEY_A) {
-            auto file_type = file_controller.files[selected_file].d_type;
+            auto file_type = file_controller.files[file_controller.selectedFile].d_type;
             if (file_type == DT_DIR) {
-                cwd += file_controller.files[selected_file].d_name;
+                cwd += file_controller.files[file_controller.selectedFile].d_name;
                 cwd += '/';
-                selected_file = 0;  // reset selected file to first file in new directory
+                file_controller.selectedFile = 0;  // reset selected file to first file in new directory
             } else if (file_type == DT_REG) {
                 stopPlaybackIfPlaying();
-                char *play_path = file_controller.files[selected_file].d_name;
+                char *play_path = file_controller.files[file_controller.selectedFile].d_name;
                 PrintConsole *prev = consoleSelect(&bottomConsole);
                 logToBottomScreen(("Playing file: " + cwd + (std::string)play_path).c_str());
                 consoleSelect(prev);
                 playSong(cwd + play_path);
-                file_controller.playingFile = selected_file;
+                file_controller.playingFile = file_controller.selectedFile;
             }
         }
 
@@ -551,49 +549,50 @@ int main(int argc, char *argv[]) {
                 if (last_slash_idx != cwd.npos) {
                     // include slash
                     cwd = cwd.substr(0, last_slash_idx + 1);
-                    selected_file = 0;  // reset selected file to first file in new directory
+                    file_controller.selectedFile = 0;  // reset selected file to first file in new directory
                 }
                 // maybe extract going up dir into a function END
             }
         }
 
         double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
-        bool firstFileSelected = selected_file == 0;
+        bool firstFileSelected = file_controller.selectedFile == 0;
         bool shouldUpAutoRepeat =
             elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
         // DPad Up/Circle Pad Up: select previous file
         if ((kDown & KEY_UP) || shouldUpAutoRepeat) {
-            if (selected_file > 0) {
-                selected_file--;
+            if (file_controller.selectedFile > 0) {
+                file_controller.selectedFile--;
             } else {
                 // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
                 // first file selected
-                selected_file = file_controller.files.size() - 1;
+                file_controller.selectedFile = file_controller.files.size() - 1;
             }
             lastUpScrollTime_ms = osGetTime();
         }
 
         // DPad Down/Circle Pad Down: select next file
         double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
-        bool lastFileSelected = selected_file == file_controller.files.size() - 1;
+        bool lastFileSelected = file_controller.selectedFile == file_controller.files.size() - 1;
         bool shouldDownAutoRepeat =
             elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
         if ((kDown & KEY_DOWN) || shouldDownAutoRepeat) {
-            if (selected_file < file_controller.files.size() - 1) {
-                selected_file++;
+            if (file_controller.selectedFile < file_controller.files.size() - 1) {
+                file_controller.selectedFile++;
             } else {
-                selected_file = 0;
+                file_controller.selectedFile = 0;
             }
             // lastDownScrollTime_ms = updateAndRead(&guiTimer);
             lastDownScrollTime_ms = osGetTime();
         }
 
         // Left shoulder: go to previous song in folder
-        // if (kDown & KEY_L) {
-        //     stopPlaybackIfPlaying();
-        //     std::string nextSongPath = cwd + file_controller.files[selected_file].d_name;
+        if (kDown & KEY_L) {
+            stopPlaybackIfPlaying();
+            
+            std::string nextSongPath = file_controller.files[file_controller.selectedFile].d_name;
 
-        // }
+        }
 
         // printf("cwd: %s\n", cwd.c_str());
         if (update_files) {
@@ -603,8 +602,8 @@ int main(int argc, char *argv[]) {
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
             printC2DText(cwd, 0);
-            printC2DText("selected file index: " + std::to_string(selected_file), 1);
-            printFiles(file_controller.files, selected_file, 10, 2);
+            printC2DText("selected file index: " + std::to_string(file_controller.selectedFile), 1);
+            printFiles(file_controller.files, file_controller.selectedFile, 10, 2);
             C3D_FrameEnd(0);
         }
         update_files = false;
