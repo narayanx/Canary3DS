@@ -59,6 +59,20 @@ OpusController opus_controller = {.songPath = "",
                                   .doneEvent = {0},
                                   .fillBufferEvent = {0}};
 
+struct FileController {
+    std::string cwd;
+    std::vector<dirent> files;
+    size_t selectedFile;
+    size_t playingFile;
+};
+
+FileController file_controller = {
+    .cwd = "sdmc:/Music/",
+    .files = {},
+    .selectedFile = 0,
+    .playingFile = 0,
+};
+
 void printC2DText(std::string msg, size_t lineOffset = 0) {
     C2D_TextBufClear(g_dynamicBuf);
 
@@ -390,6 +404,14 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
 //     return osTickCounterRead(timer);
 // }
 
+void stopPlaybackIfPlaying() {
+    if (opus_controller.songReady) {
+        // if song is already playing, stop playback
+        opus_controller.stopPlayback = true;
+        LightEvent_Wait(&opus_controller.doneEvent);
+    }
+}
+
 int main(int argc, char *argv[]) {
     romfsInit();
     gfxInitDefault();
@@ -472,7 +494,6 @@ int main(int argc, char *argv[]) {
     size_t selected_file = 0;
 
     bool update_files = true;
-    std::vector<dirent> files;
 
     while (aptMainLoop()) {
         // gspWaitForVBlank();
@@ -490,26 +511,29 @@ int main(int argc, char *argv[]) {
         // different is needed std::vector<dirent> files = get_files(cwd.c_str());
 
         if (kDown || kHeld) {
+            // make sure to populate with files before we may need it
             update_files = true;  // only update screen when a button is pressed
         }
+
+        if (update_files) {
+            file_controller.files = get_files(cwd.c_str());
+        }
+
         // A: enter directory
         if (kDown & KEY_A) {
-            auto file_type = files[selected_file].d_type;
+            auto file_type = file_controller.files[selected_file].d_type;
             if (file_type == DT_DIR) {
-                cwd += files[selected_file].d_name;
+                cwd += file_controller.files[selected_file].d_name;
                 cwd += '/';
                 selected_file = 0;  // reset selected file to first file in new directory
             } else if (file_type == DT_REG) {
-                if (opus_controller.songReady) {
-                    // if song is already playing, stop playback
-                    opus_controller.stopPlayback = true;
-                    LightEvent_Wait(&opus_controller.doneEvent);
-                }
-                char *play_path = files[selected_file].d_name;
+                stopPlaybackIfPlaying();
+                char *play_path = file_controller.files[selected_file].d_name;
                 PrintConsole *prev = consoleSelect(&bottomConsole);
-                printf("Playing file: %s%s\n", cwd.c_str(), play_path);
+                logToBottomScreen(("Playing file: " + cwd + (std::string)play_path).c_str());
                 consoleSelect(prev);
                 playSong(cwd + play_path);
+                file_controller.playingFile = selected_file;
             }
         }
 
@@ -534,7 +558,6 @@ int main(int argc, char *argv[]) {
         }
 
         double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
-
         bool firstFileSelected = selected_file == 0;
         bool shouldUpAutoRepeat =
             elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
@@ -545,20 +568,18 @@ int main(int argc, char *argv[]) {
             } else {
                 // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
                 // first file selected
-                selected_file = files.size() - 1;
+                selected_file = file_controller.files.size() - 1;
             }
             lastUpScrollTime_ms = osGetTime();
         }
 
         // DPad Down/Circle Pad Down: select next file
         double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
-
-        bool lastFileSelected = selected_file == files.size() - 1;
+        bool lastFileSelected = selected_file == file_controller.files.size() - 1;
         bool shouldDownAutoRepeat =
             elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
-
         if ((kDown & KEY_DOWN) || shouldDownAutoRepeat) {
-            if (selected_file < files.size() - 1) {
+            if (selected_file < file_controller.files.size() - 1) {
                 selected_file++;
             } else {
                 selected_file = 0;
@@ -567,10 +588,15 @@ int main(int argc, char *argv[]) {
             lastDownScrollTime_ms = osGetTime();
         }
 
+        // Left shoulder: go to previous song in folder
+        // if (kDown & KEY_L) {
+        //     stopPlaybackIfPlaying();
+        //     std::string nextSongPath = cwd + file_controller.files[selected_file].d_name;
+
+        // }
+
         // printf("cwd: %s\n", cwd.c_str());
         if (update_files) {
-            files = get_files(cwd.c_str());
-
             consoleClear();
             // print_files(files, selected_file);
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -578,10 +604,10 @@ int main(int argc, char *argv[]) {
             C2D_SceneBegin(top);
             printC2DText(cwd, 0);
             printC2DText("selected file index: " + std::to_string(selected_file), 1);
-            printFiles(files, selected_file, 10, 2);
+            printFiles(file_controller.files, selected_file, 10, 2);
             C3D_FrameEnd(0);
         }
-        update_files = false;  // reset update_files flag
+        update_files = false;
     }
 
     run_thread = false;
