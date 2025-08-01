@@ -15,6 +15,8 @@ const int MAX_PATH_CHAR_LENGTH = 4096;
 const int MAX_FILES = 10;
 // delay before auto repeat of input starts
 const double REPEAT_DELAY_MS = 175.0;
+// make sure to have trailing '/' character
+const std::string START_PATH = "sdmc:/Music/";
 
 const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
 C2D_TextBuf g_dynamicBuf;
@@ -51,13 +53,14 @@ struct OpusController {
     LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
 };
 
-OpusController opus_controller = {.songPath = "",
-                                  .file = nullptr,
-                                  .songReady = false,
-                                  .stopPlayback = false,
-                                  .startEvent = {0},
-                                  .doneEvent = {0},
-                                  .fillBufferEvent = {0}};
+OpusController opus_controller = {
+    .songPath = "",
+    .file = nullptr,
+    .songReady = false,  // also can be used to check if song is playing
+    .stopPlayback = false,
+    .startEvent = {0},
+    .doneEvent = {0},
+    .fillBufferEvent = {0}};
 
 struct FileController {
     std::string cwd;
@@ -474,22 +477,15 @@ int main(int argc, char *argv[]) {
 
     ndspSetCallback(opusCallback, NULL);
 
-    // make sure to have trailing '/' character
-    const std::string START_PATH = "sdmc:/Music/";
-    // used to prevent the user from navigating about the root (`smdc:/` is 6 characters)
-    // const size_t ROOT_SLASH_IDX = 5;
+    file_controller.cwd = START_PATH;
 
-    std::string cwd = START_PATH;
-
-    if (opendir(cwd.c_str()) == nullptr) {
-        cwd = "sdmc:/";
+    if (opendir(file_controller.cwd.c_str()) == nullptr) {
+        file_controller.cwd = "sdmc:/";
     }
 
     // for holding down with scrolling to auto repeat
     u64 lastUpScrollTime_ms = osGetTime();
     u64 lastDownScrollTime_ms = osGetTime();
-
-    // int curr_file = 0;
 
     bool update_files = true;
 
@@ -514,23 +510,24 @@ int main(int argc, char *argv[]) {
         }
 
         if (update_files) {
-            file_controller.files = get_files(cwd.c_str());
+            file_controller.files = get_files(file_controller.cwd.c_str());
         }
 
         // A: enter directory
         if (kDown & KEY_A) {
             auto file_type = file_controller.files[file_controller.selectedFile].d_type;
             if (file_type == DT_DIR) {
-                cwd += file_controller.files[file_controller.selectedFile].d_name;
-                cwd += '/';
-                file_controller.selectedFile = 0;  // reset selected file to first file in new directory
+                file_controller.cwd += file_controller.files[file_controller.selectedFile].d_name;
+                file_controller.cwd += '/';
+                file_controller.selectedFile =
+                    0;  // reset selected file to first file in new directory
             } else if (file_type == DT_REG) {
                 stopPlaybackIfPlaying();
-                char *play_path = file_controller.files[file_controller.selectedFile].d_name;
+                char *song_filename = file_controller.files[file_controller.selectedFile].d_name;
                 PrintConsole *prev = consoleSelect(&bottomConsole);
-                logToBottomScreen(("Playing file: " + cwd + (std::string)play_path).c_str());
+                logToBottomScreen(("Playing file: " + (std::string)song_filename).c_str());
                 consoleSelect(prev);
-                playSong(cwd + play_path);
+                playSong(file_controller.cwd + song_filename);
                 file_controller.playingFile = file_controller.selectedFile;
             }
         }
@@ -544,12 +541,13 @@ int main(int argc, char *argv[]) {
             } else {
                 // TODO: maybe extract going up dir into a function START
                 // ignore last character (trailing '/')
-                size_t last_slash_idx = cwd.rfind('/', cwd.size() - 2);
+                size_t last_slash_idx =
+                    file_controller.cwd.rfind('/', file_controller.cwd.size() - 2);
                 // since we ignore the trailing slash, when at root no slash will be found
-                if (last_slash_idx != cwd.npos) {
+                if (last_slash_idx != file_controller.cwd.npos) {
                     // include slash
-                    cwd = cwd.substr(0, last_slash_idx + 1);
-                    file_controller.selectedFile = 0;  // reset selected file to first file in new directory
+                    file_controller.cwd = file_controller.cwd.substr(0, last_slash_idx + 1);
+                    file_controller.selectedFile = 0;  // reset to first file in new directory
                 }
                 // maybe extract going up dir into a function END
             }
@@ -587,11 +585,34 @@ int main(int argc, char *argv[]) {
         }
 
         // Left shoulder: go to previous song in folder
-        if (kDown & KEY_L) {
+        if (kDown & KEY_L && file_controller.playingFile != 0 && opus_controller.songReady) {
+            size_t nextSongIdx = file_controller.playingFile - 1;
             stopPlaybackIfPlaying();
-            
-            std::string nextSongPath = file_controller.files[file_controller.selectedFile].d_name;
+            std::string nextSongPath =
+                file_controller.cwd + file_controller.files[nextSongIdx].d_name;
+            // TODO maybe abstact so setting of this bool is done when playSong is called START
+            playSong(nextSongPath);
+            file_controller.playingFile = nextSongIdx;
+            // TODO maybe abstact so setting of this bool is done when playSong is called END
+            logToBottomScreen(
+                ("Playing previous song: " + (std::string)file_controller.files[nextSongIdx].d_name)
+                    .c_str());
+        }
 
+        // Right shoulder: go to next song in folder
+        if (kDown & KEY_R && file_controller.playingFile < file_controller.files.size() - 1
+            && opus_controller.songReady) {
+            size_t nextSongIdx = file_controller.playingFile + 1;
+            stopPlaybackIfPlaying();
+            std::string nextSongPath =
+                file_controller.cwd + file_controller.files[nextSongIdx].d_name;
+            // TODO maybe abstact so setting of this bool is done when playSong is called START
+            playSong(nextSongPath);
+            file_controller.playingFile = nextSongIdx;
+            // TODO maybe abstact so setting of this bool is done when playSong is called END
+            logToBottomScreen(
+                ("Playing next song: " + (std::string)file_controller.files[nextSongIdx].d_name)
+                    .c_str());
         }
 
         // printf("cwd: %s\n", cwd.c_str());
@@ -601,7 +622,7 @@ int main(int argc, char *argv[]) {
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
-            printC2DText(cwd, 0);
+            printC2DText(file_controller.cwd, 0);
             printC2DText("selected file index: " + std::to_string(file_controller.selectedFile), 1);
             printFiles(file_controller.files, file_controller.selectedFile, 10, 2);
             C3D_FrameEnd(0);
