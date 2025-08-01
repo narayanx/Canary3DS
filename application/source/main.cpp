@@ -13,6 +13,10 @@
 const int MAX_PATH_CHAR_LENGTH = 4096;
 // max files to display at once TODO change back to 14 once I'm done debugging
 const int MAX_FILES = 10;
+// delay before auto repeat of input starts
+const double REPEAT_DELAY_MS = 175.0;
+
+const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
 C2D_TextBuf g_dynamicBuf;
 
 // TODO kinda temporary for debuggging can probably remove later
@@ -370,6 +374,11 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
     }
 }
 
+double updateAndRead(TickCounter *timer) {
+    osTickCounterUpdate(timer);
+    return osTickCounterRead(timer);
+}
+
 int main(int argc, char *argv[]) {
     romfsInit();
     gfxInitDefault();
@@ -381,6 +390,7 @@ int main(int argc, char *argv[]) {
 
     // Create screen
     C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+    C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
     // Initialize the scene
     sceneInit();
@@ -442,6 +452,16 @@ int main(int argc, char *argv[]) {
         cwd = "sdmc:/";
     }
 
+    // for holding down with scrolling to auto repeat
+    // TickCounter guiTimer;
+    // osTickCounterStart(&guiTimer);
+    // osTickCounterUpdate(&guiTimer);
+    // // double lastFrameTime_ms = osTickCounterRead(&guiTimer);
+    // double lastUpScrollTime_ms = osTickCounterRead(&guiTimer),
+    //        lastDownScrollTime_ms = osTickCounterRead(&guiTimer);
+    u64 lastUpScrollTime_ms = osGetTime();
+    u64 lastDownScrollTime_ms = osGetTime();
+
     // int curr_file = 0;
     // zero index
     size_t selected_file = 0;
@@ -455,6 +475,7 @@ int main(int argc, char *argv[]) {
         hidScanInput();
 
         u32 kDown = hidKeysDown();
+        u32 kHeld = hidKeysHeld();
         if (kDown & KEY_START) {
             break;
         }
@@ -463,7 +484,7 @@ int main(int argc, char *argv[]) {
         // heap). Based on that decide if storing all files in cwd at once is viable or if smth
         // different is needed std::vector<dirent> files = get_files(cwd.c_str());
 
-        if (kDown) {
+        if (kDown || kHeld) {
             update_files = true;  // only update screen when a button is pressed
         }
         // A: enter directory
@@ -497,8 +518,8 @@ int main(int argc, char *argv[]) {
                 // TODO: maybe extract going up dir into a function START
                 // ignore last character (trailing '/')
                 size_t last_slash_idx = cwd.rfind('/', cwd.size() - 2);
-                // should always find a '/' since we prevent going above the root
-                if (last_slash_idx != ROOT_SLASH_IDX && last_slash_idx != cwd.npos) {
+                // since we ignore the trailing slash, when at root no slash will be found
+                if (last_slash_idx != cwd.npos) {
                     // include slash
                     cwd = cwd.substr(0, last_slash_idx + 1);
                     selected_file = 0;  // reset selected file to first file in new directory
@@ -507,8 +528,13 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
+        
+        bool firstFileSelected = selected_file == 1;
+        bool shouldUpAutoRepeat =
+            elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
         // DPad Up/Circle Pad Up: select previous file
-        if (kDown & KEY_UP) {
+        if ((kDown & KEY_UP) || shouldUpAutoRepeat) {
             if (selected_file > 0) {
                 selected_file--;
             } else {
@@ -516,15 +542,35 @@ int main(int argc, char *argv[]) {
                 // first file selected
                 selected_file = files.size() - 1;
             }
+            lastUpScrollTime_ms = osGetTime();
         }
 
         // DPad Down/Circle Pad Down: select next file
-        if (kDown & KEY_DOWN) {
+        // double curr_ms = updateAndRead(&guiTimer);
+        // double elapsed_ms = curr_ms - lastDownScrollTime_ms;
+        double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
+        
+        bool lastFileSelected = selected_file == files.size() - 1;
+        bool shouldDownAutoRepeat =
+            elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
+        
+        // C2D_TargetClear(bottom, CLEAR_COLOR);
+        // C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+        // C2D_SceneBegin(bottom);
+        // // printC2DText("curr time, last down scroll time: " + std::to_string(curr_ms)+", "+std::to_string(lastDownScrollTime_ms), 13);
+        // printC2DText("elapsed ms: " + std::to_string(elapsed_ms), 1);
+        // printC2DText("lastFileSelected " + std::to_string(lastFileSelected), 2);
+        // printC2DText("shouldDownAutoRepeat " + std::to_string(shouldDownAutoRepeat), 3);
+        // C3D_FrameEnd(0);
+
+        if ((kDown & KEY_DOWN) || shouldDownAutoRepeat) {
             if (selected_file < files.size() - 1) {
                 selected_file++;
             } else {
                 selected_file = 0;
             }
+            // lastDownScrollTime_ms = updateAndRead(&guiTimer);
+            lastDownScrollTime_ms = osGetTime();
         }
 
         // printf("cwd: %s\n", cwd.c_str());
@@ -534,8 +580,6 @@ int main(int argc, char *argv[]) {
             consoleClear();
             // print_files(files, selected_file);
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-            // const u32 CLEAR_COLOR = C2D_Color32(0x2b, 0x19, 0x3d, 0xFF);
-            const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
             printC2DText(cwd, 0);
@@ -553,6 +597,9 @@ int main(int argc, char *argv[]) {
         // C3D_FrameEnd(0);
         // from 3ds-examples/graphics/printing/system-font/source/main.c END
         update_files = false;  // reset update_files flag
+
+        // osTickCounterUpdate(&guiTimer);
+        // lastFrameTime_ms = osTickCounterRead(&guiTimer);
     }
 
     run_thread = false;
