@@ -524,7 +524,7 @@ int main(int argc, char *argv[]) {
 
         double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
         
-        bool firstFileSelected = selected_file == 1;
+        bool firstFileSelected = selected_file == 0;
         bool shouldUpAutoRepeat =
             elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
         // DPad Up/Circle Pad Up: select previous file
