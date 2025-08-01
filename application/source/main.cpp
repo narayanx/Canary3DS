@@ -307,25 +307,25 @@ std::vector<dirent> get_files(const char *path) {
     return file_list;
 }
 
-void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
-    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
-         i++) {
-        std::string result = "";
-        if (i == selectedFile) {
-            result += "-> ";
-        } else {
-            result += "   ";
-        }
-        result += files[i].d_name;
-        if (files[i].d_type == DT_DIR) {
-            result += "/";
-        }
-        printf("%s\n", result.c_str());
-        // printf("%s\n", files[i].d_name);
-    }
-    // printf("%s\n", files[0].d_name);
-    // printf("%s\n", files[1].d_name);
-}
+// void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
+//     for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
+//          i++) {
+//         std::string result = "";
+//         if (i == selectedFile) {
+//             result += "-> ";
+//         } else {
+//             result += "   ";
+//         }
+//         result += files[i].d_name;
+//         if (files[i].d_type == DT_DIR) {
+//             result += "/";
+//         }
+//         printf("%s\n", result.c_str());
+//         // printf("%s\n", files[i].d_name);
+//     }
+//     // printf("%s\n", files[0].d_name);
+//     // printf("%s\n", files[1].d_name);
+// }
 
 void printC2DText(std::string msg, size_t lineOffset = 0) {
     C2D_TextBufClear(g_dynamicBuf);
@@ -374,10 +374,10 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
     }
 }
 
-double updateAndRead(TickCounter *timer) {
-    osTickCounterUpdate(timer);
-    return osTickCounterRead(timer);
-}
+// double updateAndRead(TickCounter *timer) {
+//     osTickCounterUpdate(timer);
+//     return osTickCounterRead(timer);
+// }
 
 int main(int argc, char *argv[]) {
     romfsInit();
@@ -444,7 +444,7 @@ int main(int argc, char *argv[]) {
     // make sure to have trailing '/' character
     const std::string START_PATH = "sdmc:/Music/";
     // used to prevent the user from navigating about the root (`smdc:/` is 6 characters)
-    const size_t ROOT_SLASH_IDX = 5;
+    // const size_t ROOT_SLASH_IDX = 5;
 
     std::string cwd = START_PATH;
 
@@ -545,15 +545,6 @@ int main(int argc, char *argv[]) {
         bool lastFileSelected = selected_file == files.size() - 1;
         bool shouldDownAutoRepeat =
             elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
-        
-        // C2D_TargetClear(bottom, CLEAR_COLOR);
-        // C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-        // C2D_SceneBegin(bottom);
-        // // printC2DText("curr time, last down scroll time: " + std::to_string(curr_ms)+", "+std::to_string(lastDownScrollTime_ms), 13);
-        // printC2DText("elapsed ms: " + std::to_string(elapsed_ms), 1);
-        // printC2DText("lastFileSelected " + std::to_string(lastFileSelected), 2);
-        // printC2DText("shouldDownAutoRepeat " + std::to_string(shouldDownAutoRepeat), 3);
-        // C3D_FrameEnd(0);
 
         if ((kDown & KEY_DOWN) || shouldDownAutoRepeat) {
             if (selected_file < files.size() - 1) {
