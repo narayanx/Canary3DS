@@ -587,15 +587,6 @@ int main(int argc, char *argv[]) {
             printFiles(files, selected_file, 10, 2);
             C3D_FrameEnd(0);
         }
-        // from 3ds-examples/graphics/printing/system-font/source/main.c START
-        // Render the scene
-        // C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-        // const u32 CLEAR_COLOR = C2D_Color32(0x2b, 0x19, 0x3d, 0xFF);
-        // C2D_TargetClear(top, CLEAR_COLOR);
-        // C2D_SceneBegin(top);
-        // // sceneRender(size);
-        // C3D_FrameEnd(0);
-        // from 3ds-examples/graphics/printing/system-font/source/main.c END
         update_files = false;  // reset update_files flag
 
         // osTickCounterUpdate(&guiTimer);
