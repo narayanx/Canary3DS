@@ -419,8 +419,6 @@ void stopPlaybackIfPlaying() {
         // if song is already playing, stop playback
         opus_controller.stopPlayback = true;
         opus_controller.interrupted = true;
-        // LightEvent_Wait(&opus_controller.doneEvent);
-        // opus_controller.interrupted = false;
     }
 }
 
@@ -430,7 +428,6 @@ void playNextThread(void *arg) {
         if (opus_controller.interrupted) {
             logToBottomScreen("not autoplaying next because user interrupted playback");
             // user interrupted playback, so we don't play the next song
-            // LightEvent_Clear(&opus_controller.doneEvent);
             opus_controller.interrupted = false;
             continue;
         }
@@ -444,7 +441,6 @@ void playNextThread(void *arg) {
                 ("autoplaying: " + (std::string)file_controller.files[nextSongIdx].d_name).c_str());
         }
     }
-    // LightEvent_Clear(&opus_controller.doneEvent);
 }
 
 int main(int argc, char *argv[]) {
@@ -512,6 +508,7 @@ int main(int argc, char *argv[]) {
 
     file_controller.cwd = START_PATH;
 
+    // if Music folder doesn't exist, default to sd root
     DIR *tmp = opendir(file_controller.cwd.c_str());
     if (tmp == nullptr) {
         file_controller.cwd = "sdmc:/";
@@ -594,8 +591,6 @@ int main(int argc, char *argv[]) {
                 opus_controller.stopPlayback = true;
 
                 opus_controller.interrupted = true;
-                // LightEvent_Wait(&opus_controller.doneEvent);
-                // opus_controller.interrupted = false;
                 logToBottomScreen("Stopping playback...\n");
             } else {
                 // TODO: maybe extract going up dir into a function START
