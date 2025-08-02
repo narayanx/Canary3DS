@@ -10,10 +10,13 @@
 #include <string>
 #include <vector>
 
+#include "filebrowser.h"
+#include "opus.h"
+
 // max file name seems to be 255, file paths are concatenated filenames
 const int MAX_PATH_CHAR_LENGTH = 4096;
 // max files to display at once TODO change back to 14 once I'm done debugging
-const int MAX_FILES = 10;
+const int MAX_FILES = 12;
 // delay before auto repeat of input starts
 const double REPEAT_DELAY_MS = 175.0;
 // make sure to have trailing '/' character
@@ -28,60 +31,7 @@ C2D_TextBuf g_dynamicBuf;
 PrintConsole topConsole, bottomConsole;
 C3D_RenderTarget *top, *bottom;
 
-// SOURCE 3ds-examples/audio/opus-decoding START
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-ndspWaveBuf s_waveBufs[3];
-int16_t *s_audioBuffer = NULL;
-static const int SAMPLE_RATE = 48000;                         // Opus is fixed at 48kHz
-static const int SAMPLES_PER_BUF = SAMPLE_RATE * 120 / 1000;  // 120ms buffer
-static const int CHANNELS_PER_SAMPLE = 2;                     // We ask libopusfile for
-                                                              // stereo output; it will down
-                                                              // -mix for us as necessary.
-
-static const int THREAD_AFFINITY = -1;         // Execute thread on any core
-static const int THREAD_STACK_SZ = 32 * 1024;  // 32kB stack for audio thread
-
-static const size_t WAVEBUF_SIZE =
-    SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE * sizeof(int16_t);  // Size of NDSP wavebufs
-// SOURCE 3ds-examples/audio/opus-decoding END
 volatile bool run_threads = true;
-
-struct OpusController {
-    std::string songPath;
-    OggOpusFile *file;
-    volatile bool songReady;
-    volatile bool stopPlayback;
-    volatile bool interrupted;   // distinguish between end of song and user interrupting playback
-    LightEvent startEvent;       // tells audio thread to start playback
-    LightEvent doneEvent;        // for main thread to know when song actually stopped
-    LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
-};
-
-OpusController opus_controller = {
-    .songPath = "",
-    .file = nullptr,
-    .songReady = false,  // also can be used to check if song is playing
-    .stopPlayback = false,
-    .interrupted = false,  // don't autoplay next if user stopped song
-    .startEvent = {0},
-    .doneEvent = {0},
-    .fillBufferEvent = {0}};
-
-struct FileController {
-    std::string cwd;
-    std::vector<dirent> files;
-    std::deque<size_t> fileHistory;
-    size_t selectedFile;
-    size_t playingFile;
-};
-
-FileController file_controller = {
-    .cwd = "sdmc:/Music/",
-    .files = {},
-    .fileHistory = {},
-    .selectedFile = 0,
-    .playingFile = 0,
-};
 
 void printC2DText(std::string msg, size_t lineOffset = 0) {
     C2D_TextBufClear(g_dynamicBuf);
