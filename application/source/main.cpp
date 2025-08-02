@@ -357,26 +357,6 @@ std::vector<dirent> get_files(const char *path) {
     return file_list;
 }
 
-// void print_files(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES) {
-//     for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
-//          i++) {
-//         std::string result = "";
-//         if (i == selectedFile) {
-//             result += "-> ";
-//         } else {
-//             result += "   ";
-//         }
-//         result += files[i].d_name;
-//         if (files[i].d_type == DT_DIR) {
-//             result += "/";
-//         }
-//         printf("%s\n", result.c_str());
-//         // printf("%s\n", files[i].d_name);
-//     }
-//     // printf("%s\n", files[0].d_name);
-//     // printf("%s\n", files[1].d_name);
-// }
-
 void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
                 size_t lineOffset = 0) {
     size_t iter = 0;
@@ -408,11 +388,6 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
         iter++;
     }
 }
-
-// double updateAndRead(TickCounter *timer) {
-//     osTickCounterUpdate(timer);
-//     return osTickCounterRead(timer);
-// }
 
 void stopPlaybackIfPlaying() {
     if (opus_controller.songReady) {
