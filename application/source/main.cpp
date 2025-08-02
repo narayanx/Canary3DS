@@ -505,7 +505,6 @@ int main(int argc, char *argv[]) {
         // different is needed std::vector<dirent> files = get_files(cwd.c_str());
 
         if (kDown || kHeld) {
-            // make sure to populate with files before we may need it
             update_files = true;  // only update screen when a button is pressed
         }
 
@@ -519,8 +518,8 @@ int main(int argc, char *argv[]) {
             if (file_type == DT_DIR) {
                 file_controller.cwd += file_controller.files[file_controller.selectedFile].d_name;
                 file_controller.cwd += '/';
-                file_controller.selectedFile =
-                    0;  // reset selected file to first file in new directory
+                file_controller.selectedFile = 0;  // reset to first file in new directory
+                file_controller.files = get_files(file_controller.cwd.c_str());
             } else if (file_type == DT_REG) {
                 stopPlaybackIfPlaying();
                 char *song_filename = file_controller.files[file_controller.selectedFile].d_name;
@@ -548,6 +547,7 @@ int main(int argc, char *argv[]) {
                     // include slash
                     file_controller.cwd = file_controller.cwd.substr(0, last_slash_idx + 1);
                     file_controller.selectedFile = 0;  // reset to first file in new directory
+                    file_controller.files = get_files(file_controller.cwd.c_str());  // BOOKMARK REMEMBER TO GIT STASH POP
                 }
                 // maybe extract going up dir into a function END
             }
