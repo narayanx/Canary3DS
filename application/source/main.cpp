@@ -461,11 +461,6 @@ int main(int argc, char *argv[]) {
 
     // from 3ds-examples/graphics/printing/system-font/source/main.c END
 
-    // consoleInit(GFX_TOP, &topConsole);
-    // consoleInit(GFX_BOTTOM, &bottomConsole);
-    // start on top screen
-    // consoleSelect(&topConsole);
-
     // Enable N3DS 804MHz operation, where available
     // osSetSpeedupEnable(true);
 
@@ -540,8 +535,6 @@ int main(int argc, char *argv[]) {
     bool update_files = true;
 
     while (aptMainLoop()) {
-        // gspWaitForVBlank();
-        // gfxSwapBuffers();
         hidScanInput();
 
         u32 kDown = hidKeysDown();
@@ -641,7 +634,6 @@ int main(int argc, char *argv[]) {
             } else {
                 file_controller.selectedFile = 0;
             }
-            // lastDownScrollTime_ms = updateAndRead(&guiTimer);
             lastDownScrollTime_ms = osGetTime();
         }
 
@@ -676,10 +668,8 @@ int main(int argc, char *argv[]) {
                     .c_str());
         }
 
-        // printf("cwd: %s\n", cwd.c_str());
         if (update_files) {
             consoleClear();
-            // print_files(files, selected_file);
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
