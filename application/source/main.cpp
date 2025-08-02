@@ -41,13 +41,14 @@ static const int THREAD_STACK_SZ = 32 * 1024;  // 32kB stack for audio thread
 static const size_t WAVEBUF_SIZE =
     SAMPLES_PER_BUF * CHANNELS_PER_SAMPLE * sizeof(int16_t);  // Size of NDSP wavebufs
 // SOURCE 3ds-examples/audio/opus-decoding END
-volatile bool run_thread = true;
+volatile bool run_threads = true;
 
 struct OpusController {
     std::string songPath;
     OggOpusFile *file;
     volatile bool songReady;
     volatile bool stopPlayback;
+    volatile bool interrupted;   // distinguish between end of song and user interrupting playback
     LightEvent startEvent;       // tells audio thread to start playback
     LightEvent doneEvent;        // for main thread to know when song actually stopped
     LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
@@ -58,6 +59,7 @@ OpusController opus_controller = {
     .file = nullptr,
     .songReady = false,  // also can be used to check if song is playing
     .stopPlayback = false,
+    .interrupted = false,  // don't autoplay next if user stopped song
     .startEvent = {0},
     .doneEvent = {0},
     .fillBufferEvent = {0}};
@@ -257,7 +259,7 @@ void audioExit(void) {
 // SOURCE 3ds-examples/audio/opus-decoding END
 
 void audioThread(void *arg) {
-    while (run_thread) {
+    while (run_threads) {
         // wait until a song is ready to play
         LightEvent_Wait(&opus_controller.startEvent);
 
@@ -268,7 +270,7 @@ void audioThread(void *arg) {
 
         OggOpusFile *file = opus_controller.file;
 
-        while (run_thread && !opus_controller.stopPlayback) {
+        while (run_threads && !opus_controller.stopPlayback) {
             for (size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
                 if (s_waveBufs[i].status != NDSP_WBUF_DONE) {
                     continue;
@@ -277,7 +279,7 @@ void audioThread(void *arg) {
                 // fill the buffer with audio data
                 if (!fillBuffer(file, &s_waveBufs[i])) {
                     opus_controller.songReady = false;  // song finished playing
-                    LightEvent_Signal(&opus_controller.doneEvent);
+                    // LightEvent_Signal(&opus_controller.doneEvent);
                     // get outside of while loop until next song is played
                     opus_controller.stopPlayback = true;
                     break;
@@ -317,7 +319,7 @@ bool playSong(std::string path) {
 void opusCallback(void *arg) {
     (void)arg;  // suppress unused parameter warning
 
-    if (!run_thread) {
+    if (!run_threads) {
         return;
     }
 
@@ -411,8 +413,33 @@ void stopPlaybackIfPlaying() {
     if (opus_controller.songReady) {
         // if song is already playing, stop playback
         opus_controller.stopPlayback = true;
-        LightEvent_Wait(&opus_controller.doneEvent);
+        opus_controller.interrupted = true;
+        // LightEvent_Wait(&opus_controller.doneEvent);
+        // opus_controller.interrupted = false;
     }
+}
+
+void playNextThread(void *arg) {
+    while (run_threads) {
+        LightEvent_Wait(&opus_controller.doneEvent);
+        if (opus_controller.interrupted) {
+            logToBottomScreen("not autoplaying next because user interrupted playback");
+            // user interrupted playback, so we don't play the next song
+            // LightEvent_Clear(&opus_controller.doneEvent);
+            opus_controller.interrupted = false;
+            continue;
+        }
+        if (file_controller.playingFile < file_controller.files.size() - 1) {
+            size_t nextSongIdx = file_controller.playingFile + 1;
+            std::string nextSongPath =
+                file_controller.cwd + file_controller.files[nextSongIdx].d_name;
+            playSong(nextSongPath);
+            file_controller.playingFile = nextSongIdx;
+            logToBottomScreen(
+                ("autoplaying: " + (std::string)file_controller.files[nextSongIdx].d_name).c_str());
+        }
+    }
+    // LightEvent_Clear(&opus_controller.doneEvent);
 }
 
 int main(int argc, char *argv[]) {
@@ -463,17 +490,18 @@ int main(int argc, char *argv[]) {
 
     // Spawn audio thread
     // main thread priority
-    int32_t priority = 0x30;
-    svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+    int32_t mainThreadPriority = 0x30;
+    svcGetThreadPriority(&mainThreadPriority, CUR_THREAD_HANDLE);
     // lower number => higher actual priority
-    priority -= 1;
     // thread priorities must be between 0x18 and 0x3F
-    priority = priority < 0x18 ? 0x18 : priority;
-    priority = priority > 0x3F ? 0x3F : priority;
+    int32_t audioThreadPriority = mainThreadPriority - 1;
+    int32_t playNextThreadPriority = audioThreadPriority - 2;
 
     // takes no args as it gets opus filepath from global state struct
-    const Thread threadId =
-        threadCreate(audioThread, nullptr, THREAD_STACK_SZ, priority, THREAD_AFFINITY, false);
+    const Thread threadId = threadCreate(audioThread, nullptr, THREAD_STACK_SZ, audioThreadPriority,
+                                         THREAD_AFFINITY, false);
+    const Thread playNextThreadId =
+        threadCreate(playNextThread, nullptr, 4096, playNextThreadPriority, THREAD_AFFINITY, false);
 
     ndspSetCallback(opusCallback, NULL);
 
@@ -535,7 +563,10 @@ int main(int argc, char *argv[]) {
             // if song is playing and user presses B, stop playback instead of going up a directory
             if (opus_controller.songReady) {
                 opus_controller.stopPlayback = true;
-                LightEvent_Wait(&opus_controller.doneEvent);
+
+                opus_controller.interrupted = true;
+                // LightEvent_Wait(&opus_controller.doneEvent);
+                // opus_controller.interrupted = false;
                 logToBottomScreen("Stopping playback...\n");
             } else {
                 // TODO: maybe extract going up dir into a function START
@@ -547,7 +578,8 @@ int main(int argc, char *argv[]) {
                     // include slash
                     file_controller.cwd = file_controller.cwd.substr(0, last_slash_idx + 1);
                     file_controller.selectedFile = 0;  // reset to first file in new directory
-                    file_controller.files = get_files(file_controller.cwd.c_str());  // BOOKMARK REMEMBER TO GIT STASH POP
+                    file_controller.files = get_files(
+                        file_controller.cwd.c_str());
                 }
                 // maybe extract going up dir into a function END
             }
@@ -630,13 +662,15 @@ int main(int argc, char *argv[]) {
         update_files = false;
     }
 
-    run_thread = false;
+    run_threads = false;
     // signal audio thread (it finishes since the flag is set to false)
     LightEvent_Signal(&opus_controller.startEvent);
 
-    // Free the audio thread
+    // free threads
     threadJoin(threadId, UINT64_MAX);
     threadFree(threadId);
+    threadJoin(playNextThreadId, UINT64_MAX);
+    threadFree(playNextThreadId);
 
     audioExit();
     ndspExit();
