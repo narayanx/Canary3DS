@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,8 @@ const int MAX_FILES = 10;
 const double REPEAT_DELAY_MS = 175.0;
 // make sure to have trailing '/' character
 const std::string START_PATH = "sdmc:/Music/";
+// stop saving depth after this many directories (conserve memory, TODO allow changing in settings)
+const size_t MAX_DEPTH = 20;
 
 const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
 C2D_TextBuf g_dynamicBuf;
@@ -67,6 +70,7 @@ OpusController opus_controller = {
 struct FileController {
     std::string cwd;
     std::vector<dirent> files;
+    std::deque<size_t> fileHistory;
     size_t selectedFile;
     size_t playingFile;
 };
@@ -74,6 +78,7 @@ struct FileController {
 FileController file_controller = {
     .cwd = "sdmc:/Music/",
     .files = {},
+    .fileHistory = {},
     .selectedFile = 0,
     .playingFile = 0,
 };
@@ -507,8 +512,28 @@ int main(int argc, char *argv[]) {
 
     file_controller.cwd = START_PATH;
 
-    if (opendir(file_controller.cwd.c_str()) == nullptr) {
+    DIR *tmp = opendir(file_controller.cwd.c_str());
+    if (tmp == nullptr) {
         file_controller.cwd = "sdmc:/";
+        file_controller.fileHistory.clear();
+    } else {
+        closedir(tmp);
+        // assumes start path is in sd card root TODO make more robust
+        tmp = opendir("sdmc:/");
+        int i = 0;
+        while (tmp != nullptr) {
+            dirent *ent = readdir(tmp);
+            if (ent == nullptr) {
+                break;
+            }
+            // TODO assumes the path is sdmc:/Music/ and that the Music folder in the root, change
+            if (ent->d_type == DT_DIR && strncmp(ent->d_name, "Music", sizeof("Music")) == 0) {
+                file_controller.fileHistory.push_back(i);
+                closedir(tmp);
+                break;
+            }
+            i++;
+        }
     }
 
     // for holding down with scrolling to auto repeat
@@ -546,7 +571,11 @@ int main(int argc, char *argv[]) {
             if (file_type == DT_DIR) {
                 file_controller.cwd += file_controller.files[file_controller.selectedFile].d_name;
                 file_controller.cwd += '/';
+                file_controller.fileHistory.push_back(file_controller.selectedFile);
                 file_controller.selectedFile = 0;  // reset to first file in new directory
+                if (file_controller.fileHistory.size() > MAX_DEPTH) {
+                    file_controller.fileHistory.pop_front();
+                }
                 file_controller.files = get_files(file_controller.cwd.c_str());
             } else if (file_type == DT_REG) {
                 stopPlaybackIfPlaying();
@@ -577,9 +606,14 @@ int main(int argc, char *argv[]) {
                 if (last_slash_idx != file_controller.cwd.npos) {
                     // include slash
                     file_controller.cwd = file_controller.cwd.substr(0, last_slash_idx + 1);
-                    file_controller.selectedFile = 0;  // reset to first file in new directory
-                    file_controller.files = get_files(
-                        file_controller.cwd.c_str());
+                    if (!file_controller.fileHistory.empty()) {
+                        file_controller.selectedFile = file_controller.fileHistory.back();
+                        file_controller.fileHistory.pop_back();
+                    } else {
+                        // default to first file in parent directory
+                        file_controller.selectedFile = 0;
+                    }
+                    file_controller.files = get_files(file_controller.cwd.c_str());
                 }
                 // maybe extract going up dir into a function END
             }
