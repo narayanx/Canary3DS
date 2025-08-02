@@ -514,6 +514,9 @@ int main(int argc, char *argv[]) {
 
         u32 kDown = hidKeysDown();
         u32 kHeld = hidKeysHeld();
+        touchPosition touchPos;
+        hidTouchRead(&touchPos);
+
         if (kDown & KEY_START) {
             break;
         }
@@ -522,6 +525,7 @@ int main(int argc, char *argv[]) {
         // heap). Based on that decide if storing all files in cwd at once is viable or if smth
         // different is needed std::vector<dirent> files = get_files(cwd.c_str());
 
+        // TODO add touch position to this
         if (kDown || kHeld) {
             update_files = true;  // only update screen when a button is pressed
         }
@@ -529,7 +533,6 @@ int main(int argc, char *argv[]) {
         if (update_files) {
             file_controller.files = get_files(file_controller.cwd.c_str());
         }
-
         // A: enter directory
         if (kDown & KEY_A) {
             auto file_type = file_controller.files[file_controller.selectedFile].d_type;
