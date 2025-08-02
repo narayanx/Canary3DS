@@ -2,10 +2,10 @@
 #include <citro2d.h>
 #include <dirent.h>
 #include <opusfile.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <deque>
 #include <string>
 #include <vector>
@@ -401,7 +401,8 @@ void playNextThread(void *arg) {
     while (run_threads) {
         LightEvent_Wait(&opus_controller.doneEvent);
         if (opus_controller.interrupted) {
-            logToBottomScreen("not autoplaying next because user interrupted playback");
+            // TODO allow more verbose logging with a VERBOSE flag (user can set)
+            // logToBottomScreen("not autoplaying next because user interrupted playback");
             // user interrupted playback, so we don't play the next song
             opus_controller.interrupted = false;
             continue;
