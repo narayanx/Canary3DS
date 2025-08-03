@@ -31,11 +31,11 @@ struct OpusController {
     LightEvent doneEvent;        // for main thread to know when song actually stopped
     LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
 };
-extern OpusController opus_controller;
+extern OpusController opusController;
 extern ndspWaveBuf s_waveBufs[3];
 extern int16_t *s_audioBuffer;
 
-extern volatile bool run_threads;
+extern volatile bool runThreads;
 
 const char *opusStrError(int);
 

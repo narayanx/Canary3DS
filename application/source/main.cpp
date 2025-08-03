@@ -33,8 +33,8 @@ int main(int argc, char *argv[]) {
     // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
     ndspInit();
 
-    LightEvent_Init(&opus_controller.startEvent, RESET_ONESHOT);
-    LightEvent_Init(&opus_controller.doneEvent, RESET_ONESHOT);
+    LightEvent_Init(&opusController.startEvent, RESET_ONESHOT);
+    LightEvent_Init(&opusController.doneEvent, RESET_ONESHOT);
 
     // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
@@ -64,13 +64,13 @@ int main(int argc, char *argv[]) {
 
     ndspSetCallback(opusCallback, NULL);
 
-    file_controller.cwd = START_PATH;
+    fileController.cwd = START_PATH;
 
     // if Music folder doesn't exist, default to sd root
-    DIR *tmp = opendir(file_controller.cwd.c_str());
+    DIR *tmp = opendir(fileController.cwd.c_str());
     if (tmp == nullptr) {
-        file_controller.cwd = "sdmc:/";
-        file_controller.fileHistory.clear();
+        fileController.cwd = "sdmc:/";
+        fileController.fileHistory.clear();
     } else {
         closedir(tmp);
         // assumes start path is in sd card root TODO make more robust
@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
             }
             // TODO assumes the path is sdmc:/Music/ and that the Music folder in the root, change
             if (ent->d_type == DT_DIR && strncmp(ent->d_name, "Music", sizeof("Music")) == 0) {
-                file_controller.fileHistory.push_back(i);
+                fileController.fileHistory.push_back(i);
                 closedir(tmp);
                 break;
             }
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
     u64 lastUpScrollTime_ms = osGetTime();
     u64 lastDownScrollTime_ms = osGetTime();
 
-    bool update_files = true;
+    bool updateFiles = true;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -116,142 +116,141 @@ int main(int argc, char *argv[]) {
         // defaults to (0, 0)
         bool screenTouched = touchPos.px != 0 || touchPos.py != 0;
         if (kDown || kHeld || screenTouched) {
-            update_files = true;  // only update screen when a button is pressed
+            updateFiles = true;  // only update screen when a button is pressed
         }
 
-        if (update_files) {
-            file_controller.files = getFiles(file_controller.cwd.c_str());
+        if (updateFiles) {
+            fileController.files = getFiles(fileController.cwd.c_str());
         }
         // A: enter directory
         if (kDown & KEY_A) {
-            auto file_type = file_controller.files[file_controller.selectedFile].d_type;
-            if (file_type == DT_DIR) {
-                file_controller.cwd += file_controller.files[file_controller.selectedFile].d_name;
-                file_controller.cwd += '/';
-                file_controller.fileHistory.push_back(file_controller.selectedFile);
-                file_controller.selectedFile = 0;  // reset to first file in new directory
-                if (file_controller.fileHistory.size() > MAX_DEPTH) {
-                    file_controller.fileHistory.pop_front();
+            auto fileType = fileController.files[fileController.selectedFile].d_type;
+            if (fileType == DT_DIR) {
+                fileController.cwd += fileController.files[fileController.selectedFile].d_name;
+                fileController.cwd += '/';
+                fileController.fileHistory.push_back(fileController.selectedFile);
+                fileController.selectedFile = 0;  // reset to first file in new directory
+                if (fileController.fileHistory.size() > MAX_DEPTH) {
+                    fileController.fileHistory.pop_front();
                 }
-                file_controller.files = getFiles(file_controller.cwd.c_str());
-            } else if (file_type == DT_REG) {
+                fileController.files = getFiles(fileController.cwd.c_str());
+            } else if (fileType == DT_REG) {
                 stopPlaybackIfPlaying();
-                char *song_filename = file_controller.files[file_controller.selectedFile].d_name;
+                char *songFilename = fileController.files[fileController.selectedFile].d_name;
                 // PrintConsole *prev = consoleSelect(&bottomConsole);
-                logToBottomScreen(("Playing file: " + (std::string)song_filename).c_str());
+                logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
                 // consoleSelect(prev);
-                playSong(file_controller.cwd + song_filename);
-                file_controller.playingFile = file_controller.selectedFile;
+                playSong(fileController.cwd + songFilename);
+                fileController.playingFile = fileController.selectedFile;
             }
         }
 
         if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
-            if (opus_controller.songReady) {
-                opus_controller.stopPlayback = true;
-
-                opus_controller.interrupted = true;
+            if (opusController.songReady) {
+                opusController.stopPlayback = true;
+                opusController.interrupted = true;
                 logToBottomScreen("Stopping playback...\n");
             } else {
                 // TODO: maybe extract going up dir into a function START
                 // ignore last character (trailing '/')
-                size_t last_slash_idx =
-                    file_controller.cwd.rfind('/', file_controller.cwd.size() - 2);
+                size_t lastSlashIdx =
+                    fileController.cwd.rfind('/', fileController.cwd.size() - 2);
                 // since we ignore the trailing slash, when at root no slash will be found
-                if (last_slash_idx != file_controller.cwd.npos) {
+                if (lastSlashIdx != fileController.cwd.npos) {
                     // include slash
-                    file_controller.cwd = file_controller.cwd.substr(0, last_slash_idx + 1);
-                    if (!file_controller.fileHistory.empty()) {
-                        file_controller.selectedFile = file_controller.fileHistory.back();
-                        file_controller.fileHistory.pop_back();
+                    fileController.cwd = fileController.cwd.substr(0, lastSlashIdx + 1);
+                    if (!fileController.fileHistory.empty()) {
+                        fileController.selectedFile = fileController.fileHistory.back();
+                        fileController.fileHistory.pop_back();
                     } else {
                         // default to first file in parent directory
-                        file_controller.selectedFile = 0;
+                        fileController.selectedFile = 0;
                     }
-                    file_controller.files = getFiles(file_controller.cwd.c_str());
+                    fileController.files = getFiles(fileController.cwd.c_str());
                 }
                 // maybe extract going up dir into a function END
             }
         }
 
         double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
-        bool firstFileSelected = file_controller.selectedFile == 0;
+        bool firstFileSelected = fileController.selectedFile == 0;
         bool shouldUpAutoRepeat =
             elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
         // DPad Up/Circle Pad Up: select previous file
         if ((kDown & KEY_UP) || shouldUpAutoRepeat) {
-            if (file_controller.selectedFile > 0) {
-                file_controller.selectedFile--;
+            if (fileController.selectedFile > 0) {
+                fileController.selectedFile--;
             } else {
                 // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
                 // first file selected
-                file_controller.selectedFile = file_controller.files.size() - 1;
+                fileController.selectedFile = fileController.files.size() - 1;
             }
             lastUpScrollTime_ms = osGetTime();
         }
 
         // DPad Down/Circle Pad Down: select next file
         double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
-        bool lastFileSelected = file_controller.selectedFile == file_controller.files.size() - 1;
+        bool lastFileSelected = fileController.selectedFile == fileController.files.size() - 1;
         bool shouldDownAutoRepeat =
             elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
         if ((kDown & KEY_DOWN) || shouldDownAutoRepeat) {
-            if (file_controller.selectedFile < file_controller.files.size() - 1) {
-                file_controller.selectedFile++;
+            if (fileController.selectedFile < fileController.files.size() - 1) {
+                fileController.selectedFile++;
             } else {
-                file_controller.selectedFile = 0;
+                fileController.selectedFile = 0;
             }
             lastDownScrollTime_ms = osGetTime();
         }
 
         // Left shoulder: go to previous song in folder
-        if (kDown & KEY_L && file_controller.playingFile != 0 && opus_controller.songReady) {
-            size_t nextSongIdx = file_controller.playingFile - 1;
+        if (kDown & KEY_L && fileController.playingFile != 0 && opusController.songReady) {
+            size_t nextSongIdx = fileController.playingFile - 1;
             stopPlaybackIfPlaying();
             std::string nextSongPath =
-                file_controller.cwd + file_controller.files[nextSongIdx].d_name;
+                fileController.cwd + fileController.files[nextSongIdx].d_name;
             playSong(nextSongPath);
-            file_controller.playingFile = nextSongIdx;
+            fileController.playingFile = nextSongIdx;
             logToBottomScreen(
-                ("Playing previous song: " + (std::string)file_controller.files[nextSongIdx].d_name)
+                ("Playing previous song: " + (std::string)fileController.files[nextSongIdx].d_name)
                     .c_str());
         }
 
         // Right shoulder: go to next song in folder
-        if (kDown & KEY_R && file_controller.playingFile < file_controller.files.size() - 1
-            && opus_controller.songReady) {
-            size_t nextSongIdx = file_controller.playingFile + 1;
+        if (kDown & KEY_R && fileController.playingFile < fileController.files.size() - 1
+            && opusController.songReady) {
+            size_t nextSongIdx = fileController.playingFile + 1;
             stopPlaybackIfPlaying();
             std::string nextSongPath =
-                file_controller.cwd + file_controller.files[nextSongIdx].d_name;
+                fileController.cwd + fileController.files[nextSongIdx].d_name;
             playSong(nextSongPath);
-            file_controller.playingFile = nextSongIdx;
+            fileController.playingFile = nextSongIdx;
             logToBottomScreen(
-                ("Playing next song: " + (std::string)file_controller.files[nextSongIdx].d_name)
+                ("Playing next song: " + (std::string)fileController.files[nextSongIdx].d_name)
                     .c_str());
         }
 
-        if (update_files) {
+        if (updateFiles) {
             consoleClear();
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
-            printC2DText(file_controller.cwd, 0);
-            printC2DText("selected file index: " + std::to_string(file_controller.selectedFile), 1);
-            printFiles(file_controller.files, file_controller.selectedFile, 10, 2);
+            printC2DText(fileController.cwd, 0);
+            printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
+            printFiles(fileController.files, fileController.selectedFile, 10, 2);
             C3D_FrameEnd(0);
         }
-        update_files = false;
+        updateFiles = false;
     }
     // necessary for exiting when a file is playing for some reason
-    if (opus_controller.songReady) {
-        opus_controller.stopPlayback = true;
+    if (opusController.songReady) {
+        opusController.stopPlayback = true;
         logToBottomScreen("cleanup, stopping playback...\n");
     }
 
-    run_threads = false;
+    runThreads = false;
     // signal audio thread (it finishes since the flag is set to false)
-    LightEvent_Signal(&opus_controller.startEvent);
+    LightEvent_Signal(&opusController.startEvent);
 
     // free threads
     threadJoin(threadId, UINT64_MAX);

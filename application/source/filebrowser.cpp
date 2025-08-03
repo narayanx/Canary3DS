@@ -1,6 +1,6 @@
 #include "filebrowser.h"
 
-FileController file_controller = {
+FileController fileController = {
     .cwd = "sdmc:/Music/",
     .files = {},
     .fileHistory = {},
@@ -9,19 +9,19 @@ FileController file_controller = {
 };
 
 std::vector<dirent> getFiles(const char *path) {
-    std::vector<dirent> file_list;
+    std::vector<dirent> fileList;
     DIR *dir = opendir(path);
     if (dir == nullptr) {
         printf("Failed to open directory: %s\n", path);
-        return file_list;
+        return fileList;
     }
 
     struct dirent *ent;
     while ((ent = readdir(dir)) != nullptr) {
-        file_list.push_back(*ent);
+        fileList.push_back(*ent);
     }
 
     closedir(dir);
-    return file_list;
+    return fileList;
 }
 

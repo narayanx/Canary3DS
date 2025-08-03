@@ -9,6 +9,7 @@
 #include <vector>
 
 inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
+inline constexpr int MAX_BOTTOM_SCREEN_LINES = 14;
 
 extern C2D_TextBuf g_dynamicBuf;
 // PrintConsole topConsole, bottomConsole;

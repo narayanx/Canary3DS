@@ -12,6 +12,7 @@ C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
 C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
 C2D_TextBuf g_dynamicBuf;
+
 void sceneInit(void) {
     g_dynamicBuf = C2D_TextBufNew(4096);
 }
@@ -25,14 +26,14 @@ void printC2DText(std::string msg, size_t lineOffset = 0) {
     C2D_TextBufClear(g_dynamicBuf);
 
     const float BASE_Y_OFFSET = 8.0f;
-    float y_offset = 16.0f * (lineOffset) + BASE_Y_OFFSET;
+    float yOffset = 16.0f * (lineOffset) + BASE_Y_OFFSET;
 
     char buf[160];
     C2D_Text dynText;
     snprintf(buf, sizeof(buf), "%s", msg.c_str());
     C2D_TextParse(&dynText, g_dynamicBuf, buf);
     C2D_TextOptimize(&dynText);
-    C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
+    C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, yOffset, 0.5f, 0.5f, 0.5f,
                  C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
 }
 
@@ -47,7 +48,7 @@ void logToBottomScreen(const char *message) {
     C3D_FrameEnd(0);
     line++;
     // arbitrary cutoff
-    if (line >= 14) {
+    if (line >= MAX_BOTTOM_SCREEN_LINES) {
         line = 0;
     }
 }
@@ -77,8 +78,8 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
         C2D_TextParse(&dynText, g_dynamicBuf, buf);
         C2D_TextOptimize(&dynText);
         const float BASE_Y_OFFSET = 8.0f;
-        float y_offset = 16.0f * (iter + lineOffset) + BASE_Y_OFFSET;
-        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
+        float yOffset = 16.0f * (iter + lineOffset) + BASE_Y_OFFSET;
+        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, yOffset, 0.5f, 0.5f, 0.5f,
                      C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
         iter++;
     }

@@ -16,7 +16,7 @@ struct FileController {
     size_t playingFile;
 };
 
-extern FileController file_controller;
+extern FileController fileController;
 
 std::vector<dirent> getFiles(const char *path);
 

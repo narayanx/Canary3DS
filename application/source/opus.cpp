@@ -10,7 +10,7 @@
 ndspWaveBuf s_waveBufs[3];
 int16_t *s_audioBuffer = NULL;
 
-OpusController opus_controller = {
+OpusController opusController = {
     .songPath = "",
     .file = nullptr,
     .songReady = false,  // also can be used to check if song is playing
@@ -20,7 +20,7 @@ OpusController opus_controller = {
     .doneEvent = {0},
     .fillBufferEvent = {0}};
 
-volatile bool run_threads = true;
+volatile bool runThreads = true;
 
 // SOURCE 3ds-examples/audio/opus-decoding START
 // Retrieve strings for libopusfile errors
@@ -172,18 +172,18 @@ void audioExit(void) {
 // SOURCE 3ds-examples/audio/opus-decoding END
 
 void audioThread(void *arg) {
-    while (run_threads) {
+    while (runThreads) {
         // wait until a song is ready to play
-        LightEvent_Wait(&opus_controller.startEvent);
+        LightEvent_Wait(&opusController.startEvent);
 
         // failsafe if somehow event is signaled when it shouldn't be
-        if (!opus_controller.songReady) {
+        if (!opusController.songReady) {
             continue;
         }
 
-        OggOpusFile *file = opus_controller.file;
+        OggOpusFile *file = opusController.file;
 
-        while (run_threads && !opus_controller.stopPlayback) {
+        while (runThreads && !opusController.stopPlayback) {
             for (size_t i = 0; i < ARRAY_SIZE(s_waveBufs); ++i) {
                 if (s_waveBufs[i].status != NDSP_WBUF_DONE) {
                     continue;
@@ -191,40 +191,40 @@ void audioThread(void *arg) {
 
                 // fill the buffer with audio data
                 if (!fillBuffer(file, &s_waveBufs[i])) {
-                    opus_controller.songReady = false;  // song finished playing
-                    // LightEvent_Signal(&opus_controller.doneEvent);
+                    opusController.songReady = false;  // song finished playing
+                    // LightEvent_Signal(&opusController.doneEvent);
                     // get outside of while loop until next song is played
-                    opus_controller.stopPlayback = true;
+                    opusController.stopPlayback = true;
                     break;
                 }
             }
-            LightEvent_Wait(&opus_controller.fillBufferEvent);
+            LightEvent_Wait(&opusController.fillBufferEvent);
         }
         // reset flags
-        op_free(opus_controller.file);
-        opus_controller.file = nullptr;
-        opus_controller.songReady = false;
-        opus_controller.stopPlayback = false;
+        op_free(opusController.file);
+        opusController.file = nullptr;
+        opusController.songReady = false;
+        opusController.stopPlayback = false;
 
-        LightEvent_Signal(&opus_controller.doneEvent);  // signal that playback is done
+        LightEvent_Signal(&opusController.doneEvent);  // signal that playback is done
     }
 }
 
 bool playSong(std::string path) {
-    opus_controller.songPath = path;
+    opusController.songPath = path;
 
     int error = 0;
-    opus_controller.file = op_open_file(opus_controller.songPath.c_str(), &error);
-    if (error || opus_controller.file == nullptr) {
+    opusController.file = op_open_file(opusController.songPath.c_str(), &error);
+    if (error || opusController.file == nullptr) {
         // TODO maybe have some sort of logging system, maybe log to file later?
         printf("Error opening file: %s\n", opusStrError(error));
         return false;
     }
-    opus_controller.songReady = true;
-    opus_controller.stopPlayback = false;
+    opusController.songReady = true;
+    opusController.stopPlayback = false;
 
     // signal to start playing song
-    LightEvent_Signal(&opus_controller.startEvent);
+    LightEvent_Signal(&opusController.startEvent);
 
     return true;
 }
@@ -232,39 +232,39 @@ bool playSong(std::string path) {
 void opusCallback(void *arg) {
     (void)arg;  // suppress unused parameter warning
 
-    if (!run_threads) {
+    if (!runThreads) {
         return;
     }
 
-    LightEvent_Signal(&opus_controller.fillBufferEvent);
+    LightEvent_Signal(&opusController.fillBufferEvent);
 }
 
 void stopPlaybackIfPlaying() {
-    if (opus_controller.songReady) {
+    if (opusController.songReady) {
         // if song is already playing, stop playback
-        opus_controller.stopPlayback = true;
-        opus_controller.interrupted = true;
+        opusController.stopPlayback = true;
+        opusController.interrupted = true;
     }
 }
 
 void playNextThread(void *arg) {
-    while (run_threads) {
-        LightEvent_Wait(&opus_controller.doneEvent);
-        if (opus_controller.interrupted) {
+    while (runThreads) {
+        LightEvent_Wait(&opusController.doneEvent);
+        if (opusController.interrupted) {
             // TODO allow more verbose logging with a VERBOSE flag (user can set)
             // logToBottomScreen("not autoplaying next because user interrupted playback");
             // user interrupted playback, so we don't play the next song
-            opus_controller.interrupted = false;
+            opusController.interrupted = false;
             continue;
         }
-        if (file_controller.playingFile < file_controller.files.size() - 1) {
-            size_t nextSongIdx = file_controller.playingFile + 1;
+        if (fileController.playingFile < fileController.files.size() - 1) {
+            size_t nextSongIdx = fileController.playingFile + 1;
             std::string nextSongPath =
-                file_controller.cwd + file_controller.files[nextSongIdx].d_name;
+                fileController.cwd + fileController.files[nextSongIdx].d_name;
             playSong(nextSongPath);
-            file_controller.playingFile = nextSongIdx;
+            fileController.playingFile = nextSongIdx;
             logToBottomScreen(
-                ("autoplaying: " + (std::string)file_controller.files[nextSongIdx].d_name).c_str());
+                ("autoplaying: " + (std::string)fileController.files[nextSongIdx].d_name).c_str());
         }
     }
 }
