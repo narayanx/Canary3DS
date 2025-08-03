@@ -35,4 +35,26 @@ extern OpusController opus_controller;
 extern ndspWaveBuf s_waveBufs[3];
 extern int16_t *s_audioBuffer;
 
+extern volatile bool run_threads;
+
+const char *opusStrError(int);
+
+bool fillBuffer(OggOpusFile *, ndspWaveBuf);
+
+void waitForInput(void);
+
+bool audioInit(void);
+
+void audioExit(void);
+
+void audioThread(void *arg);
+
+bool playSong(std::string path);
+
+void opusCallback(void *arg);
+
+void stopPlaybackIfPlaying();
+
+void playNextThread(void *arg);
+
 #endif
