@@ -1,9 +1,12 @@
 #include "gfx.h"
 
 #include <citro2d.h>
+#include <dirent.h>
 
 #include <string>
+#include <vector>
 
+#include "constants.h"
 
 C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
 C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
@@ -46,5 +49,37 @@ void logToBottomScreen(const char *message) {
     // arbitrary cutoff
     if (line >= 14) {
         line = 0;
+    }
+}
+
+void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
+                size_t lineOffset = 0) {
+    size_t iter = 0;
+    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
+         i++) {
+        char buf[160];
+        C2D_Text dynText;
+
+        std::string fileName = "";
+        std::string prefix = "";
+        std::string postfix = "";
+
+        if (i == selectedFile) {
+            prefix = "-> ";
+        } else {
+            prefix = "   ";
+        }
+        fileName = files[i].d_name;
+        if (files[i].d_type == DT_DIR) {
+            postfix = "/";
+        }
+        snprintf(buf, sizeof(buf), "%s%s%s", prefix.c_str(), fileName.c_str(), postfix.c_str());
+        C2D_TextParse(&dynText, g_dynamicBuf, buf);
+        C2D_TextOptimize(&dynText);
+        const float BASE_Y_OFFSET = 8.0f;
+        float y_offset = 16.0f * (iter + lineOffset) + BASE_Y_OFFSET;
+        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
+                     C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
+        iter++;
     }
 }

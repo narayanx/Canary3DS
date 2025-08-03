@@ -14,55 +14,6 @@
 #include "gfx.h"
 #include "opus.h"
 
-std::vector<dirent> getFiles(const char *path) {
-    std::vector<dirent> file_list;
-    DIR *dir = opendir(path);
-    if (dir == nullptr) {
-        printf("Failed to open directory: %s\n", path);
-        return file_list;
-    }
-
-    struct dirent *ent;
-    while ((ent = readdir(dir)) != nullptr) {
-        file_list.push_back(*ent);
-    }
-
-    closedir(dir);
-    return file_list;
-}
-
-void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
-                size_t lineOffset = 0) {
-    size_t iter = 0;
-    for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
-         i++) {
-        char buf[160];
-        C2D_Text dynText;
-
-        std::string fileName = "";
-        std::string prefix = "";
-        std::string postfix = "";
-
-        if (i == selectedFile) {
-            prefix = "-> ";
-        } else {
-            prefix = "   ";
-        }
-        fileName = files[i].d_name;
-        if (files[i].d_type == DT_DIR) {
-            postfix = "/";
-        }
-        snprintf(buf, sizeof(buf), "%s%s%s", prefix.c_str(), fileName.c_str(), postfix.c_str());
-        C2D_TextParse(&dynText, g_dynamicBuf, buf);
-        C2D_TextOptimize(&dynText);
-        const float BASE_Y_OFFSET = 8.0f;
-        float y_offset = 16.0f * (iter + lineOffset) + BASE_Y_OFFSET;
-        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, y_offset, 0.5f, 0.5f, 0.5f,
-                     C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
-        iter++;
-    }
-}
-
 int main(int argc, char *argv[]) {
     romfsInit();
     gfxInitDefault();
@@ -170,8 +121,9 @@ int main(int argc, char *argv[]) {
         // heap). Based on that decide if storing all files in cwd at once is viable or if smth
         // different is needed std::vector<dirent> files = getFiles(cwd.c_str());
 
-        // TODO add touch position to this
-        if (kDown || kHeld) {
+        // defaults to (0, 0)
+        bool screenTouched = touchPos.px != 0 || touchPos.py != 0;
+        if (kDown || kHeld || screenTouched) {
             update_files = true;  // only update screen when a button is pressed
         }
 

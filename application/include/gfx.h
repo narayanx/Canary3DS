@@ -3,7 +3,10 @@
 
 #include <3ds.h>
 #include <citro2d.h>
+#include <dirent.h>
+
 #include <string>
+#include <vector>
 
 inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
 
@@ -18,5 +21,7 @@ void logToBottomScreen(const char *message);
 void sceneInit(void);
 
 void sceneExit(void);
+
+void printFiles(std::vector<dirent>, size_t, size_t, size_t);
 
 #endif
