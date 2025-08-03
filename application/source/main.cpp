@@ -261,14 +261,10 @@ int main(int argc, char *argv[]) {
     audioExit();
     ndspExit();
 
-    // from 3ds-examples/graphics/printing/system-font/source/main.c START
-    // Deinitialize the scene
     sceneExit();
 
-    // Deinitialize the libs
     C2D_Fini();
     C3D_Fini();
-    // from 3ds-examples/graphics/printing/system-font/source/main.c END
 
     romfsExit();
     gfxExit();
