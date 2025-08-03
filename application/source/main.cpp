@@ -18,19 +18,11 @@ int main(int argc, char *argv[]) {
     romfsInit();
     gfxInitDefault();
 
-    // from 3ds-examples/graphics/printing/system-font/source/main.c START
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
     C2D_Prepare();
 
-    // // Create screen
-    // top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
-    // bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
-
-    // Initialize the scene
     sceneInit();
-
-    // from 3ds-examples/graphics/printing/system-font/source/main.c END
 
     // Enable N3DS 804MHz operation, where available
     // osSetSpeedupEnable(true);
@@ -218,10 +210,8 @@ int main(int argc, char *argv[]) {
             stopPlaybackIfPlaying();
             std::string nextSongPath =
                 file_controller.cwd + file_controller.files[nextSongIdx].d_name;
-            // TODO maybe abstact so setting of this bool is done when playSong is called START
             playSong(nextSongPath);
             file_controller.playingFile = nextSongIdx;
-            // TODO maybe abstact so setting of this bool is done when playSong is called END
             logToBottomScreen(
                 ("Playing previous song: " + (std::string)file_controller.files[nextSongIdx].d_name)
                     .c_str());
@@ -234,10 +224,8 @@ int main(int argc, char *argv[]) {
             stopPlaybackIfPlaying();
             std::string nextSongPath =
                 file_controller.cwd + file_controller.files[nextSongIdx].d_name;
-            // TODO maybe abstact so setting of this bool is done when playSong is called START
             playSong(nextSongPath);
             file_controller.playingFile = nextSongIdx;
-            // TODO maybe abstact so setting of this bool is done when playSong is called END
             logToBottomScreen(
                 ("Playing next song: " + (std::string)file_controller.files[nextSongIdx].d_name)
                     .c_str());
