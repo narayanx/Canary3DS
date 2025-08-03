@@ -314,6 +314,10 @@ int main(int argc, char *argv[]) {
         }
         update_files = false;
     }
+    if (opus_controller.songReady) {
+        opus_controller.stopPlayback = true;
+        logToBottomScreen("cleanup, stopping playback...\n");
+    }
 
     run_threads = false;
     // signal audio thread (it finishes since the flag is set to false)
