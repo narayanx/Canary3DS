@@ -11,20 +11,10 @@
 #include <vector>
 
 #include "filebrowser.h"
-#include "opus.h"
 #include "gfx.h"
+#include "opus.h"
 
-// const u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
-// C2D_TextBuf g_dynamicBuf;
-
-// TODO kinda temporary for debuggging can probably remove later
-// PrintConsole topConsole, bottomConsole;
-// C3D_RenderTarget *top, *bottom;
-
-
-
-
-std::vector<dirent> get_files(const char *path) {
+std::vector<dirent> getFiles(const char *path) {
     std::vector<dirent> file_list;
     DIR *dir = opendir(path);
     if (dir == nullptr) {
@@ -72,7 +62,6 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
         iter++;
     }
 }
-
 
 int main(int argc, char *argv[]) {
     romfsInit();
@@ -179,7 +168,7 @@ int main(int argc, char *argv[]) {
 
         // TODO test on 3ds how many files it takes to run out of memory (std::vector allocates on
         // heap). Based on that decide if storing all files in cwd at once is viable or if smth
-        // different is needed std::vector<dirent> files = get_files(cwd.c_str());
+        // different is needed std::vector<dirent> files = getFiles(cwd.c_str());
 
         // TODO add touch position to this
         if (kDown || kHeld) {
@@ -187,7 +176,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (update_files) {
-            file_controller.files = get_files(file_controller.cwd.c_str());
+            file_controller.files = getFiles(file_controller.cwd.c_str());
         }
         // A: enter directory
         if (kDown & KEY_A) {
@@ -200,7 +189,7 @@ int main(int argc, char *argv[]) {
                 if (file_controller.fileHistory.size() > MAX_DEPTH) {
                     file_controller.fileHistory.pop_front();
                 }
-                file_controller.files = get_files(file_controller.cwd.c_str());
+                file_controller.files = getFiles(file_controller.cwd.c_str());
             } else if (file_type == DT_REG) {
                 stopPlaybackIfPlaying();
                 char *song_filename = file_controller.files[file_controller.selectedFile].d_name;
@@ -211,7 +200,7 @@ int main(int argc, char *argv[]) {
                 file_controller.playingFile = file_controller.selectedFile;
             }
         }
-        
+
         if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
             if (opus_controller.songReady) {
@@ -235,7 +224,7 @@ int main(int argc, char *argv[]) {
                         // default to first file in parent directory
                         file_controller.selectedFile = 0;
                     }
-                    file_controller.files = get_files(file_controller.cwd.c_str());
+                    file_controller.files = getFiles(file_controller.cwd.c_str());
                 }
                 // maybe extract going up dir into a function END
             }
@@ -314,6 +303,7 @@ int main(int argc, char *argv[]) {
         }
         update_files = false;
     }
+    // necessary for exiting when a file is playing for some reason
     if (opus_controller.songReady) {
         opus_controller.stopPlayback = true;
         logToBottomScreen("cleanup, stopping playback...\n");
