@@ -13,6 +13,7 @@
 #include "filebrowser.h"
 #include "gfx.h"
 #include "opus.h"
+#include "image.h"
 
 int main(int argc, char *argv[]) {
     romfsInit();
@@ -36,6 +37,11 @@ int main(int argc, char *argv[]) {
     LightEvent_Init(&opusController.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opusController.doneEvent, RESET_ONESHOT);
 
+    C2D_Image kittenImage;
+    C3D_Tex kittenTex;
+    Tex3DS_SubTexture subtex;
+
+    loadC2DImage("romfs:/Kitten_rgba.png", kittenImage, kittenTex, subtex);
     // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
         printf("Failed to initialise audio\n");
@@ -238,6 +244,7 @@ int main(int argc, char *argv[]) {
             printC2DText(fileController.cwd, 0);
             printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
+            C2D_DrawImageAt(kittenImage, 20.0f, 20.0f, 0.5f);
             C3D_FrameEnd(0);
         }
         updateFiles = false;

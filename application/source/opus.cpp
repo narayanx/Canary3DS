@@ -3,6 +3,7 @@
 #include <3ds.h>
 
 #include <cstring>
+#include <string>
 
 #include "filebrowser.h"
 #include "gfx.h"
@@ -89,6 +90,7 @@ bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
         if (samples <= 0) {
             if (samples == 0) break;  // No error here
 
+            // TODO change to logToBottomScreen
             printf("op_read_stereo: error %d (%s)", samples, opusStrError(samples));
             break;
         }
@@ -98,7 +100,7 @@ bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
 
     // If no samples were read in the last decode cycle, we're done
     if (totalSamples == 0) {
-        printf("Playback complete, press Start to exit\n");
+        // printf("Playback complete, press Start to exit\n");
         return false;
     }
 
@@ -121,10 +123,10 @@ bool fillBuffer(OggOpusFile *opusFile_, ndspWaveBuf *waveBuf_) {
 
 // Pause until user presses a button
 void waitForInput(void) {
-    printf("Press any button to exit...\n");
+    logToBottomScreen("Press any button to exit...\n");
     while (aptMainLoop()) {
-        gspWaitForVBlank();
-        gfxSwapBuffers();
+        // gspWaitForVBlank();
+        // gfxSwapBuffers();
         hidScanInput();
 
         if (hidKeysDown()) break;
@@ -145,7 +147,7 @@ bool audioInit(void) {
     const size_t bufferSize = WAVEBUF_SIZE * ARRAY_SIZE(s_waveBufs);
     s_audioBuffer = (int16_t *)linearAlloc(bufferSize);
     if (!s_audioBuffer) {
-        printf("Failed to allocate audio buffer\n");
+        logToBottomScreen("Failed to allocate audio buffer\n");
         return false;
     }
 
@@ -217,7 +219,7 @@ bool playSong(std::string path) {
     opusController.file = op_open_file(opusController.songPath.c_str(), &error);
     if (error || opusController.file == nullptr) {
         // TODO maybe have some sort of logging system, maybe log to file later?
-        printf("Error opening file: %s\n", opusStrError(error));
+        logToBottomScreen(("Error opening file: "+(std::string)(opusStrError(error)) + '\n').c_str());
         return false;
     }
     opusController.songReady = true;
