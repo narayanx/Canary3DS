@@ -37,11 +37,11 @@ int main(int argc, char *argv[]) {
     LightEvent_Init(&opusController.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opusController.doneEvent, RESET_ONESHOT);
 
-    C2D_Image kittenImage;
-    C3D_Tex kittenTex;
+    C2D_Image image;
+    C3D_Tex tex;
     Tex3DS_SubTexture subtex;
 
-    loadC2DImage("romfs:/Kitten_rgba.png", kittenImage, kittenTex, subtex);
+    loadC2DImage("romfs:/carina_nebula.png", image, tex, subtex);
     // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
         logToBottomScreen("Failed to initialise audio\n");
@@ -143,10 +143,9 @@ int main(int argc, char *argv[]) {
             } else if (fileType == DT_REG) {
                 stopPlaybackIfPlaying();
                 char *songFilename = fileController.files[fileController.selectedFile].d_name;
-                // PrintConsole *prev = consoleSelect(&bottomConsole);
-                logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
-                // consoleSelect(prev);
-                playSong(fileController.cwd + songFilename);
+                if (playSong(fileController.cwd + songFilename)) {
+                    logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
+                }
                 fileController.playingFile = fileController.selectedFile;
             }
         }
@@ -244,7 +243,7 @@ int main(int argc, char *argv[]) {
             printC2DText(fileController.cwd, 0);
             printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
-            C2D_DrawImageAt(kittenImage, 20.0f, 20.0f, 0.5f);
+            C2D_DrawImageAt(image, 20.0f, 20.0f, 0.5f);
             C3D_FrameEnd(0);
         }
         updateFiles = false;
