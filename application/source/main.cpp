@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
     loadC2DImage("romfs:/Kitten_rgba.png", kittenImage, kittenTex, subtex);
     // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
-        printf("Failed to initialise audio\n");
+        logToBottomScreen("Failed to initialise audio\n");
         waitForInput();
 
         gfxExit();
