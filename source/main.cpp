@@ -10,12 +10,27 @@
 #include <string>
 #include <vector>
 
+#include "base64.h"
 #include "filebrowser.h"
 #include "gfx.h"
-#include "opus.h"
 #include "image.h"
+#include "opus.h"
 
-int main(int argc, char *argv[]) {
+u32 get_u32_be(const std::string& data, size_t index) {
+    return (static_cast<u8>(data[index]) << 24) | (static_cast<u8>(data[index + 1]) << 16)
+           | (static_cast<u8>(data[index + 2]) << 8) | static_cast<u8>(data[index + 3]);
+}
+void saveToFileC(const char* path, const char* data, size_t size) {
+    FILE* f = fopen(path, "wb");
+    if (!f) {
+        logToBottomScreen("Failed to open file\n");
+        return;
+    }
+
+    fwrite(data, 1, size, f);
+    fclose(f);
+}
+int main(int argc, char* argv[]) {
     romfsInit();
     gfxInitDefault();
 
@@ -41,7 +56,7 @@ int main(int argc, char *argv[]) {
     C3D_Tex tex;
     Tex3DS_SubTexture subtex;
 
-    loadC2DImage("romfs:/carina_nebula.png", image, tex, subtex);
+    // loadC2DImage("romfs:/carina_nebula.png", image, tex, subtex);
     // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
         logToBottomScreen("Failed to initialise audio\n");
@@ -73,7 +88,7 @@ int main(int argc, char *argv[]) {
     fileController.cwd = START_PATH;
 
     // if Music folder doesn't exist, default to sd root
-    DIR *tmp = opendir(fileController.cwd.c_str());
+    DIR* tmp = opendir(fileController.cwd.c_str());
     if (tmp == nullptr) {
         fileController.cwd = "sdmc:/";
         fileController.fileHistory.clear();
@@ -83,7 +98,7 @@ int main(int argc, char *argv[]) {
         tmp = opendir("sdmc:/");
         int i = 0;
         while (tmp != nullptr) {
-            dirent *ent = readdir(tmp);
+            dirent* ent = readdir(tmp);
             if (ent == nullptr) {
                 break;
             }
@@ -100,6 +115,9 @@ int main(int argc, char *argv[]) {
     // for holding down with scrolling to auto repeat
     u64 lastUpScrollTime_ms = osGetTime();
     u64 lastDownScrollTime_ms = osGetTime();
+
+    const char* coverArtBase64 = nullptr;
+    bool tryLoadImage = false;
 
     bool updateFiles = true;
 
@@ -142,9 +160,85 @@ int main(int argc, char *argv[]) {
                 fileController.files = getFiles(fileController.cwd.c_str());
             } else if (fileType == DT_REG) {
                 stopPlaybackIfPlaying();
-                char *songFilename = fileController.files[fileController.selectedFile].d_name;
+                char* songFilename = fileController.files[fileController.selectedFile].d_name;
+                logToBottomScreen("test1");
+
                 if (playSong(fileController.cwd + songFilename)) {
                     logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
+                    // try to load cover art
+                    size_t outSize = 0;
+                    coverArtBase64 = getCoverMetadataBase64(opusController, outSize);
+                    // saveToFileC("sdmc:/test/out/base64decoded.txt", coverArtBase64, outSize);
+                    if (coverArtBase64 == nullptr) {
+                        fileController.playingFile = fileController.selectedFile;
+                        continue;
+                    }
+                    logToBottomScreen("before b64 decode");
+                    svcSleepThread(1000000000LL);
+                    std::string coverArtMetadata = base64_decode(std::string(coverArtBase64));
+
+                    // TODO extract to own function/file
+                    // source: https://www.ietf.org/archive/id/draft-ietf-cellar-flac-08.pdf
+                    // (flac cover art metadata is same as opus)
+                    /* Data   Description
+                     * u(32)  The picture type according to next table
+                     * u(32)  The length of the media type string in bytes.
+                     * u(n*8) The media type string, in printable ASCII characters 0x20-0x7E. The
+                     * media type MAY also be --> to signify that the data part is a URI of the
+                     * picture instead of the picture data itself.
+                     * u(32)  The length of the description string in bytes.
+                     * u(n*8) The description of the picture, in UTF-8.
+                     * u(32)  The width of the picture in pixels.
+                     * u(32)  The height of the picture in pixels.
+                     * u(32)  The color depth of the picture in bits-per-pixel.
+                     * u(32)  For indexed-color pictures (e.g. GIF), the number of colors used, or 0
+                     * for non-indexed pictures.
+                     * u(32)  The length of the picture data in bytes.
+                     * u(n*8) The binary picture data. */
+                    // parse metadata START (10/18/25)
+                    // big endian
+                    u32 pictureType = get_u32_be(coverArtMetadata, 0);
+                    u32 mediaStringByteLen = get_u32_be(coverArtMetadata, 4);
+                    std::string mediaType = "";
+                    for (u32 i = 0; i < mediaStringByteLen; i++) {
+                        mediaType += coverArtMetadata[8 + i];
+                    }
+                    u32 pictureDescriptionByteLen =
+                        get_u32_be(coverArtMetadata, 8 + mediaStringByteLen);
+                    std::string pictureDescription = "";
+                    for (u32 i = 0; i < pictureDescriptionByteLen; i++) {
+                        pictureDescription += coverArtMetadata[12 + mediaStringByteLen + i];
+                    }
+                    u32 pictureWidth = get_u32_be(
+                        coverArtMetadata, 12 + mediaStringByteLen + pictureDescriptionByteLen);
+                    u32 pictureHeight = get_u32_be(
+                        coverArtMetadata, 16 + mediaStringByteLen + pictureDescriptionByteLen);
+                    u32 colorDepthBits = get_u32_be(
+                        coverArtMetadata, 20 + mediaStringByteLen + pictureDescriptionByteLen);
+                    u32 numColorsUsed = get_u32_be(
+                        coverArtMetadata, 24 + mediaStringByteLen + pictureDescriptionByteLen);
+
+                    u32 pictureDataByteLen = get_u32_be(
+                        coverArtMetadata, 28 + mediaStringByteLen + pictureDescriptionByteLen);
+                    size_t pictureByteOffset = 32 + mediaStringByteLen + pictureDescriptionByteLen;
+
+                    std::string coverArtDisplay =
+                        coverArtMetadata.substr(pictureByteOffset, pictureDataByteLen);
+                    saveToFileC("sdmc:/test/out/base64display.txt", coverArtDisplay.c_str(),
+                                outSize);
+
+                    if (true) {
+                        if (loadC2DImageMemory(
+                                reinterpret_cast<const unsigned char*>(coverArtDisplay.data()),
+                                pictureDataByteLen, image, tex, subtex)) {
+                            logToBottomScreen("Loaded cover art from metadata\n");
+                            tryLoadImage = true;
+                        } else {
+                            logToBottomScreen("Failed to load cover art from metadata\n");
+                        }
+                    } else {
+                        logToBottomScreen("No cover art found in metadata\n");
+                    }
                 }
                 fileController.playingFile = fileController.selectedFile;
             }
@@ -159,8 +253,7 @@ int main(int argc, char *argv[]) {
             } else {
                 // TODO: maybe extract going up dir into a function START
                 // ignore last character (trailing '/')
-                size_t lastSlashIdx =
-                    fileController.cwd.rfind('/', fileController.cwd.size() - 2);
+                size_t lastSlashIdx = fileController.cwd.rfind('/', fileController.cwd.size() - 2);
                 // since we ignore the trailing slash, when at root no slash will be found
                 if (lastSlashIdx != fileController.cwd.npos) {
                     // include slash
@@ -243,7 +336,10 @@ int main(int argc, char *argv[]) {
             printC2DText(fileController.cwd, 0);
             printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
-            C2D_DrawImageAt(image, 20.0f, 20.0f, 0.5f);
+            if (tryLoadImage) {
+                C2D_DrawImageAt(image, 20.0f, 20.0f, 0.5f);
+                tryLoadImage = false;
+            }
             C3D_FrameEnd(0);
         }
         updateFiles = false;

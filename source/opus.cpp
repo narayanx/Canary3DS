@@ -1,6 +1,7 @@
 #include "opus.h"
 
 #include <3ds.h>
+#include <opusfile.h>
 
 #include <cstring>
 #include <string>
@@ -219,7 +220,8 @@ bool playSong(std::string path) {
     opusController.file = op_open_file(opusController.songPath.c_str(), &error);
     if (error || opusController.file == nullptr) {
         // TODO maybe have some sort of logging system, maybe log to file later?
-        logToBottomScreen(("Error opening file: "+(std::string)(opusStrError(error)) + '\n').c_str());
+        logToBottomScreen(
+            ("Error opening file: " + (std::string)(opusStrError(error)) + '\n').c_str());
         return false;
     }
     opusController.songReady = true;
@@ -270,3 +272,81 @@ void playNextThread(void *arg) {
         }
     }
 }
+
+const OpusTags *getMetadata(OpusController &controller) {
+    // opus_tags_parse
+    auto tags = op_tags(controller.file, -1);
+    for (int i = 0; i < tags->comments; i++) {
+        // TODO maybe parse tags->user_comments[i] to get specific metadata fields
+        // like title, artist, album, etc.
+        // logToBottomScreen(std::string(tags->user_comments[i], tags->comment_lengths[i]).c_str());
+    }
+    return op_tags(controller.file, -1);
+}
+
+const char *getCoverMetadataBase64(OpusController &controller, size_t &outSize) {
+    auto tags = op_tags(controller.file, -1);
+    const int COVER_METADATA_TAG_LENGTH = 23;
+    for (int i = 0; i < tags->comments; i++) {
+        // tag names are case insensitive
+        if (strncasecmp(tags->user_comments[i], "METADATA_BLOCK_PICTURE=", COVER_METADATA_TAG_LENGTH) == 0) {
+            // don't include METADATA_BLOCK_PICTURE=
+            char *base64Data = tags->user_comments[i] + COVER_METADATA_TAG_LENGTH;
+            outSize = tags->comment_lengths[i] - COVER_METADATA_TAG_LENGTH;
+            // logToBottomScreen(std::string(base64Data, outSize).c_str());
+            return base64Data;
+        }
+    }
+
+    return nullptr;
+}
+
+// std::string parseCoverImageData() {
+//     // source: https://www.ietf.org/archive/id/draft-ietf-cellar-flac-08.pdf
+//     // (flac cover art metadata is same as opus)
+//     /* Data   Description
+//         * u(32)  The picture type according to next table
+//         * u(32)  The length of the media type string in bytes.
+//         * u(n*8) The media type string, in printable ASCII characters 0x20-0x7E. The
+//         * media type MAY also be --> to signify that the data part is a URI of the
+//         * picture instead of the picture data itself.
+//         * u(32)  The length of the description string in bytes.
+//         * u(n*8) The description of the picture, in UTF-8.
+//         * u(32)  The width of the picture in pixels.
+//         * u(32)  The height of the picture in pixels.
+//         * u(32)  The color depth of the picture in bits-per-pixel.
+//         * u(32)  For indexed-color pictures (e.g. GIF), the number of colors used, or 0
+//         * for non-indexed pictures.
+//         * u(32)  The length of the picture data in bytes.
+//         * u(n*8) The binary picture data. */
+//     // parse metadata START (10/18/25)
+//     // big endian
+//     u32 pictureType = get_u32_be(coverArtMetadata, 0);
+//     u32 mediaStringByteLen = get_u32_be(coverArtMetadata, 4);
+//     std::string mediaType = "";
+//     for (u32 i = 0; i < mediaStringByteLen; i++) {
+//         mediaType += coverArtMetadata[8 + i];
+//     }
+//     u32 pictureDescriptionByteLen =
+//         get_u32_be(coverArtMetadata, 8 + mediaStringByteLen);
+//     std::string pictureDescription = "";
+//     for (u32 i = 0; i < pictureDescriptionByteLen; i++) {
+//         pictureDescription += coverArtMetadata[12 + mediaStringByteLen + i];
+//     }
+//     u32 pictureWidth = get_u32_be(
+//         coverArtMetadata, 12 + mediaStringByteLen + pictureDescriptionByteLen);
+//     u32 pictureHeight = get_u32_be(
+//         coverArtMetadata, 16 + mediaStringByteLen + pictureDescriptionByteLen);
+//     u32 colorDepthBits = get_u32_be(
+//         coverArtMetadata, 20 + mediaStringByteLen + pictureDescriptionByteLen);
+//     u32 numColorsUsed = get_u32_be(
+//         coverArtMetadata, 24 + mediaStringByteLen + pictureDescriptionByteLen);
+
+//     u32 pictureDataByteLen = get_u32_be(
+//         coverArtMetadata, 28 + mediaStringByteLen + pictureDescriptionByteLen);
+//     size_t pictureByteOffset = 32 + mediaStringByteLen + pictureDescriptionByteLen;
+
+//     std::string coverArtDisplay =
+//         coverArtMetadata.substr(pictureByteOffset, pictureDataByteLen);
+//     return coverArtDisplay;
+// }

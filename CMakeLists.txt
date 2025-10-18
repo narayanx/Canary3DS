@@ -19,6 +19,7 @@ add_executable(${PROJECT_NAME}
   source/gfx.cpp
   source/image.cpp
   source/opus.cpp
+  source/base64.cpp
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE

@@ -57,4 +57,8 @@ void stopPlaybackIfPlaying();
 
 void playNextThread(void *arg);
 
+const OpusTags *getMetadata(OpusController &controller);
+
+const char *getCoverMetadataBase64(OpusController &controller, size_t &outSize);
+
 #endif

@@ -36,3 +36,34 @@ bool loadC2DImage(const char *filepath, C2D_Image &image, C3D_Tex& imageTex, Tex
     return true;
 }
 
+// returns true on success, false on failure
+bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, C3D_Tex& imageTex, Tex3DS_SubTexture &subtex) {
+    int width, height;
+    width = height = -1;
+    stbi_uc *data = stbi_load_from_memory(buffer, len, &width, &height, nullptr, 4);
+    logToBottomScreen(((std::string)"image width: "+std::to_string(width)).c_str());
+    logToBottomScreen(((std::string)"image height: "+std::to_string(height)).c_str());
+    logToBottomScreen(("len: "+std::to_string(len)).c_str());
+    if (!data) {
+        logToBottomScreen("Failed to load image\n");
+        return false;
+    }
+
+    C3D_TexInit(&imageTex, (u16)width, (u16)height, GPU_RGBA8);
+    ripConvertAndLoadC3DTexImage(&imageTex, data, GPU_TEXFACE_2D, 0);
+    stbi_image_free(data);
+
+    subtex = {.width = imageTex.width,
+                                .height = imageTex.height,
+                                .left = 0.0f,
+                                .top = 1.0f,
+                                .right = 1.0f,
+                                .bottom = 0.0f};
+
+    // C2D_Image image;
+    image.tex = &imageTex;
+    image.subtex = &subtex;
+
+    return true;
+}
+
