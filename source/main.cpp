@@ -173,8 +173,6 @@ int main(int argc, char* argv[]) {
                         fileController.playingFile = fileController.selectedFile;
                         continue;
                     }
-                    logToBottomScreen("before b64 decode");
-                    svcSleepThread(1000000000LL);
                     std::string coverArtMetadata = base64_decode(std::string(coverArtBase64));
 
                     // TODO extract to own function/file
@@ -227,17 +225,13 @@ int main(int argc, char* argv[]) {
                     saveToFileC("sdmc:/test/out/base64display.txt", coverArtDisplay.c_str(),
                                 outSize);
 
-                    if (true) {
-                        if (loadC2DImageMemory(
-                                reinterpret_cast<const unsigned char*>(coverArtDisplay.data()),
-                                pictureDataByteLen, image, tex, subtex)) {
-                            logToBottomScreen("Loaded cover art from metadata\n");
-                            tryLoadImage = true;
-                        } else {
-                            logToBottomScreen("Failed to load cover art from metadata\n");
-                        }
+                    if (loadC2DImageMemory(
+                        reinterpret_cast<const unsigned char*>(coverArtDisplay.data()),
+                        pictureDataByteLen, image, tex, subtex)) {
+                        logToBottomScreen("Loaded cover art from metadata\n");
+                        tryLoadImage = true;
                     } else {
-                        logToBottomScreen("No cover art found in metadata\n");
+                        logToBottomScreen("Failed to load cover art from metadata\n");
                     }
                 }
                 fileController.playingFile = fileController.selectedFile;
@@ -336,10 +330,9 @@ int main(int argc, char* argv[]) {
             printC2DText(fileController.cwd, 0);
             printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
-            if (tryLoadImage) {
-                C2D_DrawImageAt(image, 20.0f, 20.0f, 0.5f);
-                tryLoadImage = false;
-            }
+            // redraw image everytime rest of the screen updated (could change to smarter scheme
+            // later)
+            C2D_DrawImageAt(image, 150.0f, 20.0f, 0.75f);
             C3D_FrameEnd(0);
         }
         updateFiles = false;
