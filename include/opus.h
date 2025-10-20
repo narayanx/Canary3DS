@@ -31,6 +31,24 @@ struct OpusController {
     LightEvent doneEvent;        // for main thread to know when song actually stopped
     LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
 };
+
+struct OpusTagData {
+    u32 pictureType;
+    u32 mediaStringByteLen;
+    std::string mediaType = "";
+    u32 pictureDescriptionByteLen;
+    std::string pictureDescription = "";
+    u32 pictureWidth;
+    u32 pictureHeight;
+    u32 colorDepthBits;
+    u32 numColorsUsed;
+
+    u32 pictureDataByteLen;
+    size_t pictureByteOffset;  // not technically in the metadata, for convenience
+
+    std::string coverArtDisplay;  // the raw image data (base64 encoded)
+};
+
 extern OpusController opusController;
 extern ndspWaveBuf s_waveBufs[3];
 extern int16_t *s_audioBuffer;
@@ -60,5 +78,7 @@ void playNextThread(void *arg);
 const OpusTags *getMetadata(OpusController &controller);
 
 const char *getCoverMetadataBase64(OpusController &controller, size_t &outSize);
+
+OpusTagData parseMetadata(std::string coverArtMetadata);
 
 #endif

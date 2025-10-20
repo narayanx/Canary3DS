@@ -53,6 +53,11 @@ void logToBottomScreen(const char *message) {
     }
 }
 
+void logToBottomScreen(const std::string& message) {
+    // forward to c string version
+    logToBottomScreen(message.c_str());
+}
+
 void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
                 size_t lineOffset = 0) {
     size_t iter = 0;

@@ -18,6 +18,7 @@ extern C3D_RenderTarget *top, *bottom;
 void printC2DText(std::string, size_t);
 
 void logToBottomScreen(const char *message);
+void logToBottomScreen(const std::string& message);
 
 void sceneInit(void);
 

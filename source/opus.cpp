@@ -301,52 +301,58 @@ const char *getCoverMetadataBase64(OpusController &controller, size_t &outSize) 
     return nullptr;
 }
 
-// std::string parseCoverImageData() {
-//     // source: https://www.ietf.org/archive/id/draft-ietf-cellar-flac-08.pdf
-//     // (flac cover art metadata is same as opus)
-//     /* Data   Description
-//         * u(32)  The picture type according to next table
-//         * u(32)  The length of the media type string in bytes.
-//         * u(n*8) The media type string, in printable ASCII characters 0x20-0x7E. The
-//         * media type MAY also be --> to signify that the data part is a URI of the
-//         * picture instead of the picture data itself.
-//         * u(32)  The length of the description string in bytes.
-//         * u(n*8) The description of the picture, in UTF-8.
-//         * u(32)  The width of the picture in pixels.
-//         * u(32)  The height of the picture in pixels.
-//         * u(32)  The color depth of the picture in bits-per-pixel.
-//         * u(32)  For indexed-color pictures (e.g. GIF), the number of colors used, or 0
-//         * for non-indexed pictures.
-//         * u(32)  The length of the picture data in bytes.
-//         * u(n*8) The binary picture data. */
-//     // parse metadata START (10/18/25)
-//     // big endian
-//     u32 pictureType = get_u32_be(coverArtMetadata, 0);
-//     u32 mediaStringByteLen = get_u32_be(coverArtMetadata, 4);
-//     std::string mediaType = "";
-//     for (u32 i = 0; i < mediaStringByteLen; i++) {
-//         mediaType += coverArtMetadata[8 + i];
-//     }
-//     u32 pictureDescriptionByteLen =
-//         get_u32_be(coverArtMetadata, 8 + mediaStringByteLen);
-//     std::string pictureDescription = "";
-//     for (u32 i = 0; i < pictureDescriptionByteLen; i++) {
-//         pictureDescription += coverArtMetadata[12 + mediaStringByteLen + i];
-//     }
-//     u32 pictureWidth = get_u32_be(
-//         coverArtMetadata, 12 + mediaStringByteLen + pictureDescriptionByteLen);
-//     u32 pictureHeight = get_u32_be(
-//         coverArtMetadata, 16 + mediaStringByteLen + pictureDescriptionByteLen);
-//     u32 colorDepthBits = get_u32_be(
-//         coverArtMetadata, 20 + mediaStringByteLen + pictureDescriptionByteLen);
-//     u32 numColorsUsed = get_u32_be(
-//         coverArtMetadata, 24 + mediaStringByteLen + pictureDescriptionByteLen);
+// helper function for parsing vorbis comment
+u32 get_u32_be(const std::string& data, size_t index) {
+    return (static_cast<u8>(data[index]) << 24) | (static_cast<u8>(data[index + 1]) << 16)
+           | (static_cast<u8>(data[index + 2]) << 8) | static_cast<u8>(data[index + 3]);
+}
 
-//     u32 pictureDataByteLen = get_u32_be(
-//         coverArtMetadata, 28 + mediaStringByteLen + pictureDescriptionByteLen);
-//     size_t pictureByteOffset = 32 + mediaStringByteLen + pictureDescriptionByteLen;
+OpusTagData parseMetadata(std::string coverArtMetadata) {
+    OpusTagData metadata;
+    // source: https://www.ietf.org/archive/id/draft-ietf-cellar-flac-08.pdf
+    // (flac cover art metadata is same as opus)
+    /* Data   Description
+     * u(32)  The picture type according to next table
+     * u(32)  The length of the media type string in bytes.
+     * u(n*8) The media type string, in printable ASCII characters 0x20-0x7E. The
+     * media type MAY also be --> to signify that the data part is a URI of the
+     * picture instead of the picture data itself.
+     * u(32)  The length of the description string in bytes.
+     * u(n*8) The description of the picture, in UTF-8.
+     * u(32)  The width of the picture in pixels.
+     * u(32)  The height of the picture in pixels.
+     * u(32)  The color depth of the picture in bits-per-pixel.
+     * u(32)  For indexed-color pictures (e.g. GIF), the number of colors used, or 0
+     * for non-indexed pictures.
+     * u(32)  The length of the picture data in bytes.
+     * u(n*8) The binary picture data. */
+    // parse metadata START (10/18/25)
+    // big endian
 
-//     std::string coverArtDisplay =
-//         coverArtMetadata.substr(pictureByteOffset, pictureDataByteLen);
-//     return coverArtDisplay;
-// }
+    metadata.pictureType = get_u32_be(coverArtMetadata, 0);
+    metadata.mediaStringByteLen = get_u32_be(coverArtMetadata, 4);
+    for (u32 i = 0; i < metadata.mediaStringByteLen; i++) {
+        metadata.mediaType += coverArtMetadata[8 + i];
+    }
+    metadata.pictureDescriptionByteLen =
+        get_u32_be(coverArtMetadata, 8 + metadata.mediaStringByteLen);
+    for (u32 i = 0; i < metadata.pictureDescriptionByteLen; i++) {
+        metadata.pictureDescription += coverArtMetadata[12 + metadata.mediaStringByteLen + i];
+    }
+    metadata.pictureWidth = get_u32_be(
+        coverArtMetadata, 12 + metadata.mediaStringByteLen + metadata.pictureDescriptionByteLen);
+    metadata.pictureHeight = get_u32_be(
+        coverArtMetadata, 16 + metadata.mediaStringByteLen + metadata.pictureDescriptionByteLen);
+    metadata.colorDepthBits = get_u32_be(
+        coverArtMetadata, 20 + metadata.mediaStringByteLen + metadata.pictureDescriptionByteLen);
+    metadata.numColorsUsed = get_u32_be(
+        coverArtMetadata, 24 + metadata.mediaStringByteLen + metadata.pictureDescriptionByteLen);
+
+    metadata.pictureDataByteLen = get_u32_be(
+        coverArtMetadata, 28 + metadata.mediaStringByteLen + metadata.pictureDescriptionByteLen);
+    metadata.pictureByteOffset = 32 + metadata.mediaStringByteLen + metadata.pictureDescriptionByteLen;
+
+    metadata.coverArtDisplay =
+        coverArtMetadata.substr(metadata.pictureByteOffset, metadata.pictureDataByteLen);
+    return metadata;
+}

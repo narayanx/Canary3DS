@@ -16,10 +16,6 @@
 #include "image.h"
 #include "opus.h"
 
-u32 get_u32_be(const std::string& data, size_t index) {
-    return (static_cast<u8>(data[index]) << 24) | (static_cast<u8>(data[index + 1]) << 16)
-           | (static_cast<u8>(data[index + 2]) << 8) | static_cast<u8>(data[index + 3]);
-}
 void saveToFileC(const char* path, const char* data, size_t size) {
     FILE* f = fopen(path, "wb");
     if (!f) {
@@ -30,6 +26,7 @@ void saveToFileC(const char* path, const char* data, size_t size) {
     fwrite(data, 1, size, f);
     fclose(f);
 }
+
 int main(int argc, char* argv[]) {
     romfsInit();
     gfxInitDefault();
@@ -121,6 +118,9 @@ int main(int argc, char* argv[]) {
 
     bool updateFiles = true;
 
+    // for displaying embedded cover art
+    OpusTagData opusMetadata;
+
     while (aptMainLoop()) {
         hidScanInput();
 
@@ -166,68 +166,25 @@ int main(int argc, char* argv[]) {
                 if (playSong(fileController.cwd + songFilename)) {
                     logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
                     // try to load cover art
-                    size_t outSize = 0;
-                    coverArtBase64 = getCoverMetadataBase64(opusController, outSize);
-                    // saveToFileC("sdmc:/test/out/base64decoded.txt", coverArtBase64, outSize);
+                    size_t metadataByteLen = 0;
+                    coverArtBase64 = getCoverMetadataBase64(opusController, metadataByteLen);
+                    // saveToFileC("sdmc:/test/out/base64decoded.txt", coverArtBase64, metadataByteLen);
                     if (coverArtBase64 == nullptr) {
                         fileController.playingFile = fileController.selectedFile;
                         continue;
                     }
                     std::string coverArtMetadata = base64_decode(std::string(coverArtBase64));
+                    
+                    opusMetadata = parseMetadata(coverArtMetadata);
 
-                    // TODO extract to own function/file
-                    // source: https://www.ietf.org/archive/id/draft-ietf-cellar-flac-08.pdf
-                    // (flac cover art metadata is same as opus)
-                    /* Data   Description
-                     * u(32)  The picture type according to next table
-                     * u(32)  The length of the media type string in bytes.
-                     * u(n*8) The media type string, in printable ASCII characters 0x20-0x7E. The
-                     * media type MAY also be --> to signify that the data part is a URI of the
-                     * picture instead of the picture data itself.
-                     * u(32)  The length of the description string in bytes.
-                     * u(n*8) The description of the picture, in UTF-8.
-                     * u(32)  The width of the picture in pixels.
-                     * u(32)  The height of the picture in pixels.
-                     * u(32)  The color depth of the picture in bits-per-pixel.
-                     * u(32)  For indexed-color pictures (e.g. GIF), the number of colors used, or 0
-                     * for non-indexed pictures.
-                     * u(32)  The length of the picture data in bytes.
-                     * u(n*8) The binary picture data. */
-                    // parse metadata START (10/18/25)
-                    // big endian
-                    u32 pictureType = get_u32_be(coverArtMetadata, 0);
-                    u32 mediaStringByteLen = get_u32_be(coverArtMetadata, 4);
-                    std::string mediaType = "";
-                    for (u32 i = 0; i < mediaStringByteLen; i++) {
-                        mediaType += coverArtMetadata[8 + i];
-                    }
-                    u32 pictureDescriptionByteLen =
-                        get_u32_be(coverArtMetadata, 8 + mediaStringByteLen);
-                    std::string pictureDescription = "";
-                    for (u32 i = 0; i < pictureDescriptionByteLen; i++) {
-                        pictureDescription += coverArtMetadata[12 + mediaStringByteLen + i];
-                    }
-                    u32 pictureWidth = get_u32_be(
-                        coverArtMetadata, 12 + mediaStringByteLen + pictureDescriptionByteLen);
-                    u32 pictureHeight = get_u32_be(
-                        coverArtMetadata, 16 + mediaStringByteLen + pictureDescriptionByteLen);
-                    u32 colorDepthBits = get_u32_be(
-                        coverArtMetadata, 20 + mediaStringByteLen + pictureDescriptionByteLen);
-                    u32 numColorsUsed = get_u32_be(
-                        coverArtMetadata, 24 + mediaStringByteLen + pictureDescriptionByteLen);
-
-                    u32 pictureDataByteLen = get_u32_be(
-                        coverArtMetadata, 28 + mediaStringByteLen + pictureDescriptionByteLen);
-                    size_t pictureByteOffset = 32 + mediaStringByteLen + pictureDescriptionByteLen;
-
-                    std::string coverArtDisplay =
-                        coverArtMetadata.substr(pictureByteOffset, pictureDataByteLen);
-                    saveToFileC("sdmc:/test/out/base64display.txt", coverArtDisplay.c_str(),
-                                outSize);
+                    // saveToFileC("sdmc:/test/out/base64display.txt", opusMetadata.coverArtDisplay.c_str(),
+                    //             metadataByteLen);
+                    logToBottomScreen("metadataByteLen: " + std::to_string(metadataByteLen));
+                    logToBottomScreen("pictureDataByteLen: " + std::to_string(opusMetadata.pictureDataByteLen));
 
                     if (loadC2DImageMemory(
-                        reinterpret_cast<const unsigned char*>(coverArtDisplay.data()),
-                        pictureDataByteLen, image, tex, subtex)) {
+                        reinterpret_cast<const unsigned char*>(opusMetadata.coverArtDisplay.data()),
+                        opusMetadata.pictureDataByteLen, image, tex, subtex)) {
                         logToBottomScreen("Loaded cover art from metadata\n");
                         tryLoadImage = true;
                     } else {
@@ -332,7 +289,7 @@ int main(int argc, char* argv[]) {
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
             // redraw image everytime rest of the screen updated (could change to smarter scheme
             // later)
-            C2D_DrawImageAt(image, 150.0f, 20.0f, 0.75f);
+            C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
             C3D_FrameEnd(0);
         }
         updateFiles = false;
