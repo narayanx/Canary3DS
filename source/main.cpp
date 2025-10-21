@@ -161,7 +161,6 @@ int main(int argc, char* argv[]) {
             } else if (fileType == DT_REG) {
                 stopPlaybackIfPlaying();
                 char* songFilename = fileController.files[fileController.selectedFile].d_name;
-                logToBottomScreen("test1");
 
                 if (playSong(fileController.cwd + songFilename)) {
                     logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
@@ -289,7 +288,10 @@ int main(int argc, char* argv[]) {
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
             // redraw image everytime rest of the screen updated (could change to smarter scheme
             // later)
-            C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
+            if (tryLoadImage) {
+                C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
+                
+            }
             C3D_FrameEnd(0);
         }
         updateFiles = false;
@@ -303,6 +305,8 @@ int main(int argc, char* argv[]) {
     runThreads = false;
     // signal audio thread (it finishes since the flag is set to false)
     LightEvent_Signal(&opusController.startEvent);
+    // for playNextThread 
+    LightEvent_Signal(&opusController.doneEvent);
 
     // free threads
     threadJoin(threadId, UINT64_MAX);

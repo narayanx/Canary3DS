@@ -65,9 +65,14 @@ bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, 
     }
     int newWidth = nextPow2(width);
     int newHeight = nextPow2(height);
+    // TODO add check for if image is bigger than 1024x1024
 
+    size_t newBufferSize = newWidth * newHeight * 4;
+    unsigned char* padded = (unsigned char*)linearAlloc(newBufferSize);
     // unassigned rows should be 0 (transparent black pixels)
-    unsigned char* padded = (unsigned char*)linearAlloc(newWidth * newHeight * 4);
+    if (padded) {
+        memset(padded, 0, newBufferSize);
+    }
     
     // copy pixels in original image to larger image
     for (int y = 0; y < height; y++) {
