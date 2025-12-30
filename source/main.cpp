@@ -17,6 +17,12 @@
 #include "opus.h"
 
 
+enum class TopScreenState {
+    FILEBROWSER,
+    INFO,
+};
+
+
 int main(int argc, char* argv[]) {
     romfsInit();
     gfxInitDefault();
@@ -29,7 +35,6 @@ int main(int argc, char* argv[]) {
 
     // Enable N3DS 804MHz operation, where available
     // osSetSpeedupEnable(true);
-
     // lets us keep playing when 3ds is closed
     aptSetSleepAllowed(false);
 
@@ -113,6 +118,9 @@ int main(int argc, char* argv[]) {
     OpusTagData opusMetadata;
     // if user wants to control cover art displaying/not displaying
     bool displayCoverArt = true;
+
+    // for having multiple top screen views (defaults to filebrowser on startup)
+    TopScreenState screenState = TopScreenState::FILEBROWSER;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -213,6 +221,15 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // Y: switch between top screen views
+        if (kDown & KEY_Y) {
+            if (screenState == TopScreenState::FILEBROWSER) {
+                screenState = TopScreenState::INFO;
+            } else {
+                screenState = TopScreenState::FILEBROWSER;
+            }
+        }
+
         double elapsedUp_ms = osGetTime() - lastUpScrollTime_ms;
         bool firstFileSelected = fileController.selectedFile == 0;
         bool shouldUpAutoRepeat =
@@ -276,18 +293,22 @@ int main(int argc, char* argv[]) {
         }
 
         if (updateFiles) {
+            // TODO maybe extract this into class, getting a bit cluttered with checking enum for state of gui
             consoleClear();
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
             C2D_TargetClear(top, CLEAR_COLOR);
             C2D_SceneBegin(top);
-            printC2DText(fileController.cwd, 0);
-            printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
-            printFiles(fileController.files, fileController.selectedFile, 10, 2);
-            if (displayCoverArt) {
-                // redraw image everytime rest of the screen updated (could change to smarter scheme
-                // later)
-                if (tryLoadImage) {
-                    C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
+            if (screenState == TopScreenState::FILEBROWSER) {
+                printC2DText(fileController.cwd, 0);
+                printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
+                printFiles(fileController.files, fileController.selectedFile, 10, 2);
+            }  else if (screenState == TopScreenState::INFO) {
+                if (displayCoverArt) {
+                    // redraw image everytime rest of the screen updated (could change to smarter scheme
+                    // later)
+                    if (tryLoadImage) {
+                        C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
+                    }
                 }
             }
             C3D_FrameEnd(0);
