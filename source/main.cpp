@@ -16,16 +16,6 @@
 #include "image.h"
 #include "opus.h"
 
-void saveToFileC(const char* path, const char* data, size_t size) {
-    FILE* f = fopen(path, "wb");
-    if (!f) {
-        logToBottomScreen("Failed to open file\n");
-        return;
-    }
-
-    fwrite(data, 1, size, f);
-    fclose(f);
-}
 
 int main(int argc, char* argv[]) {
     romfsInit();
@@ -170,7 +160,6 @@ int main(int argc, char* argv[]) {
                     // try to load cover art
                     size_t metadataByteLen = 0;
                     coverArtBase64 = getCoverMetadataBase64(opusController, metadataByteLen);
-                    // saveToFileC("sdmc:/test/out/base64decoded.txt", coverArtBase64, metadataByteLen);
                     if (coverArtBase64 == nullptr) {
                         fileController.playingFile = fileController.selectedFile;
                         continue;
@@ -179,8 +168,6 @@ int main(int argc, char* argv[]) {
                     
                     opusMetadata = parseMetadata(coverArtMetadata);
 
-                    // saveToFileC("sdmc:/test/out/base64display.txt", opusMetadata.coverArtDisplay.c_str(),
-                    //             metadataByteLen);
                     logToBottomScreen("metadataByteLen: " + std::to_string(metadataByteLen));
                     logToBottomScreen("pictureDataByteLen: " + std::to_string(opusMetadata.pictureDataByteLen));
 
