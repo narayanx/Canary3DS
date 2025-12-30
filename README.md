@@ -1,3 +1,3 @@
-# template
+# Canary3DS
 
-This is a template for starting new 3DS libctru projects.
+A 3DS music player.
