@@ -51,7 +51,7 @@ int nextPow2(int x) {
 }
 
 // returns true on success, false on failure
-bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, C3D_Tex& imageTex, Tex3DS_SubTexture &subtex) {
+bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, C3D_Tex& imageTex, Tex3DS_SubTexture &subtex, bool freeTexMem) {
     int width, height;
     width = height = -1;
 
@@ -80,18 +80,23 @@ bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, 
         memcpy(padded + y * newWidth * 4, data + y * width * 4, width * 4);
     }
 
+    // if image Tex was being previously used, must free memory before reinitializing
+    if (freeTexMem) {
+        C3D_TexDelete(&imageTex);
+    }
+
     C3D_TexInit(&imageTex, (u16)newWidth, (u16)newHeight, GPU_RGBA8);
     ripConvertAndLoadC3DTexImage(&imageTex, padded, GPU_TEXFACE_2D, 0);
 
     linearFree(padded);
     stbi_image_free(data);
-
+    // set subtex to only the used area
     subtex = {.width = imageTex.width,
                                 .height = imageTex.height,
                                 .left = 0.0f,
                                 .top = 1.0f,
-                                .right = 1.0f,
-                                .bottom = 0.0f};
+                                .right = (float)width / (float)imageTex.width,
+                                .bottom = 1.0f - (float)height / (float)imageTex.height};
 
     // C2D_Image image;
     image.tex = &imageTex;

@@ -49,10 +49,6 @@ int main(int argc, char* argv[]) {
     LightEvent_Init(&opusController.startEvent, RESET_ONESHOT);
     LightEvent_Init(&opusController.doneEvent, RESET_ONESHOT);
 
-    C2D_Image image;
-    C3D_Tex tex;
-    Tex3DS_SubTexture subtex;
-
     // loadC2DImage("romfs:/carina_nebula.png", image, tex, subtex);
     // we only want to initialize/deinit at program start/end not everytime a song is played
     if (!audioInit()) {
@@ -113,13 +109,20 @@ int main(int argc, char* argv[]) {
     u64 lastUpScrollTime_ms = osGetTime();
     u64 lastDownScrollTime_ms = osGetTime();
 
+    // for displaying embedded cover art
+    C2D_Image image;
+    C3D_Tex tex;
+    Tex3DS_SubTexture subtex;
+    // try to fix line in top left corner
+    C3D_TexSetWrap(&tex, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
+
     const char* coverArtBase64 = nullptr;
     bool tryLoadImage = false;
-
     bool updateFiles = true;
-
-    // for displaying embedded cover art
+    bool loadedImage = false;
     OpusTagData opusMetadata;
+    // if user wants to control cover art displaying/not displaying
+    bool displayCoverArt = true;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -183,9 +186,11 @@ int main(int argc, char* argv[]) {
 
                     if (loadC2DImageMemory(
                         reinterpret_cast<const unsigned char*>(opusMetadata.coverArtDisplay.data()),
-                        opusMetadata.pictureDataByteLen, image, tex, subtex)) {
+                        opusMetadata.pictureDataByteLen, image, tex, subtex, loadedImage)) {
                         logToBottomScreen("Loaded cover art from metadata\n");
                         tryLoadImage = true;
+                        // if we previously loaded image, need to free memory before loading next
+                        loadedImage = true;
                     } else {
                         logToBottomScreen("Failed to load cover art from metadata\n");
                     }
@@ -278,6 +283,11 @@ int main(int argc, char* argv[]) {
                     .c_str());
         }
 
+        // TODO (this is just for testing to have way to toggle on/off cover art), eventually remove this and add setting in settings menu
+        if (kDown & KEY_SELECT) {
+            displayCoverArt = !displayCoverArt;
+        }
+
         if (updateFiles) {
             consoleClear();
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -286,11 +296,12 @@ int main(int argc, char* argv[]) {
             printC2DText(fileController.cwd, 0);
             printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
             printFiles(fileController.files, fileController.selectedFile, 10, 2);
-            // redraw image everytime rest of the screen updated (could change to smarter scheme
-            // later)
-            if (tryLoadImage) {
-                C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
-                
+            if (displayCoverArt) {
+                // redraw image everytime rest of the screen updated (could change to smarter scheme
+                // later)
+                if (tryLoadImage) {
+                    C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
+                }
             }
             C3D_FrameEnd(0);
         }
