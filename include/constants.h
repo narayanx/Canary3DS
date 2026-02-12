@@ -5,8 +5,8 @@
 
 // max file name seems to be 255, file paths are concatenated filenames
 inline constexpr int MAX_PATH_CHAR_LENGTH = 4096;
-// max files to display at once TODO change back to 14 once I'm done debugging
-inline constexpr int MAX_FILES = 12;
+// max files to display at once
+inline constexpr int MAX_FILES = 21;
 // make sure to have trailing '/' character
 inline constexpr std::string_view START_PATH = "sdmc:/Music/";
 // delay before auto repeat of input starts

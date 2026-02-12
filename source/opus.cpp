@@ -6,8 +6,10 @@
 #include <cstring>
 #include <string>
 
+#include "base64.h"
 #include "filebrowser.h"
 #include "gfx.h"
+#include "image.h"
 
 ndspWaveBuf s_waveBufs[3];
 int16_t *s_audioBuffer = NULL;
@@ -18,6 +20,7 @@ OpusController opusController = {
     .songReady = false,  // also can be used to check if song is playing
     .stopPlayback = false,
     .interrupted = false,  // don't autoplay next if user stopped song
+    .newSongStarted = false,  // at start, no song is playing
     .startEvent = {0},
     .doneEvent = {0},
     .fillBufferEvent = {0}};
@@ -226,6 +229,7 @@ bool playSong(std::string path) {
     }
     opusController.songReady = true;
     opusController.stopPlayback = false;
+    opusController.newSongStarted = true;  // try to load cover art
 
     // signal to start playing song
     LightEvent_Signal(&opusController.startEvent);
@@ -261,6 +265,13 @@ void playNextThread(void *arg) {
             opusController.interrupted = false;
             continue;
         }
+
+        // prioritize playing from queue
+        if (playNextFromQueue()) {
+            continue;
+        }
+
+        // autoplay next
         if (fileController.playingFile < fileController.files.size() - 1) {
             size_t nextSongIdx = fileController.playingFile + 1;
             std::string nextSongPath =
@@ -355,4 +366,60 @@ OpusTagData parseMetadata(std::string coverArtMetadata) {
     metadata.coverArtDisplay =
         coverArtMetadata.substr(metadata.pictureByteOffset, metadata.pictureDataByteLen);
     return metadata;
+}
+
+void enqueueSong(const std::string& path) {
+    fileController.playQueue.push_back(path);
+    logToBottomScreen("Added to queue: " + path);
+}
+
+bool playNextFromQueue() {
+    if (fileController.playQueue.empty()) {
+        return false;
+    }
+
+    std::string next = fileController.playQueue.front();
+    fileController.playQueue.pop_front();
+
+    if (playSong(next)) {
+        logToBottomScreen("Playing from queue: " + next);
+        return true;
+    }
+    return false;
+}
+
+bool loadCoverArtForCurrentSong(
+    C2D_Image &image,
+    C3D_Tex &tex,
+    Tex3DS_SubTexture &subtex,
+    bool &loadedImage
+) {
+    size_t metadataByteLen = 0;
+    const char* coverArtBase64 = getCoverMetadataBase64(opusController, metadataByteLen);
+
+    if (!coverArtBase64) {
+        logToBottomScreen("No embedded cover art found");
+        return false;
+    }
+
+    std::string decoded = base64_decode(std::string(coverArtBase64, metadataByteLen));
+    OpusTagData opusMetadata = parseMetadata(decoded);
+
+    bool ok = loadC2DImageMemory(
+        reinterpret_cast<const unsigned char*>(opusMetadata.coverArtDisplay.data()),
+        opusMetadata.pictureDataByteLen,
+        image,
+        tex,
+        subtex,
+        loadedImage
+    );
+
+    if (ok) {
+        loadedImage = true;
+    } else {
+        loadedImage = false;
+        logToBottomScreen("Failed to load cover art");
+    }
+
+    return ok;
 }

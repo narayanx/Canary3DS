@@ -12,7 +12,6 @@
 
 #include "gfx.h"
 
-// TODO add padding with transparent pixels to allow this to also support non power 2 image sizes
 // returns true on success, false on failure
 bool loadC2DImage(const char *filepath, C2D_Image &image, C3D_Tex& imageTex, Tex3DS_SubTexture &subtex) {
     int width, height;
@@ -24,7 +23,6 @@ bool loadC2DImage(const char *filepath, C2D_Image &image, C3D_Tex& imageTex, Tex
 
     C3D_TexInit(&imageTex, (u16)width, (u16)height, GPU_RGBA8);
     ripConvertAndLoadC3DTexImage(&imageTex, data, GPU_TEXFACE_2D, 0);
-    // C3D_TexLoadImage(&imageTex, data, (GPU_TEXFACE)0, 0);
     stbi_image_free(data);
 
     subtex = {.width = imageTex.width,
@@ -34,7 +32,6 @@ bool loadC2DImage(const char *filepath, C2D_Image &image, C3D_Tex& imageTex, Tex
                                 .right = 1.0f,
                                 .bottom = 0.0f};
 
-    // C2D_Image image;
     image.tex = &imageTex;
     image.subtex = &subtex;
 
@@ -56,9 +53,8 @@ bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, 
     width = height = -1;
 
     stbi_uc *data = stbi_load_from_memory(buffer, len, &width, &height, nullptr, 4);
-    logToBottomScreen(((std::string)"image width: "+std::to_string(width)).c_str());
-    logToBottomScreen(((std::string)"image height: "+std::to_string(height)).c_str());
-    logToBottomScreen(("len: "+std::to_string(len)).c_str());
+    // logToBottomScreen(((std::string)"image width: "+std::to_string(width)).c_str());
+    // logToBottomScreen(((std::string)"image height: "+std::to_string(height)).c_str());
     if (!data) {
         logToBottomScreen("Failed to load image\n");
         return false;
@@ -105,3 +101,17 @@ bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, 
     return true;
 }
 
+void drawCoverScaled(
+    C2D_Image& image,
+    Tex3DS_SubTexture& subtex,
+    float x,
+    float y
+) {
+    float scaleX = COVER_TARGET_WIDTH / image.tex->width;
+    float scaleY = COVER_TARGET_HEIGHT / image.tex->height;
+
+    // make non square cover art fit in target width by target height rectangle
+    float scale = std::min(scaleX, scaleY);
+
+    C2D_DrawImageAt(image, x, y, 1.0f, nullptr, scale, scale);
+}

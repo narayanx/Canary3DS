@@ -3,6 +3,7 @@
 
 #include <3ds.h>
 #include <opusfile.h>
+#include <citro2d.h>
 
 #include <string>
 
@@ -26,9 +27,10 @@ struct OpusController {
     OggOpusFile *file;
     volatile bool songReady;
     volatile bool stopPlayback;
-    volatile bool interrupted;   // distinguish between end of song and user interrupting playback
-    LightEvent startEvent;       // tells audio thread to start playback
-    LightEvent doneEvent;        // for main thread to know when song actually stopped
+    volatile bool interrupted;  // distinguish between end of song and user interrupting playback
+    volatile bool newSongStarted;  // for displaying cover art whenever a song is played
+    LightEvent startEvent;  // tells audio thread to start playback
+    LightEvent doneEvent;  // for main thread to know when song actually stopped
     LightEvent fillBufferEvent;  // the callback function needs a way to signal the audio thread
 };
 
@@ -80,5 +82,12 @@ const OpusTags *getMetadata(OpusController &controller);
 const char *getCoverMetadataBase64(OpusController &controller, size_t &outSize);
 
 OpusTagData parseMetadata(std::string coverArtMetadata);
+
+void enqueueSong(const std::string& path);
+
+bool playNextFromQueue();
+
+bool loadCoverArtForCurrentSong(C2D_Image &image, C3D_Tex &tex, Tex3DS_SubTexture &subtex, bool &loadedImage);
+
 
 #endif

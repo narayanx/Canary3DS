@@ -14,6 +14,7 @@ struct FileController {
     std::deque<size_t> fileHistory;
     size_t selectedFile;
     size_t playingFile;
+    std::deque<std::string> playQueue;
 };
 
 extern FileController fileController;

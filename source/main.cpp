@@ -10,7 +10,6 @@
 #include <string>
 #include <vector>
 
-#include "base64.h"
 #include "filebrowser.h"
 #include "gfx.h"
 #include "image.h"
@@ -111,9 +110,9 @@ int main(int argc, char* argv[]) {
     // try to fix line in top left corner
     C3D_TexSetWrap(&tex, GPU_CLAMP_TO_EDGE, GPU_CLAMP_TO_EDGE);
 
-    const char* coverArtBase64 = nullptr;
     bool tryLoadImage = false;
     bool updateFiles = true;
+    // if we previously loaded image, need to free memory before loading next
     bool loadedImage = false;
     OpusTagData opusMetadata;
     // if user wants to control cover art displaying/not displaying
@@ -147,58 +146,52 @@ int main(int argc, char* argv[]) {
         if (updateFiles) {
             fileController.files = getFiles(fileController.cwd.c_str());
         }
-        // A: enter directory
         if (kDown & KEY_A) {
-            auto fileType = fileController.files[fileController.selectedFile].d_type;
-            if (fileType == DT_DIR) {
-                fileController.cwd += fileController.files[fileController.selectedFile].d_name;
-                fileController.cwd += '/';
-                fileController.fileHistory.push_back(fileController.selectedFile);
-                fileController.selectedFile = 0;  // reset to first file in new directory
-                if (fileController.fileHistory.size() > MAX_DEPTH) {
-                    fileController.fileHistory.pop_front();
-                }
-                fileController.files = getFiles(fileController.cwd.c_str());
-            } else if (fileType == DT_REG) {
-                stopPlaybackIfPlaying();
-                char* songFilename = fileController.files[fileController.selectedFile].d_name;
-
-                if (playSong(fileController.cwd + songFilename)) {
-                    logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
-                    // try to load cover art
-                    size_t metadataByteLen = 0;
-                    coverArtBase64 = getCoverMetadataBase64(opusController, metadataByteLen);
-                    if (coverArtBase64 == nullptr) {
-                        fileController.playingFile = fileController.selectedFile;
-                        continue;
+            if (screenState == TopScreenState::FILEBROWSER) {
+                // A: enter directory
+                auto fileType = fileController.files[fileController.selectedFile].d_type;
+                if (fileType == DT_DIR) {
+                    fileController.cwd += fileController.files[fileController.selectedFile].d_name;
+                    fileController.cwd += '/';
+                    fileController.fileHistory.push_back(fileController.selectedFile);
+                    fileController.selectedFile = 0;  // reset to first file in new directory
+                    if (fileController.fileHistory.size() > MAX_DEPTH) {
+                        fileController.fileHistory.pop_front();
                     }
-                    std::string coverArtMetadata = base64_decode(std::string(coverArtBase64));
-                    
-                    opusMetadata = parseMetadata(coverArtMetadata);
+                    fileController.files = getFiles(fileController.cwd.c_str());
+                } else if (fileType == DT_REG) {
+                    stopPlaybackIfPlaying();
+                    char* songFilename = fileController.files[fileController.selectedFile].d_name;
 
-                    logToBottomScreen("metadataByteLen: " + std::to_string(metadataByteLen));
-                    logToBottomScreen("pictureDataByteLen: " + std::to_string(opusMetadata.pictureDataByteLen));
-
-                    if (loadC2DImageMemory(
-                        reinterpret_cast<const unsigned char*>(opusMetadata.coverArtDisplay.data()),
-                        opusMetadata.pictureDataByteLen, image, tex, subtex, loadedImage)) {
-                        logToBottomScreen("Loaded cover art from metadata\n");
-                        tryLoadImage = true;
-                        // if we previously loaded image, need to free memory before loading next
-                        loadedImage = true;
-                    } else {
-                        logToBottomScreen("Failed to load cover art from metadata\n");
+                    if (playSong(fileController.cwd + songFilename)) {
+                        logToBottomScreen(("Playing file: " + (std::string)songFilename).c_str());
+                        // switch to player screen when we play song with A
+                        screenState = TopScreenState::INFO;
                     }
+                    fileController.playingFile = fileController.selectedFile;
                 }
-                fileController.playingFile = fileController.selectedFile;
+            }
+        }
+
+        if (kDown & KEY_X) {
+            if (screenState == TopScreenState::FILEBROWSER) {
+                auto fileType = fileController.files[fileController.selectedFile].d_type;
+                if (fileType == DT_REG) {
+                    std::string songPath =
+                        fileController.cwd + fileController.files[fileController.selectedFile].d_name;
+                    enqueueSong(songPath);
+                }
             }
         }
 
         if (kDown & KEY_B) {
             // if song is playing and user presses B, stop playback instead of going up a directory
-            if (opusController.songReady) {
-                opusController.stopPlayback = true;
-                opusController.interrupted = true;
+            if (screenState == TopScreenState::INFO) {
+                // pause and go back
+                stopPlaybackIfPlaying();
+                screenState = TopScreenState::FILEBROWSER;
+                // don't display song's cover art anymore
+                tryLoadImage = false;
                 logToBottomScreen("Stopping playback...\n");
             } else {
                 // TODO: maybe extract going up dir into a function START
@@ -236,14 +229,16 @@ int main(int argc, char* argv[]) {
             elapsedUp_ms > REPEAT_DELAY_MS && (kHeld & KEY_UP) && (!firstFileSelected);
         // DPad Up/Circle Pad Up: select previous file
         if ((kDown & KEY_UP) || shouldUpAutoRepeat) {
-            if (fileController.selectedFile > 0) {
-                fileController.selectedFile--;
-            } else {
-                // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
-                // first file selected
-                fileController.selectedFile = fileController.files.size() - 1;
+            if (screenState == TopScreenState::FILEBROWSER) {
+                if (fileController.selectedFile > 0) {
+                    fileController.selectedFile--;
+                } else {
+                    // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
+                    // first file selected
+                    fileController.selectedFile = fileController.files.size() - 1;
+                }
+                lastUpScrollTime_ms = osGetTime();
             }
-            lastUpScrollTime_ms = osGetTime();
         }
 
         // DPad Down/Circle Pad Down: select next file
@@ -252,12 +247,14 @@ int main(int argc, char* argv[]) {
         bool shouldDownAutoRepeat =
             elapsedDown_ms > REPEAT_DELAY_MS && (kHeld & KEY_DOWN) && (!lastFileSelected);
         if ((kDown & KEY_DOWN) || shouldDownAutoRepeat) {
-            if (fileController.selectedFile < fileController.files.size() - 1) {
-                fileController.selectedFile++;
-            } else {
-                fileController.selectedFile = 0;
+            if (screenState == TopScreenState::FILEBROWSER) {
+                if (fileController.selectedFile < fileController.files.size() - 1) {
+                    fileController.selectedFile++;
+                } else {
+                    fileController.selectedFile = 0;
+                }
+                lastDownScrollTime_ms = osGetTime();
             }
-            lastDownScrollTime_ms = osGetTime();
         }
 
         // Left shoulder: go to previous song in folder
@@ -292,6 +289,16 @@ int main(int argc, char* argv[]) {
             displayCoverArt = !displayCoverArt;
         }
 
+        if (opusController.newSongStarted) {
+            opusController.newSongStarted = false;
+            
+            updateFiles = true;  // for autoplay next where no button is pressed but we want to update
+
+            bool ok = loadCoverArtForCurrentSong(image, tex, subtex, loadedImage);
+            // if no cover art found don't display anything
+            tryLoadImage = loadedImage && ok;
+        }
+
         if (updateFiles) {
             // TODO maybe extract this into class, getting a bit cluttered with checking enum for state of gui
             consoleClear();
@@ -300,16 +307,16 @@ int main(int argc, char* argv[]) {
             C2D_SceneBegin(top);
             if (screenState == TopScreenState::FILEBROWSER) {
                 printC2DText(fileController.cwd, 0);
-                printC2DText("selected file index: " + std::to_string(fileController.selectedFile), 1);
-                printFiles(fileController.files, fileController.selectedFile, 10, 2);
+                printFiles(fileController.files, fileController.selectedFile, MAX_FILES, 1);
             }  else if (screenState == TopScreenState::INFO) {
                 if (displayCoverArt) {
                     // redraw image everytime rest of the screen updated (could change to smarter scheme
                     // later)
                     if (tryLoadImage) {
-                        C2D_DrawImageAt(image, 0.0f, 0.0f, 1.0f, nullptr, .25f, .25f);
+                        drawCoverScaled(image, subtex, 10.0f, 10.0f);
                     }
                 }
+                printQueue(fileController.playQueue, 1);
             }
             C3D_FrameEnd(0);
         }

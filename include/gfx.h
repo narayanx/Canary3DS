@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <deque>
 
 inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x0D, 0x1F, 0x2D, 0xFF);
 inline constexpr int MAX_BOTTOM_SCREEN_LINES = 14;
@@ -25,5 +26,7 @@ void sceneInit(void);
 void sceneExit(void);
 
 void printFiles(std::vector<dirent>, size_t, size_t, size_t);
+
+void printQueue(const std::deque<std::string>& queue, size_t lineOffset = 0);
 
 #endif

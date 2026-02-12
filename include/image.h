@@ -7,5 +7,11 @@
 bool loadC2DImage(const char *filepath, C2D_Image &image, C3D_Tex& imageTex, Tex3DS_SubTexture &subtex);
 bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, C3D_Tex& imageTex, Tex3DS_SubTexture &subtex, bool freeTexMem=false);
 
+void drawCoverScaled( C2D_Image& image, Tex3DS_SubTexture& subtex, float x, float y);
+
+// target dimensions (pixels) for the cover art image
+constexpr float COVER_TARGET_WIDTH = 190.0f;
+constexpr float COVER_TARGET_HEIGHT = 190.0f;
+
 
 #endif
