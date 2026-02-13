@@ -23,8 +23,8 @@ void sceneExit(void) {
 }
 
 void printC2DText(std::string msg, size_t lineOffset = 0) {
-    const float BASE_Y_OFFSET = 8.0f;
-    const float LINE_Y_OFFSET = 10.0f;
+    const float BASE_Y_OFFSET = 0.0f;
+    const float LINE_Y_OFFSET = 14.0f;
 
     C2D_TextBufClear(g_dynamicBuf);
 
@@ -62,8 +62,8 @@ void logToBottomScreen(const std::string& message) {
 
 void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles = MAX_FILES,
                 size_t lineOffset = 0) {
-    const float BASE_Y_OFFSET = 8.0f;
-    const float LINE_Y_OFFSET = 10.0f;
+    const float BASE_Y_OFFSET = 0.0f;
+    const float LINE_Y_OFFSET = 14.0f;
 
     size_t iter = 0;
     for (size_t i = selectedFile; i < std::min(files.size(), (size_t)MAX_FILES + selectedFile);
