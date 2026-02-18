@@ -15,6 +15,8 @@ struct FileController {
     size_t selectedFile;
     size_t playingFile;
     std::deque<std::string> playQueue;
+    // use int to potentially use negative numbers for selecting song in history
+    int selectedQueueItem;
 };
 
 extern FileController fileController;

@@ -181,6 +181,14 @@ int main(int argc, char* argv[]) {
                         fileController.cwd + fileController.files[fileController.selectedFile].d_name;
                     enqueueSong(songPath);
                 }
+            } else if (screenState == TopScreenState::INFO && !fileController.playQueue.empty()) {
+               fileController.playQueue.erase(
+                   fileController.playQueue.begin() + fileController.selectedQueueItem);
+               if (fileController.selectedQueueItem > 0 &&
+                   (size_t)fileController.selectedQueueItem >= fileController.playQueue.size()) {
+                       fileController.selectedQueueItem--;
+                   }
+
             }
         }
 
@@ -233,14 +241,16 @@ int main(int argc, char* argv[]) {
                 if (fileController.selectedFile > 0) {
                     fileController.selectedFile--;
                 } else {
-                    // wraparound TODO make it so holding up doesn't wraparound, only when tapping when
-                    // first file selected
                     fileController.selectedFile = fileController.files.size() - 1;
+                }
+                lastUpScrollTime_ms = osGetTime();
+            } else if (screenState == TopScreenState::INFO && !fileController.playQueue.empty()) {
+                if (fileController.selectedQueueItem > 0) {
+                    fileController.selectedQueueItem--;
                 }
                 lastUpScrollTime_ms = osGetTime();
             }
         }
-
         // DPad Down/Circle Pad Down: select next file
         double elapsedDown_ms = osGetTime() - lastDownScrollTime_ms;
         bool lastFileSelected = fileController.selectedFile == fileController.files.size() - 1;
@@ -252,6 +262,11 @@ int main(int argc, char* argv[]) {
                     fileController.selectedFile++;
                 } else {
                     fileController.selectedFile = 0;
+                }
+                lastDownScrollTime_ms = osGetTime();
+            } else if (screenState == TopScreenState::INFO && !fileController.playQueue.empty()) {
+                if ((size_t)fileController.selectedQueueItem < fileController.playQueue.size() - 1) {
+                    fileController.selectedQueueItem++;
                 }
                 lastDownScrollTime_ms = osGetTime();
             }
@@ -316,7 +331,7 @@ int main(int argc, char* argv[]) {
                         drawCoverScaled(image, subtex, 10.0f, 10.0f);
                     }
                 }
-                printQueue(fileController.playQueue, 1);
+                printQueue(fileController.playQueue, fileController.selectedQueueItem, 1);
             }
             C3D_FrameEnd(0);
         }

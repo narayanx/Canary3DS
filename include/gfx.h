@@ -27,6 +27,6 @@ void sceneExit(void);
 
 void printFiles(std::vector<dirent>, size_t, size_t, size_t);
 
-void printQueue(const std::deque<std::string>& queue, size_t lineOffset = 0);
+void printQueue(const std::deque<std::string>& queue, size_t selectedItem, size_t lineOffset = 0);
 
 #endif

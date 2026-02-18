@@ -6,6 +6,7 @@ FileController fileController = {
     .fileHistory = {},
     .selectedFile = 0,
     .playingFile = 0,
+    .selectedQueueItem = 0
 };
 
 std::vector<dirent> getFiles(const char *path) {

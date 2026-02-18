@@ -94,7 +94,7 @@ void printFiles(std::vector<dirent> files, size_t selectedFile, size_t maxFiles 
     }
 }
 
-void printQueue(const std::deque<std::string>& queue, size_t lineOffset) {
+void printQueue(const std::deque<std::string>& queue, size_t selectedItem, size_t lineOffset) {
     if (queue.empty()) {
         return;
     }
@@ -118,6 +118,7 @@ void printQueue(const std::deque<std::string>& queue, size_t lineOffset) {
     size_t maxVisible = 10;
     for (size_t i = 0; i < std::min(queue.size(), maxVisible); i++) {
         std::string name = queue[i];
+        bool isSelected = (i == selectedItem);
 
         // strip path
         size_t slash = name.find_last_of('/');
@@ -130,8 +131,10 @@ void printQueue(const std::deque<std::string>& queue, size_t lineOffset) {
             name = name.substr(0, 17) + "...";
         }
 
+        std::string display = (isSelected ? "> " : "  ") + name;
+
         C2D_Text text;
-        C2D_TextParse(&text, g_dynamicBuf, name.c_str());
+        C2D_TextParse(&text, g_dynamicBuf, display.c_str());
         C2D_TextOptimize(&text);
 
         float y = BASE_Y_OFFSET + 16.0f * (i + 1 + lineOffset);
