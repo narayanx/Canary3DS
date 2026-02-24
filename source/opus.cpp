@@ -337,7 +337,6 @@ OpusTagData parseMetadata(std::string coverArtMetadata) {
      * for non-indexed pictures.
      * u(32)  The length of the picture data in bytes.
      * u(n*8) The binary picture data. */
-    // parse metadata START (10/18/25)
     // big endian
 
     metadata.pictureType = get_u32_be(coverArtMetadata, 0);
