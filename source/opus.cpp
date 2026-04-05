@@ -255,6 +255,14 @@ void stopPlaybackIfPlaying() {
     }
 }
 
+bool goToNextSong() {
+    if (opusController.songReady) {
+        opusController.stopPlayback = true;
+        return true;
+    }
+    return false;
+}
+
 void playNextThread(void *arg) {
     while (runThreads) {
         LightEvent_Wait(&opusController.doneEvent);

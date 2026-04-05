@@ -5,13 +5,15 @@
 
 #include <deque>
 #include <string>
+#include <utility>
 #include <vector>
+
 #include "constants.h"
 
 struct FileController {
     std::string cwd;
     std::vector<dirent> files;
-    std::deque<size_t> fileHistory;
+    std::deque<std::pair<size_t, size_t>> fileHistory;  //  { selectedFile, fileBrowserScrollOffset }
     size_t selectedFile;
     size_t playingFile;
     std::deque<std::string> playQueue;
@@ -21,6 +23,6 @@ struct FileController {
 
 extern FileController fileController;
 
-std::vector<dirent> getFiles(const char *path);
+std::vector<dirent> getFiles(const char* path);
 
 #endif

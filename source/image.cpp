@@ -81,7 +81,12 @@ bool loadC2DImageMemory(const unsigned char *buffer, int len, C2D_Image &image, 
         C3D_TexDelete(&imageTex);
     }
 
-    C3D_TexInit(&imageTex, (u16)newWidth, (u16)newHeight, GPU_RGBA8);
+    if (!C3D_TexInit(&imageTex, (u16)newWidth, (u16)newHeight, GPU_RGBA8)) {
+        linearFree(padded);
+        stbi_image_free(data);
+        logToBottomScreen("C3D_TexInit failed");
+        return false;
+    }
     ripConvertAndLoadC3DTexImage(&imageTex, padded, GPU_TEXFACE_2D, 0);
 
     linearFree(padded);

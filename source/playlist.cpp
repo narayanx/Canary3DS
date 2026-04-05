@@ -1,0 +1,178 @@
+#include "playlist.h"
+
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
+#include <algorithm>
+#include <fstream>
+#include <string>
+#include <vector>
+
+#include "gfx.h"
+
+
+static std::vector<std::string> splitPath(const std::string& path) {
+    std::vector<std::string> parts;
+    size_t start = 0, end;
+    while ((end = path.find('/', start)) != std::string::npos) {
+        if (end > start)
+            parts.push_back(path.substr(start, end - start));
+        start = end + 1;
+    }
+    if (start < path.size()) {
+        parts.push_back(path.substr(start));
+    }
+    return parts;
+}
+
+// "sdmc:/Music/song.opus" -> "../../../Music/song.opus" (relative to PLAYLIST_DIR)
+static std::string toRelativePath(const std::string& absTarget) {
+    std::vector<std::string> baseParts  = splitPath(std::string(PLAYLIST_DIR));
+    std::vector<std::string> targetParts = splitPath(absTarget);
+
+    // find common prefix length
+    size_t common = 0;
+    while (common < baseParts.size() && common < targetParts.size()
+           && baseParts[common] == targetParts[common]) {
+        common++;
+    }
+
+    std::string rel;
+    // one ".." for each remaining segment in the base directory
+    for (size_t i = common; i < baseParts.size(); i++)
+        rel += "../";
+    // then the remaining target segments
+    for (size_t i = common; i < targetParts.size(); i++) {
+        rel += targetParts[i];
+        if (i + 1 < targetParts.size())
+            rel += '/';
+    }
+    return rel;
+}
+
+// "../../../Music/song.opus" -> "sdmc:/Music/song.opus" (resolved against PLAYLIST_DIR)
+static std::string toAbsolutePath(const std::string& rel) {
+    // already absolute
+    if (rel.rfind("sdmc:/", 0) == 0) {
+        return rel;
+    }
+
+    std::vector<std::string> parts = splitPath(std::string(PLAYLIST_DIR));
+    for (const auto& seg : splitPath(rel)) {
+        if (seg == "..")
+            { if (!parts.empty()) parts.pop_back(); }
+        else if (seg != ".")
+            parts.push_back(seg);
+    }
+
+    std::string abs;
+    for (size_t i = 0; i < parts.size(); i++) {
+        abs += parts[i];
+        // "sdmc:" already contains the colon; add slash after it and between all others
+        if (i + 1 < parts.size())
+            abs += '/';
+    }
+    return abs;
+}
+
+static void ensurePlaylistDirExists() {
+    std::string path(PLAYLIST_DIR);
+    size_t pos = 0;
+    
+    // mkdir fails if parent directory doesn't exist
+    while ((pos = path.find('/', pos + 1)) != std::string::npos) {
+        std::string subdir = path.substr(0, pos);
+        mkdir(subdir.c_str(), 0777); // Ignore errors (directory may already exist)
+    }
+    
+    mkdir(path.c_str(), 0777);
+}
+
+std::vector<std::string> readPlaylistSongs(const std::string& playlistPath) {
+    std::vector<std::string> songs;
+    std::ifstream f(playlistPath);
+    if (!f.is_open()) {
+        return songs;
+    }
+    std::string line;
+    while (std::getline(f, line)) {
+        // Strip trailing \r if the file has Windows line endings
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty() && line[0] != '#') {
+            songs.push_back(toAbsolutePath(line));
+        }
+    }
+    return songs;
+}
+
+std::vector<Playlist> loadPlaylists() {
+    ensurePlaylistDirExists();
+    std::vector<Playlist> playlists;
+
+    DIR* dir = opendir(std::string(PLAYLIST_DIR).c_str());
+    if (!dir) {
+        logToBottomScreen("Failed to open playlist directory");
+        return playlists;
+    }
+
+    struct dirent* ent;
+    while ((ent = readdir(dir)) != nullptr) {
+        std::string fname = ent->d_name;
+        if (fname.size() > 4 && fname.substr(fname.size() - 4) == ".m3u") {
+            Playlist p;
+            p.name = fname.substr(0, fname.size() - 4);
+            p.path = std::string(PLAYLIST_DIR) + fname;
+            p.songs = readPlaylistSongs(p.path);
+            playlists.push_back(std::move(p));
+        }
+    }
+    closedir(dir);
+
+    std::sort(playlists.begin(), playlists.end(),
+              [](const Playlist& a, const Playlist& b) { return a.name < b.name; });
+
+    return playlists;
+}
+
+bool createPlaylist(const std::string& name) {
+    ensurePlaylistDirExists();
+    std::string path = std::string(PLAYLIST_DIR) + name + ".m3u";
+    std::ofstream f(path);
+    if (!f.is_open()) {
+        return false;
+    }
+    f << "#EXTM3U\n";
+    return true;
+}
+
+bool deletePlaylist(const std::string& playlistPath) {
+    return remove(playlistPath.c_str()) == 0;
+}
+
+bool addSongToPlaylist(const std::string& playlistPath, const std::string& songPath) {
+    std::ofstream f(playlistPath, std::ios::app);
+    if (!f.is_open()) {
+        return false;
+    }
+    f << toRelativePath(songPath) << "\n";
+    return true;
+}
+
+bool removeSongFromPlaylist(const std::string& playlistPath, size_t songIdx) {
+    std::vector<std::string> songs = readPlaylistSongs(playlistPath);
+    if (songIdx >= songs.size()) {
+        return false;
+    }
+    songs.erase(songs.begin() + songIdx);
+
+    std::ofstream f(playlistPath, std::ios::trunc);
+    if (!f.is_open()) return false;
+    f << "#EXTM3U\n";
+    for (const auto& s : songs) {
+        f << toRelativePath(s) << "\n";
+    }
+    return true;
+}

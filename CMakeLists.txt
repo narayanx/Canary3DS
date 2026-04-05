@@ -20,6 +20,7 @@ add_executable(${PROJECT_NAME}
   source/image.cpp
   source/opus.cpp
   source/base64.cpp
+  source/playlist.cpp
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE

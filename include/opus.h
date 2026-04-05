@@ -75,6 +75,8 @@ void opusCallback(void *arg);
 
 void stopPlaybackIfPlaying();
 
+bool goToNextSong();
+
 void playNextThread(void *arg);
 
 const OpusTags *getMetadata(OpusController &controller);
