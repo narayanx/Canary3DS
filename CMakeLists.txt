@@ -13,13 +13,13 @@ CPMAddPackage(
 )
 
 add_executable(${PROJECT_NAME}
-  source/audio_engine.cpp
-  source/audio_decoder.cpp
-  source/opus_decoder.cpp
-  source/mp3_decoder.cpp
-  source/flac_decoder.cpp
-  source/vorbis_decoder.cpp
-  source/wav_decoder.cpp
+  source/audio/audio_engine.cpp
+  source/audio/audio_decoder.cpp
+  source/audio/opus_decoder.cpp
+  source/audio/mp3_decoder.cpp
+  source/audio/flac_decoder.cpp
+  source/audio/vorbis_decoder.cpp
+  source/audio/wav_decoder.cpp
 
   source/main.cpp
   source/stb_image.cpp
