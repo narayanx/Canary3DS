@@ -1,273 +1,300 @@
 #include "gfx.h"
 
+#include <3ds.h>
 #include <citro2d.h>
 #include <dirent.h>
 
+#include <algorithm>
+#include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
 #include "constants.h"
 
-C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
-C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+C3D_RenderTarget* top    = C2D_CreateScreenTarget(GFX_TOP,    GFX_LEFT);
+C3D_RenderTarget* bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 
 C2D_TextBuf g_dynamicBuf;
 
-void sceneInit(void) {
-    g_dynamicBuf = C2D_TextBufNew(4096);
+// Log buffer (written from any thread, rendered from main thread)
+static LightLock          s_logLock;
+static bool               s_logLockInited = false;
+static std::vector<std::string> s_logLines;
+
+static void ensureLogLock() {
+    if (!s_logLockInited) {
+        LightLock_Init(&s_logLock);
+        s_logLockInited = true;
+    }
 }
 
-void sceneExit(void) {
-    // Delete the text buffers
+void sceneInit() {
+    g_dynamicBuf = C2D_TextBufNew(4096);
+    ensureLogLock();
+}
+
+void sceneExit() {
     C2D_TextBufDelete(g_dynamicBuf);
 }
 
-void printC2DText(std::string msg, size_t lineOffset = 0) {
-    const float BASE_Y_OFFSET = 0.0f;
-    const float LINE_Y_OFFSET = 16.0f;
-
-    C2D_TextBufClear(g_dynamicBuf);
-
-    float yOffset = LINE_Y_OFFSET * (lineOffset) + BASE_Y_OFFSET;
-
-    char buf[160];
-    C2D_Text dynText;
-    snprintf(buf, sizeof(buf), "%s", msg.c_str());
-    C2D_TextParse(&dynText, g_dynamicBuf, buf);
-    C2D_TextOptimize(&dynText);
-    C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, 10.0f, yOffset, 0.5f, 0.5f, 0.5f,
-                 C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
-}
-
-void logToBottomScreen(const char *message) {
-    static std::vector<std::string> logLines;
-    static C2D_TextBuf logBuf = nullptr;
-
-    if (!logBuf) {
-        logBuf = C2D_TextBufNew(4096);
-    }
-
-    logLines.emplace_back(message);
-    while ((int)logLines.size() > MAX_BOTTOM_SCREEN_LINES) {
-        logLines.erase(logLines.begin());
-    }
-
-    const float LINE_Y_OFFSET = 16.0f;
-
-    C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-    C2D_TargetClear(bottom, C2D_Color32(0x00, 0x00, 0x00, 0xFF)); // always clear
-    C2D_SceneBegin(bottom);
-    C2D_TextBufClear(logBuf);  // own buffer, never touches g_dynamicBuf
-
-    for (size_t i = 0; i < logLines.size(); i++) {
-        char buf[160];
-        C2D_Text dynText;
-        snprintf(buf, sizeof(buf), "%s", logLines[i].c_str());
-        C2D_TextParse(&dynText, logBuf, buf);
-        C2D_TextOptimize(&dynText);
-        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor,
-                     10.0f, LINE_Y_OFFSET * (float)i, 0.5f,
-                     0.5f, 0.5f, C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f));
-    }
-
-    C3D_FrameEnd(0);
+void logToBottomScreen(const char* message) {
+    ensureLogLock();
+    LightLock_Lock(&s_logLock);
+    s_logLines.emplace_back(message);
+    while ((int)s_logLines.size() > MAX_BOTTOM_LOG_LINES)
+        s_logLines.erase(s_logLines.begin());
+    LightLock_Unlock(&s_logLock);
 }
 
 void logToBottomScreen(const std::string& message) {
-    // forward to c string version
     logToBottomScreen(message.c_str());
 }
 
-void printFiles(std::vector<dirent> files, size_t selectedFile, size_t scrollOffset,
-                size_t maxFiles, size_t lineOffset) {
-    const float BASE_Y_OFFSET = 0.0f;
-    const float LINE_Y_OFFSET = 16.0f;
-    const float ITEM_X = 10.0f;
-
-    size_t iter = 0;
-    for (size_t i = scrollOffset; i < std::min(files.size(), (size_t)MAX_FILES + scrollOffset); i++) {
-        float yOffset = LINE_Y_OFFSET * (iter + lineOffset) + BASE_Y_OFFSET;
-
-        if (i == selectedFile) {
-            C2D_DrawRectSolid(0.0f, yOffset - 1.0f, 0.4f,
-                              400.0f, LINE_Y_OFFSET,
-                              C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
-        }
-
-        char buf[160];
-        C2D_Text dynText;
-        std::string fileName = files[i].d_name;
-        std::string postfix = (files[i].d_type == DT_DIR) ? "/" : "";
-        snprintf(buf, sizeof(buf), "%s%s", fileName.c_str(), postfix.c_str());
-        C2D_TextParse(&dynText, g_dynamicBuf, buf);
-        C2D_TextOptimize(&dynText);
-
-        u32 col = (i == selectedFile)
-                      ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
-                      : C2D_Color32f(0.7f, 0.7f, 0.7f, 1.0f);
-        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, ITEM_X, yOffset, 0.5f, 0.5f, 0.5f, col);
-        iter++;
-    }
+// Parse, optimise, and draw a string in one call.
+// The buf must outlive C2D_DrawText (it does since we draw immediately).
+static void drawStr(const char* str, float x, float y, float z,
+                    float sx, float sy, u32 col, int flags = C2D_AlignLeft | C2D_WithColor) {
+    char      tmp[192];
+    C2D_Text  t;
+    snprintf(tmp, sizeof(tmp), "%s", str);
+    C2D_TextParse(&t, g_dynamicBuf, tmp);
+    C2D_TextOptimize(&t);
+    C2D_DrawText(&t, flags, x, y, z, sx, sy, col);
 }
 
-void printQueue(const std::deque<std::string>& queue, size_t selectedItem, size_t lineOffset) {
-    if (queue.empty()) {
-        return;
-    }
-
-    const float START_X = 210.0f;
-    const float BASE_Y_OFFSET = 8.0f;
-
+void printC2DText(std::string msg, size_t lineOffset) {
     C2D_TextBufClear(g_dynamicBuf);
-
-    // Header
-    {
-        C2D_Text header;
-        C2D_TextParse(&header, g_dynamicBuf, "Queue");
-        C2D_TextOptimize(&header);
-        C2D_DrawText(&header, C2D_AlignLeft | C2D_WithColor,
-                     START_X, BASE_Y_OFFSET, 0.5f,
-                     0.5f, 0.5f,
-                     C2D_Color32f(0.5f, 0.5f, 0.5f, 1.0f)
-                    );
-    }
-
-    size_t maxVisible = 10;
-    for (size_t i = 0; i < std::min(queue.size(), maxVisible); i++) {
-        std::string name = queue[i];
-        bool isSelected = (i == selectedItem);
-
-        // strip path
-        size_t slash = name.find_last_of('/');
-        if (slash != std::string::npos) {
-            name = name.substr(slash + 1);
-        }
-
-        // truncate long names
-        if (name.length() > 20) {
-            name = name.substr(0, 17) + "...";
-        }
-        float y = BASE_Y_OFFSET + 16.0f * (i + lineOffset);
-
-        if (isSelected) {
-            C2D_DrawRectSolid(START_X, y - 1.0f, 0.4f,
-                            400.0f - START_X, 16.0f,
-                            C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
-        }
-        std::string display = name;
-
-        C2D_Text text;
-        C2D_TextParse(&text, g_dynamicBuf, display.c_str());
-        C2D_TextOptimize(&text);
-
-        u32 col = isSelected ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
-                            : C2D_Color32f(0.7f, 0.7f, 0.7f, 1.0f);
-        const float BUFFER_X = 4.0f;
-        C2D_DrawText(&text, C2D_AlignLeft | C2D_WithColor,
-                    START_X+BUFFER_X, y, 0.5f,
-                    0.45f, 0.45f, col);
-    }
-
-    if (queue.size() > maxVisible) {
-        C2D_Text more;
-        C2D_TextParse(&more, g_dynamicBuf, "...");
-        C2D_TextOptimize(&more);
-        C2D_DrawText(&more, C2D_AlignLeft | C2D_WithColor,
-                     START_X, BASE_Y_OFFSET + 16.0f * (maxVisible + 1),
-                     0.5f, 0.45f, 0.45f,
-                     C2D_Color32f(0.4f, 0.4f, 0.4f, 0.8f));
-    }
+    drawStr(msg.c_str(), 10.0f, 16.0f * (float)lineOffset, 0.5f,
+            0.5f, 0.5f, C2D_Color32f(1, 1, 1, 1));
 }
 
-// Renders items[scrollOffset .. scrollOffset+MAX_FILES), highlighting selectedIdx.
-// Mirrors the layout of printFiles exactly.
-void printStringList(const std::vector<std::string>& items, size_t selectedIdx,
-                     size_t scrollOffset, size_t lineOffset) {
-    if (items.empty()) {
-        printC2DText("(empty)", lineOffset);
-        return;
-    }
-
-    const float BASE_Y_OFFSET = 0.0f;
-    const float LINE_Y_OFFSET = 16.0f;
-    const float ITEM_X = 10.0f;
+void printFiles(std::vector<dirent> files, size_t selectedFile,
+                size_t scrollOffset, size_t /*maxFiles*/, size_t lineOffset) {
+    const float LINE_H = 16.0f;
+    C2D_TextBufClear(g_dynamicBuf);
 
     size_t iter = 0;
     for (size_t i = scrollOffset;
-         i < std::min(items.size(), scrollOffset + (size_t)MAX_FILES); i++) {
-        float yOffset = LINE_Y_OFFSET * (iter + lineOffset) + BASE_Y_OFFSET;
+         i < std::min(files.size(), scrollOffset + (size_t)MAX_FILES); ++i) {
 
-        if (i == selectedIdx) {
-            C2D_DrawRectSolid(0.0f, yOffset - 1.0f, 0.4f,
-                              400.0f, LINE_Y_OFFSET,
+        float y = LINE_H * (iter + lineOffset);
+
+        if (i == selectedFile)
+            C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H,
                               C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
-        }
 
-        char buf[160];
-        C2D_Text dynText;
-        snprintf(buf, sizeof(buf), "%s", items[i].c_str());
-        C2D_TextParse(&dynText, g_dynamicBuf, buf);
-        C2D_TextOptimize(&dynText);
+        std::string name = files[i].d_name;
+        if (files[i].d_type == DT_DIR) name += '/';
+
+        u32 col = (i == selectedFile)
+                  ? C2D_Color32f(1, 1, 1, 1)
+                  : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
+        drawStr(name.c_str(), 10, y, 0.5f, 0.5f, 0.5f, col);
+        ++iter;
+    }
+}
+
+void printQueue(const std::deque<std::string>& queue, size_t selectedItem,
+                size_t lineOffset) {
+    if (queue.empty()) return;
+
+    const float START_X  = 210.0f;
+    const float BASE_Y   = 8.0f;
+    const float LINE_H   = 16.0f;
+    const size_t maxVis  = 10;
+
+    C2D_TextBufClear(g_dynamicBuf);
+    drawStr("Queue", START_X, BASE_Y, 0.5f, 0.5f, 0.5f,
+            C2D_Color32f(0.5f, 0.5f, 0.5f, 1));
+
+    for (size_t i = 0; i < std::min(queue.size(), maxVis); ++i) {
+        std::string name = queue[i];
+        size_t sl = name.find_last_of('/');
+        if (sl != std::string::npos) name = name.substr(sl + 1);
+        if (name.length() > 20) name = name.substr(0, 17) + "...";
+
+        float y = BASE_Y + LINE_H * (float)(i + lineOffset);
+        if (i == selectedItem)
+            C2D_DrawRectSolid(START_X, y - 1, 0.4f, 400 - START_X, LINE_H,
+                              C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
+
+        u32 col = (i == selectedItem)
+                  ? C2D_Color32f(1, 1, 1, 1)
+                  : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
+        drawStr(name.c_str(), START_X + 4, y, 0.5f, 0.45f, 0.45f, col);
+    }
+
+    if (queue.size() > maxVis)
+        drawStr("...", START_X, BASE_Y + LINE_H * (float)(maxVis + 1), 0.5f,
+                0.45f, 0.45f, C2D_Color32f(0.4f, 0.4f, 0.4f, 0.8f));
+}
+
+void printStringList(const std::vector<std::string>& items, size_t selectedIdx,
+                     size_t scrollOffset, size_t lineOffset) {
+    if (items.empty()) { printC2DText("(empty)", lineOffset); return; }
+
+    const float LINE_H = 16.0f;
+    C2D_TextBufClear(g_dynamicBuf);
+
+    size_t iter = 0;
+    for (size_t i = scrollOffset;
+         i < std::min(items.size(), scrollOffset + (size_t)MAX_FILES); ++i) {
+
+        float y = LINE_H * (iter + lineOffset);
+        if (i == selectedIdx)
+            C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H,
+                              C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
 
         u32 col = (i == selectedIdx)
-                      ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
-                      : C2D_Color32f(0.7f, 0.7f, 0.7f, 1.0f);
-        C2D_DrawText(&dynText, C2D_AlignLeft | C2D_WithColor, ITEM_X, yOffset, 0.5f, 0.5f, 0.5f, col);
-        iter++;
+                  ? C2D_Color32f(1, 1, 1, 1)
+                  : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
+        drawStr(items[i].c_str(), 10, y, 0.5f, 0.5f, 0.5f, col);
+        ++iter;
     }
 }
 
 void printContextMenu(const std::vector<std::string>& options, size_t selectedIdx,
                       float anchorX, float anchorY) {
-    if (options.empty()) {
-        return;
-    }
+    if (options.empty()) return;
 
-    const float PAD    = 6.0f;
+    const float PAD   = 6.0f;
     const float LINE_H = 16.0f;
     const float BOX_W  = 190.0f;
     float BOX_H = LINE_H * (float)options.size() + PAD * 2.0f;
-
-    // Clamp so the box never leaves the 400x240 top screen
     float BOX_X = std::min(anchorX, 400.0f - BOX_W - 2.0f);
     float BOX_Y = std::min(anchorY, 240.0f - BOX_H - 2.0f);
 
-    // Drop-shadow
-    C2D_DrawRectSolid(BOX_X + 3.0f, BOX_Y + 3.0f, 0.55f, BOX_W, BOX_H,
-                      C2D_Color32(0x00, 0x00, 0x00, 0xB0));
-    // Background
-    C2D_DrawRectSolid(BOX_X, BOX_Y, 0.6f, BOX_W, BOX_H,
-                      C2D_Color32(0x1E, 0x1E, 0x1E, 0xF8));
-    // Border (four 1-px edges)
-    u32 borderCol = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
-    C2D_DrawRectSolid(BOX_X,              BOX_Y,             0.65f, BOX_W,  1.0f, borderCol);
-    C2D_DrawRectSolid(BOX_X,              BOX_Y + BOX_H - 1, 0.65f, BOX_W,  1.0f, borderCol);
-    C2D_DrawRectSolid(BOX_X,              BOX_Y,             0.65f, 1.0f,  BOX_H, borderCol);
-    C2D_DrawRectSolid(BOX_X + BOX_W - 1, BOX_Y,             0.65f, 1.0f,  BOX_H, borderCol);
+    C2D_DrawRectSolid(BOX_X + 3, BOX_Y + 3, 0.55f, BOX_W, BOX_H, C2D_Color32(0, 0, 0, 0xB0));
+    C2D_DrawRectSolid(BOX_X,     BOX_Y,     0.60f, BOX_W, BOX_H, C2D_Color32(0x1E, 0x1E, 0x1E, 0xF8));
 
-    // Clear buffer to use for context menu text
+    u32 border = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
+    C2D_DrawRectSolid(BOX_X,           BOX_Y,           0.65f, BOX_W, 1, border);
+    C2D_DrawRectSolid(BOX_X,           BOX_Y + BOX_H-1, 0.65f, BOX_W, 1, border);
+    C2D_DrawRectSolid(BOX_X,           BOX_Y,           0.65f, 1, BOX_H, border);
+    C2D_DrawRectSolid(BOX_X + BOX_W-1, BOX_Y,           0.65f, 1, BOX_H, border);
+
+    C2D_TextBufClear(g_dynamicBuf);
+    for (size_t i = 0; i < options.size(); ++i) {
+        bool  sel  = (i == selectedIdx);
+        float itemY = BOX_Y + PAD + LINE_H * (float)i;
+        if (sel)
+            C2D_DrawRectSolid(BOX_X + 1, itemY - 1, 0.62f,
+                              BOX_W - 2, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
+        u32 col = sel ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.6f, 0.6f, 0.6f, 1);
+        drawStr(options[i].c_str(), BOX_X + PAD, itemY, 0.7f, 0.46f, 0.46f, col);
+    }
+}
+
+void drawProgressBar(float x, float y, float w, float h, float progress) {
+    progress = std::max(0.0f, std::min(1.0f, progress));
+
+    // Track background
+    C2D_DrawRectSolid(x, y, 0.5f, w, h, C2D_Color32(0x33, 0x33, 0x33, 0xFF));
+    // Filled portion
+    if (progress > 0.0f)
+        C2D_DrawRectSolid(x, y, 0.55f, w * progress, h,
+                          C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+    // Border
+    u32 border = C2D_Color32(0x55, 0x55, 0x55, 0xFF);
+    C2D_DrawRectSolid(x,         y,         0.6f, w,   1,   border);
+    C2D_DrawRectSolid(x,         y + h - 1, 0.6f, w,   1,   border);
+    C2D_DrawRectSolid(x,         y,         0.6f, 1,   h,   border);
+    C2D_DrawRectSolid(x + w - 1, y,         0.6f, 1,   h,   border);
+    // Thumb circle (drawn as a small square for simplicity)
+    float thumbX = x + w * progress - 3.0f;
+    C2D_DrawRectSolid(thumbX, y - 2, 0.65f, 6, h + 4,
+                      C2D_Color32(0xFF, 0xFF, 0xFF, 0xCC));
+}
+
+static std::string fmtTime(double secs) {
+    if (secs < 0) secs = 0;
+    int s = (int)secs;
+    int m = s / 60;
+    s %= 60;
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%d:%02d", m, s);
+    return buf;
+}
+
+void drawTimeText(double positionSeconds, double durationSeconds,
+                  float x, float y, float scaleX, float scaleY) {
+    std::string text;
+    if (durationSeconds > 0)
+        text = fmtTime(positionSeconds) + " / " + fmtTime(durationSeconds);
+    else
+        text = fmtTime(positionSeconds);
+
+    C2D_TextBufClear(g_dynamicBuf);
+    drawStr(text.c_str(), x, y, 0.5f, scaleX, scaleY,
+            C2D_Color32f(0.85f, 0.85f, 0.85f, 1));
+}
+
+void renderBottomScreen(bool songPlaying, double positionSeconds,
+                        double durationSeconds, const std::string& songName,
+                        float seekBarX, float seekBarY,
+                        float seekBarW, float seekBarH) {
     C2D_TextBufClear(g_dynamicBuf);
 
-    // Option rows
-    for (size_t i = 0; i < options.size(); i++) {
-        bool sel   = (i == selectedIdx);
-        float itemY = BOX_Y + PAD + LINE_H * (float)(i);
+    // Log lines
+    {
+        LightLock_Lock(&s_logLock);
+        std::vector<std::string> lines = s_logLines; // snapshot
+        LightLock_Unlock(&s_logLock);
 
-        // Highlight bar behind selected item
-        if (sel) {
-            C2D_DrawRectSolid(BOX_X + 1.0f, itemY - 1.0f, 0.62f,
-                              BOX_W - 2.0f, LINE_H,
-                              C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
+        const float LINE_H = 16.0f;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            drawStr(lines[i].c_str(), 4, LINE_H * (float)i, 0.5f,
+                    0.42f, 0.42f, C2D_Color32f(0.65f, 0.65f, 0.65f, 1));
         }
-
-        std::string label = options[i];
-        C2D_Text t;
-        C2D_TextParse(&t, g_dynamicBuf, label.c_str());
-        C2D_TextOptimize(&t);
-        u32 col = sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
-                      : C2D_Color32f(0.6f, 0.6f, 0.6f, 1.0f);
-        C2D_DrawText(&t, C2D_AlignLeft | C2D_WithColor,
-                     BOX_X + PAD, itemY, 0.7f,
-                     0.46f, 0.46f, col);
     }
+
+    // Separator
+    C2D_DrawRectSolid(0, 161, 0.5f, 320, 1, C2D_Color32(0x30, 0x30, 0x30, 0xFF));
+
+    if (!songPlaying) {
+        // Greyed-out seek bar when nothing is playing
+        drawStr("No song playing", 4, 167, 0.5f,
+                0.42f, 0.42f, C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
+        C2D_DrawRectSolid(seekBarX, seekBarY, 0.5f, seekBarW, seekBarH,
+                          C2D_Color32(0x22, 0x22, 0x22, 0xFF));
+        return;
+    }
+
+    // Song name
+    {
+        std::string name = songName;
+        size_t sl = name.find_last_of('/');
+        if (sl != std::string::npos) name = name.substr(sl + 1);
+        // Strip extension for cleanliness
+        size_t dot = name.rfind('.');
+        if (dot != std::string::npos) name = name.substr(0, dot);
+        if (name.length() > 38) name = name.substr(0, 35) + "...";
+
+        drawStr(name.c_str(), 4, 165, 0.5f,
+                0.44f, 0.44f, C2D_Color32f(0.90f, 0.90f, 0.90f, 1));
+    }
+
+    // Time text
+    {
+        std::string t;
+        if (durationSeconds > 0)
+            t = fmtTime(positionSeconds) + " / " + fmtTime(durationSeconds);
+        else
+            t = fmtTime(positionSeconds);
+
+        // Right-align by drawing at a fixed right margin
+        drawStr(t.c_str(), 4, 181, 0.5f,
+                0.46f, 0.46f, C2D_Color32f(0.80f, 0.80f, 0.80f, 1));
+    }
+
+    // Seek bar
+    float progress = (durationSeconds > 0)
+                     ? (float)(positionSeconds / durationSeconds)
+                     : 0.0f;
+    drawProgressBar(seekBarX, seekBarY, seekBarW, seekBarH, progress);
+
+    // Touch hint
+    drawStr("Touch to seek", 4, seekBarY + seekBarH + 5, 0.5f,
+            0.38f, 0.38f, C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
 }

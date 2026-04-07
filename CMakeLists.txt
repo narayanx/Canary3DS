@@ -13,12 +13,19 @@ CPMAddPackage(
 )
 
 add_executable(${PROJECT_NAME}
+  source/audio_engine.cpp
+  source/audio_decoder.cpp
+  source/opus_decoder.cpp
+  source/mp3_decoder.cpp
+  source/flac_decoder.cpp
+  source/vorbis_decoder.cpp
+  source/wav_decoder.cpp
+
   source/main.cpp
   source/stb_image.cpp
   source/filebrowser.cpp
   source/gfx.cpp
   source/image.cpp
-  source/opus.cpp
   source/base64.cpp
   source/playlist.cpp
 )
@@ -38,7 +45,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  rip citro2d citro3d ctru m ${OPUSFILE_LIBRARIES}
+  mpg123 FLAC vorbisidec ogg rip citro2d citro3d ctru m ${OPUSFILE_LIBRARIES}
 )
 
 ctr_generate_smdh(${PROJECT_NAME}.smdh
