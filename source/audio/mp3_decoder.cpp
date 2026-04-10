@@ -16,7 +16,6 @@ public:
     ~Mp3Decoder() override { close(); }
 
     bool open(const std::string& path) override {
-        // mpg123_init() is a no-op in modern mpg123 but harmless to call
         mpg123_init();
 
         int err = MPG123_OK;
@@ -25,6 +24,9 @@ public:
             logToBottomScreen("mpg123_new failed: " + std::to_string(err));
             return false;
         }
+
+        // Without this flag mpg123 ignores picture data entirely and v2->pictures is always 0
+        mpg123_param(mh_, MPG123_ADD_FLAGS, MPG123_PICTURE, 0.0);
 
         if (mpg123_open(mh_, path.c_str()) != MPG123_OK) {
             logToBottomScreen("mpg123_open failed: " + path);
@@ -40,8 +42,6 @@ public:
 
         sampleRate_ = (int)rate;
 
-        // Scan file for accurate length and metadata
-        mpg123_scan(mh_);
         off_t total = mpg123_length(mh_);
         duration_ = (total > 0 && sampleRate_ > 0)
                     ? (double)total / (double)sampleRate_
