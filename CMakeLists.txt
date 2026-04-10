@@ -58,3 +58,45 @@ ctr_create_3dsx(${PROJECT_NAME}
   SMDH ${PROJECT_NAME}.smdh
   ROMFS romfs
 )
+
+# CIA BUILD
+set(CIA_FILE ${PROJECT_NAME}.cia)
+set(BANNER_BIN ${PROJECT_NAME}.bnr)
+set(ELF_FILE ${PROJECT_NAME}.elf)
+
+set(APP_UNIQUE_ID 0xCA4A5)
+
+# Build banner
+add_custom_command(
+  OUTPUT ${BANNER_BIN}
+  COMMAND bannertool makebanner
+    -i ${CMAKE_SOURCE_DIR}/assets/banner.png
+    -a ${CMAKE_SOURCE_DIR}/assets/banner.wav
+    -o ${BANNER_BIN}
+  DEPENDS ${PROJECT_NAME}.smdh
+  COMMENT "Building banner"
+)
+
+# Build CIA
+add_custom_command(
+  OUTPUT ${CIA_FILE}
+  COMMAND makerom
+    -f cia
+    -o ${CIA_FILE}
+    -elf ${ELF_FILE}
+    -rsf ${CMAKE_SOURCE_DIR}/assets/canary3ds.rsf
+    -icon ${PROJECT_NAME}.smdh
+    -banner ${BANNER_BIN}
+    -target t
+    -exefslogo
+    -DAPP_TITLE="${PROJECT_NAME}"
+    -DAPP_PRODUCT_CODE=CTR-H-CANR
+    -DAPP_UNIQUE_ID=${APP_UNIQUE_ID}
+  DEPENDS ${PROJECT_NAME} ${BANNER_BIN}
+  COMMENT "Building CIA"
+)
+
+# Add target (builds automatically with ALL)
+add_custom_target(${PROJECT_NAME}_cia ALL
+  DEPENDS ${CIA_FILE}
+)
