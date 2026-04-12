@@ -3,7 +3,6 @@
 #include "gfx.h"
 #include "base64.h"
 
-// 3ds-libvorbisidec (Tremor) – integer-only Vorbis decoder
 #include <tremor/ivorbisfile.h>
 #include <cstring>
 #include <string>
@@ -33,7 +32,6 @@ public:
             logToBottomScreen("Tremor: failed to open " + path);
             return false;
         }
-       
         open_ = true;
 
         vorbis_info* vi = ov_info(&vf_, -1);
@@ -43,15 +41,15 @@ public:
         ogg_int64_t totalMs = ov_time_total(&vf_, -1);
         duration_ = (totalMs > 0) ? (double)totalMs / 1000.0 : -1.0;
 
-        cacheCoverArt();
+        cacheTags();
         return true;
     }
 
     int decode(int16_t* buffer, int maxFrames) override {
         if (!open_) return -1;
 
-        int     section = 0;
-        int     total   = 0;
+        int section = 0;
+        int total   = 0;
 
         while (total < maxFrames) {
             int bytesWanted = (maxFrames - total) * channels_ * (int)sizeof(int16_t);
@@ -105,6 +103,8 @@ public:
             (int)coverArtBytes_.size(), image, tex, subtex, freeExisting);
     }
 
+    std::string getArtist() const override { return artist_; }
+
 private:
     OggVorbis_File vf_{};
     bool           open_       = false;
@@ -112,20 +112,31 @@ private:
     int            channels_   = 2;
     double         duration_   = -1.0;
     std::string    coverArtBytes_;
+    std::string    artist_;
+    std::string    trackNumber_;
 
-    static constexpr int TAG_PFX = 23; // len("METADATA_BLOCK_PICTURE=")
+    static constexpr int PIC_PFX   = 23; // strlen("METADATA_BLOCK_PICTURE=")
+    static constexpr int ART_PFX   = 7;  // strlen("ARTIST=")
+    static constexpr int TRACK_PFX = 12; // strlen("TRACKNUMBER=")
 
-    void cacheCoverArt() {
+    void cacheTags() {
         vorbis_comment* vc = ov_comment(&vf_, -1);
         if (!vc) return;
         for (int i = 0; i < vc->comments; ++i) {
-            if (strncasecmp(vc->user_comments[i],
-                            "METADATA_BLOCK_PICTURE=", TAG_PFX) != 0) continue;
-            const char* b64    = vc->user_comments[i] + TAG_PFX;
-            size_t      b64Len = (size_t)vc->comment_lengths[i] - TAG_PFX;
-            std::string decoded = base64_decode(std::string(b64, b64Len));
-            coverArtBytes_ = extractImageFromPictureBlock(decoded);
-            return;
+            const char* c   = vc->user_comments[i];
+            int         len = vc->comment_lengths[i];
+            if (strncasecmp(c, "METADATA_BLOCK_PICTURE=", PIC_PFX) == 0) {
+                if (coverArtBytes_.empty()) {
+                    std::string decoded = base64_decode(std::string(c + PIC_PFX, len - PIC_PFX));
+                    coverArtBytes_ = extractImageFromPictureBlock(decoded);
+                }
+            } else if (strncasecmp(c, "ARTIST=", ART_PFX) == 0) {
+                if (artist_.empty())
+                    artist_ = std::string(c + ART_PFX, len - ART_PFX);
+            } else if (strncasecmp(c, "TRACKNUMBER=", TRACK_PFX) == 0) {
+                if (trackNumber_.empty())
+                    trackNumber_ = std::string(c + TRACK_PFX, len - TRACK_PFX);
+            }
         }
     }
 };

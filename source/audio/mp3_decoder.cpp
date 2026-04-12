@@ -42,12 +42,13 @@ public:
 
         sampleRate_ = (int)rate;
 
+        // Duration from Xing/Info VBR header or CBR bitrate (no full scan).
         off_t total = mpg123_length(mh_);
         duration_ = (total > 0 && sampleRate_ > 0)
                     ? (double)total / (double)sampleRate_
                     : -1.0;
 
-        cacheCoverArt();
+        cacheTags();
         return true;
     }
 
@@ -93,28 +94,54 @@ public:
             (int)coverArtBytes_.size(), image, tex, subtex, freeExisting);
     }
 
+    std::string getArtist() const override { return artist_; }
+
 private:
     mpg123_handle* mh_          = nullptr;
     int            sampleRate_  = 44100;
     double         duration_    = -1.0;
     std::string    coverArtBytes_;
+    std::string    artist_;
+    std::string    trackNumber_;
 
-    void cacheCoverArt() {
+    void cacheTags() {
         if (!mh_) return;
         int meta = mpg123_meta_check(mh_);
         if (!(meta & MPG123_ID3)) return;
 
         mpg123_id3v1* v1 = nullptr;
         mpg123_id3v2* v2 = nullptr;
-        if (mpg123_id3(mh_, &v1, &v2) != MPG123_OK || !v2) return;
+        if (mpg123_id3(mh_, &v1, &v2) != MPG123_OK) return;
 
-        for (size_t i = 0; i < v2->pictures; ++i) {
-            mpg123_picture& pic = v2->picture[i];
-            if (pic.size > 0 && pic.data) {
-                coverArtBytes_.assign(reinterpret_cast<char*>(pic.data), pic.size);
-                return;   // take the first picture
+        // ID3v2 – preferred source for all tags
+        if (v2) {
+            if (v2->artist && v2->artist->p && v2->artist->p[0])
+                artist_ = v2->artist->p;
+
+            // TRCK frame holds track number (may be "N/M" – store as-is)
+            for (size_t i = 0; i < v2->texts; ++i) {
+                if (memcmp(v2->text[i].id, "TRCK", 4) == 0 &&
+                    v2->text[i].text.p && v2->text[i].text.p[0]) {
+                    trackNumber_ = v2->text[i].text.p;
+                    break;
+                }
+            }
+
+            // Cover art (APIC frames)
+            if (coverArtBytes_.empty()) {
+                for (size_t i = 0; i < v2->pictures; ++i) {
+                    mpg123_picture& pic = v2->picture[i];
+                    if (pic.size > 0 && pic.data) {
+                        coverArtBytes_.assign(reinterpret_cast<char*>(pic.data), pic.size);
+                        break;
+                    }
+                }
             }
         }
+
+        // ID3v1 fallback for artist if v2 didn't provide one
+        if (artist_.empty() && v1 && v1->artist[0])
+            artist_ = std::string(v1->artist, strnlen(v1->artist, sizeof(v1->artist)));
     }
 };
 

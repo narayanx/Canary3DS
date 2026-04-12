@@ -47,11 +47,17 @@ void logToBottomScreen(const std::string& message);
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).
-void renderBottomScreen(bool       songPlaying,
-                        double     positionSeconds,
-                        double     durationSeconds,
+// seekProgressOverride: when >= 0 the progress bar and timestamp are drawn at
+//                       this normalised position (0–1) instead of computing
+//                       from positionSeconds/durationSeconds.  Pass -1 (the
+//                       default) for normal playback display.
+void renderBottomScreen(bool              songPlaying,
+                        double            positionSeconds,
+                        double            durationSeconds,
                         const std::string& songName,
+                        const std::string& songArtist,
                         float seekBarX, float seekBarY,
-                        float seekBarW, float seekBarH);
+                        float seekBarW, float seekBarH,
+                        float seekProgressOverride = -1.0f);
 
 #endif

@@ -16,8 +16,9 @@
  * Thread safety contract:
  *   open(), decode(), seekTo(), getPositionSeconds(), close() are called
  *   exclusively from the audio thread.
- *   loadCoverArt() is called from the main thread after open() returns –
- *   implementations must cache artwork synchronously inside open().
+ *   loadCoverArt() / getArtist() are called from the main thread after
+ *   open() returns – implementations must cache all metadata synchronously
+ *   inside open().
  *   getDurationSeconds() / getSampleRate() are read-only after open() and
  *   may be called from any thread.
  */
@@ -25,7 +26,7 @@ class IAudioDecoder {
 public:
     virtual ~IAudioDecoder() = default;
 
-    // Open the file and cache any metadata (cover art, duration).
+    // Open the file and cache any metadata (cover art, tags, duration).
     virtual bool open(const std::string& path) = 0;
 
     // Decode up to maxFrames interleaved stereo int16 pairs into buffer.
@@ -54,6 +55,9 @@ public:
         (void)image; (void)tex; (void)subtex; (void)freeExisting;
         return false;
     }
+
+    // Artist tag string (main thread, after open()); empty if unavailable.
+    virtual std::string getArtist() const { return ""; }
 
     virtual bool isOpen() const = 0;
 };

@@ -15,6 +15,7 @@ int16_t*     s_audioBuffer = nullptr;
 
 AudioController audioController = {
     .songPath             = "",
+    .songArtist           = "",
     .decoder              = nullptr,
     .songReady            = false,
     .stopPlayback         = false,
@@ -158,6 +159,7 @@ bool playSong(const std::string& path) {
     }
 
     audioController.songPath            = path;
+    audioController.songArtist          = dec->getArtist();
     audioController.sampleRate          = dec->getSampleRate();
     audioController.songDurationSeconds = dec->getDurationSeconds();
     audioController.songPositionSeconds = 0.0;
@@ -203,10 +205,6 @@ bool playNextFromQueue() {
     return false;
 }
 
-// ---------------------------------------------------------------------------
-// Auto-play thread
-// ---------------------------------------------------------------------------
-
 void playNextThread(void* /*arg*/) {
     while (runThreads) {
         LightEvent_Wait(&audioController.doneEvent);
@@ -228,10 +226,6 @@ void playNextThread(void* /*arg*/) {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Cover art (decoder cached it during open(); safe from main thread)
-// ---------------------------------------------------------------------------
 
 bool loadCoverArtForCurrentSong(C2D_Image& image, C3D_Tex& tex,
                                  Tex3DS_SubTexture& subtex, bool& loadedImage) {

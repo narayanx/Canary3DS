@@ -25,8 +25,9 @@ public:
         dec_ = FLAC__stream_decoder_new();
         if (!dec_) { logToBottomScreen("FLAC: alloc failed"); return false; }
 
-        // Request PICTURE metadata blocks in addition to STREAMINFO
+        // Request both PICTURE and VORBIS_COMMENT metadata blocks.
         FLAC__stream_decoder_set_metadata_respond(dec_, FLAC__METADATA_TYPE_PICTURE);
+        FLAC__stream_decoder_set_metadata_respond(dec_, FLAC__METADATA_TYPE_VORBIS_COMMENT);
 
         FLAC__StreamDecoderInitStatus st =
             FLAC__stream_decoder_init_file(dec_, path.c_str(),
@@ -56,8 +57,8 @@ public:
                 eof_ = true;
                 break;
             }
-            FLAC__StreamDecoderState state = FLAC__stream_decoder_get_state(dec_);
-            if (state == FLAC__STREAM_DECODER_END_OF_STREAM) eof_ = true;
+            if (FLAC__stream_decoder_get_state(dec_) ==
+                FLAC__STREAM_DECODER_END_OF_STREAM) eof_ = true;
         }
 
         int frames = std::min(maxFrames, (int)pcmReady());
@@ -118,7 +119,9 @@ public:
             (int)coverArtBytes_.size(), image, tex, subtex, freeExisting);
     }
 
-    // (public so static callbacks can access via client_data)
+    std::string getArtist() const override { return artist_; }
+
+    // Public so static callbacks can access via client_data
     int          sampleRate_    = 44100;
     int          channels_      = 2;
     int          bitsPerSample_ = 16;
@@ -130,6 +133,8 @@ public:
     size_t               readPos_ = 0;
 
     std::string coverArtBytes_;
+    std::string artist_;
+    std::string trackNumber_;
 
 private:
     FLAC__StreamDecoder* dec_ = nullptr;
@@ -143,7 +148,6 @@ private:
         readPos_ = 0;
     }
 
-    // Static FLAC callbacks
     static FLAC__StreamDecoderWriteStatus writeCallback(
         const FLAC__StreamDecoder* /*dec*/,
         const FLAC__Frame* frame,
@@ -196,12 +200,22 @@ private:
         }
 
         if (metadata->type == FLAC__METADATA_TYPE_PICTURE &&
-            self->coverArtBytes_.empty())
-        {
+            self->coverArtBytes_.empty()) {
             const auto& pic = metadata->data.picture;
-            if (pic.data && pic.data_length > 0) {
+            if (pic.data && pic.data_length > 0)
                 self->coverArtBytes_.assign(
                     reinterpret_cast<const char*>(pic.data), pic.data_length);
+        }
+
+        if (metadata->type == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
+            const auto& vc = metadata->data.vorbis_comment;
+            for (FLAC__uint32 i = 0; i < vc.num_comments; ++i) {
+                const char*   entry = reinterpret_cast<const char*>(vc.comments[i].entry);
+                FLAC__uint32  len   = vc.comments[i].length;
+                if (strncasecmp(entry, "ARTIST=", 7) == 0 && self->artist_.empty())
+                    self->artist_ = std::string(entry + 7, len - 7);
+                else if (strncasecmp(entry, "TRACKNUMBER=", 12) == 0 && self->trackNumber_.empty())
+                    self->trackNumber_ = std::string(entry + 12, len - 12);
             }
         }
     }

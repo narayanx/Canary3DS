@@ -158,7 +158,7 @@ void printContextMenu(const std::vector<std::string>& options, size_t selectedId
                       float anchorX, float anchorY) {
     if (options.empty()) return;
 
-    const float PAD   = 6.0f;
+    const float PAD    = 6.0f;
     const float LINE_H = 16.0f;
     const float BOX_W  = 190.0f;
     float BOX_H = LINE_H * (float)options.size() + PAD * 2.0f;
@@ -176,7 +176,7 @@ void printContextMenu(const std::vector<std::string>& options, size_t selectedId
 
     C2D_TextBufClear(g_dynamicBuf);
     for (size_t i = 0; i < options.size(); ++i) {
-        bool  sel  = (i == selectedIdx);
+        bool  sel   = (i == selectedIdx);
         float itemY = BOX_Y + PAD + LINE_H * (float)i;
         if (sel)
             C2D_DrawRectSolid(BOX_X + 1, itemY - 1, 0.62f,
@@ -189,19 +189,15 @@ void printContextMenu(const std::vector<std::string>& options, size_t selectedId
 void drawProgressBar(float x, float y, float w, float h, float progress) {
     progress = std::max(0.0f, std::min(1.0f, progress));
 
-    // Track background
     C2D_DrawRectSolid(x, y, 0.5f, w, h, C2D_Color32(0x33, 0x33, 0x33, 0xFF));
-    // Filled portion
     if (progress > 0.0f)
         C2D_DrawRectSolid(x, y, 0.55f, w * progress, h,
                           C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
-    // Border
     u32 border = C2D_Color32(0x55, 0x55, 0x55, 0xFF);
     C2D_DrawRectSolid(x,         y,         0.6f, w,   1,   border);
     C2D_DrawRectSolid(x,         y + h - 1, 0.6f, w,   1,   border);
     C2D_DrawRectSolid(x,         y,         0.6f, 1,   h,   border);
     C2D_DrawRectSolid(x + w - 1, y,         0.6f, 1,   h,   border);
-    // Thumb circle (drawn as a small square for simplicity)
     float thumbX = x + w * progress - 3.0f;
     C2D_DrawRectSolid(thumbX, y - 2, 0.65f, 6, h + 4,
                       C2D_Color32(0xFF, 0xFF, 0xFF, 0xCC));
@@ -232,28 +228,28 @@ void drawTimeText(double positionSeconds, double durationSeconds,
 
 void renderBottomScreen(bool songPlaying, double positionSeconds,
                         double durationSeconds, const std::string& songName,
+                        const std::string& songArtist,
                         float seekBarX, float seekBarY,
-                        float seekBarW, float seekBarH) {
+                        float seekBarW, float seekBarH,
+                        float seekProgressOverride) {
     C2D_TextBufClear(g_dynamicBuf);
 
     // Log lines
     {
         LightLock_Lock(&s_logLock);
-        std::vector<std::string> lines = s_logLines; // snapshot
+        std::vector<std::string> lines = s_logLines;
         LightLock_Unlock(&s_logLock);
 
         const float LINE_H = 16.0f;
-        for (size_t i = 0; i < lines.size(); ++i) {
+        for (size_t i = 0; i < lines.size(); ++i)
             drawStr(lines[i].c_str(), 4, LINE_H * (float)i, 0.5f,
                     0.42f, 0.42f, C2D_Color32f(0.65f, 0.65f, 0.65f, 1));
-        }
     }
 
     // Separator
     C2D_DrawRectSolid(0, 161, 0.5f, 320, 1, C2D_Color32(0x30, 0x30, 0x30, 0xFF));
 
     if (!songPlaying) {
-        // Greyed-out seek bar when nothing is playing
         drawStr("No song playing", 4, 167, 0.5f,
                 0.42f, 0.42f, C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
         C2D_DrawRectSolid(seekBarX, seekBarY, 0.5f, seekBarW, seekBarH,
@@ -261,40 +257,54 @@ void renderBottomScreen(bool songPlaying, double positionSeconds,
         return;
     }
 
-    // Song name
+    const bool hasArtist = !songArtist.empty();
+
+    if (hasArtist) {
+        std::string artist = songArtist;
+        if (artist.length() > 40) artist = artist.substr(0, 37) + "...";
+        drawStr(artist.c_str(), 4, 163, 0.5f,
+                0.40f, 0.40f, C2D_Color32f(0.55f, 0.55f, 0.55f, 1));
+    }
+
+    // Song title (strip path and extension)
     {
         std::string name = songName;
         size_t sl = name.find_last_of('/');
         if (sl != std::string::npos) name = name.substr(sl + 1);
-        // Strip extension for cleanliness
         size_t dot = name.rfind('.');
         if (dot != std::string::npos) name = name.substr(0, dot);
         if (name.length() > 38) name = name.substr(0, 35) + "...";
 
-        drawStr(name.c_str(), 4, 165, 0.5f,
+        float titleY = hasArtist ? 174.0f : 165.0f;
+        drawStr(name.c_str(), 4, titleY, 0.5f,
                 0.44f, 0.44f, C2D_Color32f(0.90f, 0.90f, 0.90f, 1));
     }
 
-    // Time text
+    // Timestamp: use drag position when scrubbing
     {
+        double displayPos = (seekProgressOverride >= 0.0f && durationSeconds > 0)
+                            ? (double)seekProgressOverride * durationSeconds
+                            : positionSeconds;
+
         std::string t;
         if (durationSeconds > 0)
-            t = fmtTime(positionSeconds) + " / " + fmtTime(durationSeconds);
+            t = fmtTime(displayPos) + " / " + fmtTime(durationSeconds);
         else
-            t = fmtTime(positionSeconds);
+            t = fmtTime(displayPos);
 
-        // Right-align by drawing at a fixed right margin
-        drawStr(t.c_str(), 4, 181, 0.5f,
+        float timeY = hasArtist ? 186.0f : 181.0f;
+        drawStr(t.c_str(), 4, timeY, 0.5f,
                 0.46f, 0.46f, C2D_Color32f(0.80f, 0.80f, 0.80f, 1));
     }
 
     // Seek bar
-    float progress = (durationSeconds > 0)
-                     ? (float)(positionSeconds / durationSeconds)
-                     : 0.0f;
+    float progress = (seekProgressOverride >= 0.0f)
+                     ? seekProgressOverride
+                     : ((durationSeconds > 0)
+                        ? (float)(positionSeconds / durationSeconds)
+                        : 0.0f);
     drawProgressBar(seekBarX, seekBarY, seekBarW, seekBarH, progress);
 
-    // Touch hint
     drawStr("Touch to seek", 4, seekBarY + seekBarH + 5, 0.5f,
             0.38f, 0.38f, C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
 }

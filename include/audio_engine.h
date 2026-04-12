@@ -18,6 +18,7 @@ inline constexpr int AUDIO_THREAD_STACK_SZ = 32 * 1024;
 
 struct AudioController {
     std::string     songPath;
+    std::string     songArtist;       // populated from tag metadata on song start
     IAudioDecoder*  decoder;          // owned by audio thread during playback
 
     volatile bool   songReady;        // true while a song is loaded & playing

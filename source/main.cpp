@@ -15,14 +15,11 @@
 #include "image.h"
 #include "playlist.h"
 
-// These constants are shared between the renderer and the touch hit-test
+// Shared between the renderer and the touch hit-test
 inline constexpr float SEEK_BAR_X = 8.0f;
 inline constexpr float SEEK_BAR_Y = 196.0f;
 inline constexpr float SEEK_BAR_W = 304.0f;
 inline constexpr float SEEK_BAR_H = 18.0f;
-
-// Minimum ms between successive touch-seek operations
-inline constexpr u64 SEEK_DEBOUNCE_MS = 250;
 
 enum class TopScreenState {
     FILEBROWSER,
@@ -113,9 +110,13 @@ int main(int argc, char* argv[]) {
     size_t ctxMenuIdx = 0, ctxPlaylistIdx = 0;
     std::string ctxSongPath;
 
-    // Touch-seek tracking
-    bool wasTouched      = false;
-    u64  lastSeekTime_ms = 0;
+    // Touch-seek state.
+    // seekDragging:     true while the user's finger is held on the seek bar
+    // seekDragProgress: normalised position (0-1) updated every frame while
+    //                   dragging. (The actual decoder seek is issued on finger release.)
+    bool  wasTouched       = false;
+    bool  seekDragging     = false;
+    float seekDragProgress = 0.0f;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -126,18 +127,16 @@ int main(int argc, char* argv[]) {
         hidTouchRead(&touchPos);
         bool screenTouched = (touchPos.px != 0 || touchPos.py != 0);
         bool newTouch      = screenTouched && !wasTouched;
+        bool touchReleased = !screenTouched && wasTouched;
         wasTouched = screenTouched;
 
-        if (kDown & KEY_START) {
-            break;
-        }
+        if (kDown & KEY_START) break;
 
         if (kDown || screenTouched) updateFiles = true;
 
-        // Force re-render every frame while playing so the progress bar updates
         needsRender = kDown || kHeld || screenTouched ||
                       audioController.newSongStarted ||
-                      audioController.songReady ||        // keeps progress live
+                      audioController.songReady ||
                       needsRender;
 
         if (updateFiles) {
@@ -145,23 +144,31 @@ int main(int argc, char* argv[]) {
             updateFiles = false;
         }
 
-        // Touch-seek on bottom screen, accept held touch (drag) but debounce
-        if (screenTouched && audioController.songReady) {
+        // Touch-seek on the bottom screen.
+        if (audioController.songReady) {
             float px = (float)touchPos.px;
             float py = (float)touchPos.py;
             bool  inBar = px >= SEEK_BAR_X && px <= SEEK_BAR_X + SEEK_BAR_W &&
                           py >= SEEK_BAR_Y && py <= SEEK_BAR_Y + SEEK_BAR_H;
-            u64 now = osGetTime();
 
-            if (inBar && (newTouch || (now - lastSeekTime_ms) >= SEEK_DEBOUNCE_MS)) {
-                double prog = (double)(px - SEEK_BAR_X) / (double)SEEK_BAR_W;
-                prog = std::max(0.0, std::min(1.0, prog));
-                double dur  = audioController.songDurationSeconds;
+            if (newTouch && inBar) {
+                seekDragging = true;
+                ndspChnSetPaused(0, true);
+            }
+
+            if (seekDragging && screenTouched) {
+                float prog = (px - SEEK_BAR_X) / SEEK_BAR_W;
+                seekDragProgress = std::max(0.0f, std::min(1.0f, prog));
+            }
+
+            if (seekDragging && touchReleased) {
+                double dur = audioController.songDurationSeconds;
                 if (dur > 0) {
-                    audioController.seekTargetSeconds = prog * dur;
+                    audioController.seekTargetSeconds = (double)seekDragProgress * dur;
                     audioController.seekPending       = true;
-                    lastSeekTime_ms = now;
+                    LightEvent_Signal(&audioController.fillBufferEvent);
                 }
+                seekDragging = false;
             }
         }
 
@@ -356,13 +363,13 @@ int main(int argc, char* argv[]) {
         if (kDown & KEY_DOWN) { downPressMs = now; downRepeatMs = now; }
 
         bool firstItem =
-            (screenState == TopScreenState::FILEBROWSER     && fileController.selectedFile == 0) ||
-            (screenState == TopScreenState::INFO            && fileController.selectedQueueItem == 0) ||
+            (screenState == TopScreenState::FILEBROWSER      && fileController.selectedFile == 0) ||
+            (screenState == TopScreenState::INFO             && fileController.selectedQueueItem == 0) ||
             (screenState == TopScreenState::PLAYLIST_BROWSER && selPlaylist == 0) ||
-            (screenState == TopScreenState::PLAYLIST_VIEW   && selPlaylistSong == 0);
+            (screenState == TopScreenState::PLAYLIST_VIEW    && selPlaylistSong == 0);
         bool upRepeat = (kHeld & KEY_UP) && !firstItem &&
-            (double)(now - upPressMs)   > REPEAT_INITIAL_DELAY_MS &&
-            (double)(now - upRepeatMs)  > REPEAT_INTERVAL_MS;
+            (double)(now - upPressMs)  > REPEAT_INITIAL_DELAY_MS &&
+            (double)(now - upRepeatMs) > REPEAT_INTERVAL_MS;
 
         if (!ctxHandled && ((kDown & KEY_UP) || upRepeat)) {
             if (upRepeat) upRepeatMs = now;
@@ -482,15 +489,15 @@ int main(int argc, char* argv[]) {
                 printQueue(fileController.playQueue,
                            fileController.selectedQueueItem, 1);
 
-                // Progress bar & time (top screen, below cover art)
                 {
-                    double pos = audioController.songPositionSeconds;
                     double dur = audioController.songDurationSeconds;
+                    bool   showDrag = seekDragging || audioController.seekPending;
+                    double pos = (showDrag && dur > 0)
+                                 ? (double)seekDragProgress * dur
+                                 : audioController.songPositionSeconds;
 
-                    // Bar spans cover-art column (matches 190 px wide art area)
                     drawProgressBar(10.0f, 206.0f, 190.0f, 7.0f,
                                     (dur > 0) ? (float)(pos / dur) : 0.0f);
-                    // Time text just below
                     drawTimeText(pos, dur, 10.0f, 217.0f, 0.44f, 0.44f);
                 }
 
@@ -533,7 +540,10 @@ int main(int argc, char* argv[]) {
                 audioController.songPositionSeconds,
                 audioController.songDurationSeconds,
                 audioController.songPath,
-                SEEK_BAR_X, SEEK_BAR_Y, SEEK_BAR_W, SEEK_BAR_H);
+                audioController.songArtist,
+                SEEK_BAR_X, SEEK_BAR_Y, SEEK_BAR_W, SEEK_BAR_H,
+                (seekDragging || audioController.seekPending)
+                    ? seekDragProgress : -1.0f);
 
             C3D_FrameEnd(0);
         }
