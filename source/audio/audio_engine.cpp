@@ -84,7 +84,6 @@ static bool fillBuffer(IAudioDecoder* decoder, ndspWaveBuf* waveBuf) {
 // Seek helper: called from audio thread when seekPending is set.
 static void handlePendingSeek(IAudioDecoder* decoder) {
     double target = audioController.seekTargetSeconds;
-    audioController.seekPending = false;   // clear first to avoid re-entry
 
     // Stop the DSP channel and mark all wave bufs as available
     ndspChnReset(0);
@@ -95,11 +94,13 @@ static void handlePendingSeek(IAudioDecoder* decoder) {
 
     decoder->seekTo(target);
     audioController.songPositionSeconds = decoder->getPositionSeconds();
+    audioController.seekPending = false;
 
     // Prime the first buffer immediately so there's no audible gap
     for (size_t i = 0; i < AUDIO_ARRAY_SIZE(s_waveBufs); ++i) {
         if (!fillBuffer(decoder, &s_waveBufs[i])) break;
     }
+    ndspChnSetPaused(0, false);
 }
 
 void audioThread(void* /*arg*/) {
