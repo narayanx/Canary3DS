@@ -551,7 +551,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Cleanup
-    if (audioController.songReady) audioController.stopPlayback = true;
+    if (audioController.songReady) {audioController.stopPlayback = true;}
+    audioController.interrupted = true;  // don't try to autoplay next song
     runThreads = false;
     LightEvent_Signal(&audioController.startEvent);
     LightEvent_Signal(&audioController.doneEvent);

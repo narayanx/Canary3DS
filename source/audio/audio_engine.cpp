@@ -59,6 +59,11 @@ bool audioInit() {
 
 void audioExit() {
     ndspChnReset(0);
+    // Guard against a decoder left alive by a race during shutdown
+    if (audioController.decoder) {
+        delete audioController.decoder;
+        audioController.decoder = nullptr;
+    }
     linearFree(s_audioBuffer);
     s_audioBuffer = nullptr;
 }
