@@ -20,6 +20,7 @@ add_executable(${PROJECT_NAME}
   source/audio/flac_decoder.cpp
   source/audio/vorbis_decoder.cpp
   source/audio/wav_decoder.cpp
+  source/audio/aac_decoder.cpp
 
   source/main.cpp
   source/stb_image.cpp
@@ -36,6 +37,8 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include/
+  ${CMAKE_SOURCE_DIR}/external/ffmpeg/
+
   $ENV{DEVKITPRO}/libctru/include
   $ENV{DEVKITPRO}/portlibs/3ds/include
   $ENV{DEVKITPRO}/devkitARM/arm-none-eabi/include
@@ -44,8 +47,33 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${OPUSFILE_INCLUDE_DIRS}
 )
 
+target_link_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/external/ffmpeg/lib
+)
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  mpg123 FLAC vorbisidec ogg rip citro2d citro3d ctru m ${OPUSFILE_LIBRARIES}
+  # aac decoding
+  avformat
+  avcodec
+  avutil
+  swresample
+
+  # Other audio decoders
+  mpg123
+  FLAC
+  vorbisidec
+  ogg
+
+  # Cover art (convert images to 3ds format)
+  rip
+
+  citro2d
+  citro3d
+  ctru
+  m
+
+  # opus decoding
+  ${OPUSFILE_LIBRARIES}
 )
 
 ctr_generate_smdh(${PROJECT_NAME}.smdh

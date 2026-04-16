@@ -11,6 +11,7 @@ std::unique_ptr<IAudioDecoder> makeMp3Decoder();
 std::unique_ptr<IAudioDecoder> makeFlacDecoder();
 std::unique_ptr<IAudioDecoder> makeVorbisDecoder();
 std::unique_ptr<IAudioDecoder> makeWavDecoder();
+std::unique_ptr<IAudioDecoder> makeAacDecoder();
 
 static std::string getExtension(const std::string& path) {
     size_t dot = path.rfind('.');
@@ -23,7 +24,7 @@ static std::string getExtension(const std::string& path) {
 
 std::unique_ptr<IAudioDecoder> createDecoder(const std::string& path) {
     const std::string ext = getExtension(path);
-    
+
     if (ext == "opus") {
         return makeOpusDecoder();
     }
@@ -39,11 +40,15 @@ std::unique_ptr<IAudioDecoder> createDecoder(const std::string& path) {
     if (ext == "wav") {
         return makeWavDecoder();
     }
+    if (ext == "m4a" || ext == "aac") {
+        return makeAacDecoder();
+    }
     return nullptr;
 }
 
 bool isSupportedAudioFile(const std::string& filename) {
     const std::string ext = getExtension(filename);
     return ext == "opus" || ext == "mp3"  || ext == "flac" ||
-           ext == "ogg"  || ext == "oga"  || ext == "wav";
+           ext == "ogg"  || ext == "oga"  || ext == "wav"  ||
+           ext == "m4a"  || ext == "aac";
 }
