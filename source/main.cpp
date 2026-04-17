@@ -90,6 +90,11 @@ int main(int argc, char* argv[]) {
 
     u64 upPressMs = 0, upRepeatMs = 0, downPressMs = 0, downRepeatMs = 0;
 
+    // Multi-tap state for L and R shoulder buttons
+    static constexpr u64 MULTI_TAP_WINDOW_MS = 350;
+    u64  lTapTime = 0, rTapTime = 0;
+    int  lTapCount = 0, rTapCount = 0;
+
     C2D_Image image; C3D_Tex tex; Tex3DS_SubTexture subtex;
     bool tryLoadImage = false, loadedImage = false, displayCoverArt = true;
 
@@ -130,8 +135,6 @@ int main(int argc, char* argv[]) {
         wasTouched = screenTouched;
 
         if (kDown & KEY_START) break;
-
-        if (kDown || screenTouched) updateFiles = true;
 
         needsRender = kDown || kHeld || screenTouched ||
                       audioController.newSongStarted ||
@@ -356,8 +359,53 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // D-pad auto-repeat
+        // Shoulder button multi-tap detection
         u64 now = osGetTime();
+
+        if (kDown & KEY_L) {
+            if (lTapCount > 0 && (now - lTapTime) <= MULTI_TAP_WINDOW_MS)
+                ++lTapCount;
+            else
+                lTapCount = 1;
+            lTapTime = now;
+        }
+        if (kDown & KEY_R) {
+            if (rTapCount > 0 && (now - rTapTime) <= MULTI_TAP_WINDOW_MS)
+                ++rTapCount;
+            else
+                rTapCount = 1;
+            rTapTime = now;
+        }
+
+        // Commit L taps once the window expires
+        if (lTapCount > 0 && (now - lTapTime) > MULTI_TAP_WINDOW_MS) {
+            if (lTapCount >= 3 && audioController.songReady) {
+                // Triple-tap L → previous song
+                if (fileController.playingFile != 0) {
+                    size_t prev = fileController.playingFile - 1;
+                    stopPlaybackIfPlaying();
+                    if (playSong(fileController.cwd + fileController.files[prev].d_name))
+                        fileController.playingFile = prev;
+                }
+            }
+            lTapCount = 0;
+        }
+
+        // Commit R taps once the window expires
+        if (rTapCount > 0 && (now - rTapTime) > MULTI_TAP_WINDOW_MS) {
+            if (rTapCount == 2 && audioController.songReady) {
+                // Double-tap R: pause / resume
+                bool paused = ndspChnIsPaused(0);
+                ndspChnSetPaused(0, !paused);
+            } else if (rTapCount >= 3 && audioController.songReady) {
+                // Triple-tap R: next song
+                if (fileController.playingFile < fileController.files.size() - 1)
+                    goToNextSong();
+            }
+            rTapCount = 0;
+        }
+
+        // D-pad auto-repeat
         if (kDown & KEY_UP)   { upPressMs   = now; upRepeatMs   = now; }
         if (kDown & KEY_DOWN) { downPressMs = now; downRepeatMs = now; }
 
@@ -436,18 +484,6 @@ int main(int argc, char* argv[]) {
                 } else if (!downRepeat && !playlists.empty()) { selPlaylistSong = 0; playlistViewScroll = 0; }
             }
         }
-
-        // Shoulder buttons – prev / next song
-        if ((kDown & KEY_L) && fileController.playingFile != 0 && audioController.songReady) {
-            size_t prev = fileController.playingFile - 1;
-            stopPlaybackIfPlaying();
-            if (playSong(fileController.cwd + fileController.files[prev].d_name))
-                fileController.playingFile = prev;
-        }
-        if ((kDown & KEY_R) &&
-            fileController.playingFile < fileController.files.size()-1 &&
-            audioController.songReady)
-            goToNextSong();
 
         // New song started – load cover art
         if (audioController.newSongStarted) {
