@@ -82,7 +82,10 @@ int main(int argc, char* argv[]) {
             dirent* ent = readdir(tmp);
             if (!ent) break;
             if (ent->d_type == DT_DIR && strncmp(ent->d_name, "Music", 6) == 0) {
-                fileController.fileHistory.push_back({(size_t)idx, 0});
+                fileController.fileHistory.push_back({
+                    (size_t)idx,
+                    (size_t)idx >= (size_t)MAX_FILES ? (size_t)idx - MAX_FILES + 1 : 0
+                });
                 closedir(tmp); break;
             }
             ++idx;
