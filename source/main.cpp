@@ -47,7 +47,6 @@ int main(int argc, char* argv[]) {
     ndspInit();
 
     LightEvent_Init(&audioController.startEvent, RESET_ONESHOT);
-    LightEvent_Init(&audioController.doneEvent, RESET_ONESHOT);
     LightEvent_Init(&audioController.fillBufferEvent, RESET_ONESHOT);
 
     // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
@@ -63,9 +62,6 @@ int main(int argc, char* argv[]) {
     const Thread audioTid =
         threadCreate(audioThread, nullptr, AUDIO_THREAD_STACK_SZ,
                      mainPrio - 1, AUDIO_THREAD_AFFINITY, false);
-    const Thread playNextTid =
-        threadCreate(playNextThread, nullptr, 4096,
-                     mainPrio - 3, AUDIO_THREAD_AFFINITY, false);
 
     ndspSetCallback(audioCallback, nullptr);
 
@@ -558,11 +554,9 @@ int main(int argc, char* argv[]) {
     audioController.interrupted = true;  // don't try to autoplay next song
     runThreads = false;
     LightEvent_Signal(&audioController.startEvent);
-    LightEvent_Signal(&audioController.doneEvent);
     LightEvent_Signal(&audioController.fillBufferEvent);
 
     threadJoin(audioTid,    UINT64_MAX); threadFree(audioTid);
-    threadJoin(playNextTid, UINT64_MAX); threadFree(playNextTid);
 
     audioExit();
     ndspExit();

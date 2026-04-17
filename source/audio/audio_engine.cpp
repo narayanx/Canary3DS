@@ -10,25 +10,23 @@
 #include "image.h"
 
 
-ndspWaveBuf  s_waveBufs[3];
-int16_t*     s_audioBuffer = nullptr;
+ndspWaveBuf s_waveBufs[3];
+int16_t*    s_audioBuffer = nullptr;
 
 AudioController audioController = {
-    .songPath             = "",
-    .songArtist           = "",
-    .decoder              = nullptr,
-    .songReady            = false,
-    .stopPlayback         = false,
-    .interrupted          = false,
-    .newSongStarted       = false,
-    .seekPending          = false,
-    .seekTargetSeconds    = 0.0,
-    .songPositionSeconds  = 0.0,
-    .songDurationSeconds  = -1.0,
-    .startEvent           = {0},
-    .doneEvent            = {0},
-    .fillBufferEvent      = {0},
-    .sampleRate           = 48000,
+    .songPath            = "",
+    .songArtist          = "",
+    .decoder             = nullptr,
+    .songReady           = false,
+    .stopPlayback        = false,
+    .interrupted         = false,
+    .newSongStarted      = false,
+    .seekPending         = false,
+    .seekTargetSeconds   = 0.0,
+    .songPositionSeconds = 0.0,
+    .songDurationSeconds = -1.0,
+    .startEvent          = {0},
+    .fillBufferEvent     = {0},
 };
 
 volatile bool runThreads = true;
@@ -40,18 +38,18 @@ bool audioInit() {
     ndspChnSetRate(0, 48000.0f);
     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
 
-    const size_t total = AUDIO_WAVEBUF_SIZE * AUDIO_ARRAY_SIZE(s_waveBufs);
-    s_audioBuffer = (int16_t*)linearAlloc(total);
+    const size_t totalBytes = AUDIO_WAVEBUF_SIZE * AUDIO_ARRAY_SIZE(s_waveBufs);
+    s_audioBuffer = static_cast<int16_t*>(linearAlloc(totalBytes));
     if (!s_audioBuffer) {
         logToBottomScreen("Failed to allocate audio buffer");
         return false;
     }
 
-    memset(&s_waveBufs, 0, sizeof(s_waveBufs));
+    memset(s_waveBufs, 0, sizeof(s_waveBufs));
     int16_t* ptr = s_audioBuffer;
-    for (size_t i = 0; i < AUDIO_ARRAY_SIZE(s_waveBufs); ++i) {
-        s_waveBufs[i].data_vaddr = ptr;
-        s_waveBufs[i].status     = NDSP_WBUF_DONE;
+    for (auto& wb : s_waveBufs) {
+        wb.data_vaddr = ptr;
+        wb.status     = NDSP_WBUF_DONE;
         ptr += AUDIO_WAVEBUF_SIZE / sizeof(int16_t);
     }
     return true;
@@ -59,19 +57,20 @@ bool audioInit() {
 
 void audioExit() {
     ndspChnReset(0);
-    // Guard against a decoder left alive by a race during shutdown
-    if (audioController.decoder) {
-        delete audioController.decoder;
-        audioController.decoder = nullptr;
-    }
+    // Guard against a decoder left alive by a race during shutdown.
+    delete audioController.decoder;
+    audioController.decoder = nullptr;
     linearFree(s_audioBuffer);
     s_audioBuffer = nullptr;
 }
 
-static bool fillBuffer(IAudioDecoder* decoder, ndspWaveBuf* waveBuf) {
+// Fill one wave buffer with decoded audio.
+// Loops until the buffer is full or the decoder signals EOF/error.
+// Returns false when the decoder is done and no samples were produced.
+static bool fillBuffer(IAudioDecoder* decoder, ndspWaveBuf* wb) {
     int total = 0;
     while (total < AUDIO_SAMPLES_PER_BUF) {
-        int16_t* dst = waveBuf->data_pcm16 + total * AUDIO_CHANNELS;
+        int16_t* dst = wb->data_pcm16 + total * AUDIO_CHANNELS;
         int      rem = AUDIO_SAMPLES_PER_BUF - total;
         int      got = decoder->decode(dst, rem);
         if (got <= 0) break;
@@ -79,80 +78,144 @@ static bool fillBuffer(IAudioDecoder* decoder, ndspWaveBuf* waveBuf) {
     }
     if (total == 0) return false;
 
-    waveBuf->nsamples = (u32)total;
-    ndspChnWaveBufAdd(0, waveBuf);
-    DSP_FlushDataCache(waveBuf->data_pcm16,
-                      total * AUDIO_CHANNELS * sizeof(int16_t));
+    wb->nsamples = static_cast<u32>(total);
+    DSP_FlushDataCache(wb->data_pcm16, total * AUDIO_CHANNELS * sizeof(int16_t));
+    ndspChnWaveBufAdd(0, wb);
     return true;
 }
 
-// Seek helper: called from audio thread when seekPending is set.
-static void handlePendingSeek(IAudioDecoder* decoder) {
-    double target = audioController.seekTargetSeconds;
-
-    // Stop the DSP channel and mark all wave bufs as available
+// (Re-)configure NDSP channel 0 and mark every wave buffer as available.
+// Called at the start of each song and after a seek to guarantee clean state.
+static void resetChannel(int sampleRate) {
     ndspChnReset(0);
     ndspChnSetInterp(0, NDSP_INTERP_POLYPHASE);
-    ndspChnSetRate(0, (float)audioController.sampleRate);
+    ndspChnSetRate(0, static_cast<float>(sampleRate));
     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
     for (auto& wb : s_waveBufs) wb.status = NDSP_WBUF_DONE;
+}
 
-    decoder->seekTo(target);
-    audioController.songPositionSeconds = decoder->getPositionSeconds();
-    audioController.seekPending = false;
+// Execute a pending seek: reset the channel, move the decoder, then prime all
+// three wave buffers with post-seek audio so there's no audible gap on resume.
+static void handlePendingSeek(IAudioDecoder* dec) {
+    resetChannel(dec->getSampleRate());
 
-    // Prime the first buffer immediately so there's no audible gap
-    for (size_t i = 0; i < AUDIO_ARRAY_SIZE(s_waveBufs); ++i) {
-        if (!fillBuffer(decoder, &s_waveBufs[i])) break;
+    dec->seekTo(audioController.seekTargetSeconds);
+    audioController.songPositionSeconds = dec->getPositionSeconds();
+    audioController.seekPending         = false;
+
+    for (auto& wb : s_waveBufs) {
+        if (!fillBuffer(dec, &wb)) break;
     }
     ndspChnSetPaused(0, false);
 }
 
-void audioThread(void* /*arg*/) {
+// Audio thread handles the entire playback lifecycle.
+void audioThread(void*) {
     while (runThreads) {
+
+        // Wait for a song
+        // playSong() sets songReady = true then signals startEvent.
         LightEvent_Wait(&audioController.startEvent);
-        if (!audioController.songReady) continue;
+        if (!runThreads || !audioController.songReady) continue;
 
+        // Capture the decoder into a local pointer.
+        // All further access to the decoder goes through `dec`, never through
+        // audioController.decoder, so a concurrent playSong() call on the
+        // main thread cannot cause us to delete the wrong object.
         IAudioDecoder* dec = audioController.decoder;
+        resetChannel(dec->getSampleRate());
 
+        // Fill loop
+        // When NDSP finishes one it fires audioCallback → signals fillBufferEvent → we
+        // wake up and refill that buffer. If no buffers are free yet we
+        // simply go back to sleep until the next callback.
         while (runThreads && !audioController.stopPlayback) {
-            // Service a pending seek before filling more audio
+            // A pending seek must be handled before we try to fill anything
+            // because it resets the channel and repositions the decoder.
             if (audioController.seekPending) {
                 handlePendingSeek(dec);
                 continue;
             }
 
-            for (size_t i = 0; i < AUDIO_ARRAY_SIZE(s_waveBufs); ++i) {
-                if (s_waveBufs[i].status != NDSP_WBUF_DONE) continue;
-                if (!fillBuffer(dec, &s_waveBufs[i])) {
+            for (auto& wb : s_waveBufs) {
+                if (wb.status != NDSP_WBUF_DONE) continue;
+                if (!fillBuffer(dec, &wb)) {
+                    // Song finished. Let the remaining submitted buffers
+                    // play out, the loop exits naturally on the next iteration.
                     audioController.stopPlayback = true;
                     break;
                 }
             }
 
-            // Update playback position for the UI (main thread reads this)
+            // Publish position for the UI (main thread reads this).
             audioController.songPositionSeconds = dec->getPositionSeconds();
 
-            LightEvent_Wait(&audioController.fillBufferEvent);
+            // Sleep until NDSP frees a buffer, or until waked early by signalling fillBufferEvent.
+            if (!audioController.stopPlayback) {
+                LightEvent_Wait(&audioController.fillBufferEvent);
+            }
         }
 
-        audioController.songReady = false;
-        delete audioController.decoder;
-        audioController.decoder           = nullptr;
-        audioController.stopPlayback      = false;
-        audioController.seekPending       = false;
+        // Teardown
+        // Stop the DSP channel immediately. Any buffers that are still
+        // queued are abandoned, we mark them all as done so the next song
+        // starts from a clean slate.
+        ndspChnReset(0);
+        for (auto& wb : s_waveBufs) wb.status = NDSP_WBUF_DONE;
+
+        audioController.songReady           = false;
+        audioController.stopPlayback        = false;
+        audioController.seekPending         = false;
         audioController.songPositionSeconds = 0.0;
 
-        LightEvent_Signal(&audioController.doneEvent);
+        // Delete through the local pointer captured at song start.
+        // This is safe even if the main thread has already called playSong()
+        // and overwritten audioController.decoder with a new value.
+        delete dec;
+        dec = nullptr;
+        audioController.decoder = nullptr;
+
+        if (!runThreads) break;
+
+        // Autoplay
+        // interrupted is set by stopPlaybackIfPlaying() (user wants to pause song).
+        // In that case we go back to idle, the main thread is responsible for initiating
+        // playback of a song.
+        if (audioController.interrupted) {
+            audioController.interrupted = false;
+            continue;
+        }
+
+        // Prioritize queue first
+        if (!playNextFromQueue()) {
+            const size_t next = fileController.playingFile + 1;
+            if (next < fileController.files.size()) {
+                const std::string path =
+                    fileController.cwd + fileController.files[next].d_name;
+                if (playSong(path)) {
+                    fileController.playingFile = next;
+                    logToBottomScreen("Autoplaying: " +
+                        std::string(fileController.files[next].d_name));
+                }
+            }
+        }
+        // If playSong() succeeded above it has already signalled startEvent,
+        // so the LightEvent_Wait at the top of this loop won't block.
     }
 }
 
-// NDSP callback (signals audio thread that a wave buffer finished)
-void audioCallback(void* /*arg*/) {
-    if (runThreads) LightEvent_Signal(&audioController.fillBufferEvent);
+// Called by NDSP (from an interrupt context) each time a wave buffer finishes.
+// We only signal, the audio thread does all the actual work.
+void audioCallback(void*) {
+    if (runThreads)
+        LightEvent_Signal(&audioController.fillBufferEvent);
 }
 
-// Song control API (called from main thread)
+// Song-control API (called from the main thread)
+// Open a new decoder for `path` and hand it to the audio thread.
+// Can also be called from within audioThread (during autoplay), in that case
+// the LightEvent_Signal is consumed immediately on the next iteration of the
+// thread's outer loop.
 bool playSong(const std::string& path) {
     auto dec = createDecoder(path);
     if (!dec) {
@@ -164,35 +227,38 @@ bool playSong(const std::string& path) {
         return false;
     }
 
+    // Write metadata fields before handing the decoder to the audio thread.
     audioController.songPath            = path;
     audioController.songArtist          = dec->getArtist();
-    audioController.sampleRate          = dec->getSampleRate();
     audioController.songDurationSeconds = dec->getDurationSeconds();
     audioController.songPositionSeconds = 0.0;
     audioController.seekPending         = false;
+    audioController.stopPlayback        = false;
     audioController.decoder             = dec.release();
     audioController.songReady           = true;
-    audioController.stopPlayback        = false;
     audioController.newSongStarted      = true;
 
-    ndspChnSetRate(0, (float)audioController.sampleRate);
     LightEvent_Signal(&audioController.startEvent);
     return true;
 }
 
+// Stop the current song and suppress autoplay (user explicitly stopped).
+// Signals fillBufferEvent so the audio thread wakes immediately rather than
+// waiting up to 360 ms for the next NDSP callback.
 void stopPlaybackIfPlaying() {
-    if (audioController.songReady) {
-        audioController.stopPlayback = true;
-        audioController.interrupted  = true;
-    }
+    if (!audioController.songReady) return;
+    audioController.interrupted  = true;
+    audioController.stopPlayback = true;
+    LightEvent_Signal(&audioController.fillBufferEvent);
 }
 
+// Stop the current song and let autoplay advance to the next one.
+// Does not set interrupted, so the audio thread will try the queue / next file.
 bool goToNextSong() {
-    if (audioController.songReady) {
-        audioController.stopPlayback = true;
-        return true;
-    }
-    return false;
+    if (!audioController.songReady) return false;
+    audioController.stopPlayback = true;
+    LightEvent_Signal(&audioController.fillBufferEvent);
+    return true;
 }
 
 void enqueueSong(const std::string& path) {
@@ -200,9 +266,11 @@ void enqueueSong(const std::string& path) {
     logToBottomScreen("Queued: " + path);
 }
 
+// Pop the front of the play queue and start it. Returns false if queue empty
+// or the song fails to open (the failed entry is discarded in that case).
 bool playNextFromQueue() {
     if (fileController.playQueue.empty()) return false;
-    std::string next = fileController.playQueue.front();
+    const std::string next = fileController.playQueue.front();
     fileController.playQueue.pop_front();
     if (playSong(next)) {
         logToBottomScreen("Playing from queue: " + next);
@@ -211,32 +279,13 @@ bool playNextFromQueue() {
     return false;
 }
 
-void playNextThread(void* /*arg*/) {
-    while (runThreads) {
-        LightEvent_Wait(&audioController.doneEvent);
-
-        if (audioController.interrupted) {
-            audioController.interrupted = false;
-            continue;
-        }
-
-        if (playNextFromQueue()) continue;
-
-        if (fileController.playingFile < fileController.files.size() - 1) {
-            size_t next = fileController.playingFile + 1;
-            std::string path = fileController.cwd + fileController.files[next].d_name;
-            if (playSong(path)) {
-                fileController.playingFile = next;
-                logToBottomScreen("Autoplaying: " + (std::string)fileController.files[next].d_name);
-            }
-        }
-    }
-}
-
+// Called from the main thread after audioController.newSongStarted fires.
+// The decoder is guaranteed to be alive: songReady was just set, and the audio
+// thread only deletes the decoder after songReady becomes false.
 bool loadCoverArtForCurrentSong(C2D_Image& image, C3D_Tex& tex,
-                                 Tex3DS_SubTexture& subtex, bool& loadedImage) {
+                                Tex3DS_SubTexture& subtex, bool& loadedImage) {
     if (!audioController.decoder) { loadedImage = false; return false; }
-    bool ok = audioController.decoder->loadCoverArt(image, tex, subtex, loadedImage);
+    const bool ok = audioController.decoder->loadCoverArt(image, tex, subtex, loadedImage);
     loadedImage = ok;
     return ok;
 }
