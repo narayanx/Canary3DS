@@ -376,6 +376,7 @@ public:
     }
 
     std::string getArtist() const override { return artist_; }
+    std::string getTrackNumber() const override { return trackNumber_; }
 
 private:
     // FFmpeg handles
@@ -403,6 +404,7 @@ private:
     // Cached metadata
     std::string coverArtBytes_;
     std::string artist_;
+    std::string trackNumber_;
 
     // Convert one decoded AVFrame through swr and push to pcmBuf_.
     void pushFrameToRingBuf() {
@@ -443,6 +445,16 @@ private:
             entry = av_dict_get(fmtCtx_->metadata, "album_artist", nullptr, AV_DICT_IGNORE_SUFFIX);
             if (entry && entry->value && entry->value[0]) artist_ = entry->value;
         }
+
+        // Track number (M4A/MP4 tags vary depending on encoder)
+        entry = av_dict_get(fmtCtx_->metadata, "track", nullptr, AV_DICT_IGNORE_SUFFIX);
+        if (!entry) {
+            entry = av_dict_get(fmtCtx_->metadata, "tracknumber", nullptr, AV_DICT_IGNORE_SUFFIX);
+        }
+        if (!entry) {
+            entry = av_dict_get(fmtCtx_->metadata, "trkn", nullptr, AV_DICT_IGNORE_SUFFIX);
+        }
+        if (entry && entry->value && entry->value[0]) trackNumber_ = entry->value;
     }
 
     // Extract cover art from an attached-picture stream.

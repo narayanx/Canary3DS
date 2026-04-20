@@ -16,7 +16,7 @@
  * Thread safety contract:
  *   open(), decode(), seekTo(), getPositionSeconds(), close() are called
  *   exclusively from the audio thread.
- *   loadCoverArt() / getArtist() are called from the main thread after
+ *   Functions to get song metadata are called from the main thread after
  *   open() returns – implementations must cache all metadata synchronously
  *   inside open().
  *   getDurationSeconds() / getSampleRate() are read-only after open() and
@@ -58,6 +58,9 @@ public:
 
     // Artist tag string (main thread, after open()); empty if unavailable.
     virtual std::string getArtist() const { return ""; }
+
+    // Track number string (main thread, after open()); empty if unavailable.
+    virtual std::string getTrackNumber() const { return ""; }
 
     virtual bool isOpen() const = 0;
 };

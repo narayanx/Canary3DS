@@ -66,6 +66,7 @@ public:
     }
 
     std::string getArtist() const override { return artist_; }
+    std::string getTrackNumber() const override { return trackNumber_; }
 
 private:
     OggOpusFile* file_      = nullptr;

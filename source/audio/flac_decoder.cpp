@@ -120,6 +120,7 @@ public:
     }
 
     std::string getArtist() const override { return artist_; }
+    std::string getTrackNumber() const override { return trackNumber_; }
 
     // Public so static callbacks can access via client_data
     int          sampleRate_    = 44100;

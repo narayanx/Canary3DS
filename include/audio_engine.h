@@ -20,6 +20,7 @@ struct AudioController {
     // Metadata (written by main thread in playSong, read by main thread for UI)
     std::string    songPath;
     std::string    songArtist;
+    std::string    songTrackNumber;
 
     // Decoder (owned exclusively by audioThread during playback)
     // Main thread only touches this in loadCoverArtForCurrentSong() and audioExit(),
