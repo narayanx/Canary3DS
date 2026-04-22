@@ -1,5 +1,4 @@
-#ifndef CANARY_GFX_H
-#define CANARY_GFX_H
+#pragma once
 
 #include <3ds.h>
 #include <citro2d.h>
@@ -80,5 +79,3 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarW,
                         float seekBarH,
                         float seekProgressOverride = -1.0f);
-
-#endif

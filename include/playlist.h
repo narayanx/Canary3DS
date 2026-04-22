@@ -1,5 +1,4 @@
-#ifndef CANARY_PLAYLIST_H
-#define CANARY_PLAYLIST_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -29,5 +28,3 @@ bool removeSongFromPlaylist(const std::string &playlistPath, size_t songIdx);
 
 // Parse song paths from a .m3u file (skips comment lines starting with #)
 std::vector<std::string> readPlaylistSongs(const std::string &playlistPath);
-
-#endif

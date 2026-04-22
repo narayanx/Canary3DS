@@ -1,5 +1,4 @@
-#ifndef CANARY_IMAGE_H
-#define CANARY_IMAGE_H
+#pragma once
 
 #include <citro2d.h>
 #include <citro3d.h>
@@ -42,5 +41,3 @@ bool loadCoverArtFromBytes(const unsigned char *data,
 // Target dimensions (pixels) for displayed cover art
 constexpr float COVER_TARGET_WIDTH = 190.0f;
 constexpr float COVER_TARGET_HEIGHT = 190.0f;
-
-#endif

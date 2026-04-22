@@ -1,5 +1,4 @@
-#ifndef CANARY_CONSTANTS_H
-#define CANARY_CONSTANTS_H
+#pragma once
 
 #include <string>
 
@@ -15,5 +14,3 @@ inline constexpr double REPEAT_INITIAL_DELAY_MS = 400.0;
 inline constexpr double REPEAT_INTERVAL_MS = 30.0;
 // stop saving depth after this many directories (conserve memory, TODO allow changing in settings)
 inline constexpr size_t MAX_DEPTH = 20;
-
-#endif
