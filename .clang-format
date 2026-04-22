@@ -1,8 +1,108 @@
-BasedOnStyle: Google
-UseTab: Never
+# Compatible with clang-format 14+
+Language: Cpp
+BasedOnStyle: LLVM
+
+# Indentation / Layout
 IndentWidth: 4
 TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
 ColumnLimit: 100
-BreakBeforeBinaryOperators: NonAssignment
+
+# Braces / Blocks
+BreakBeforeBraces: Attach
+
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+
+# clang-format 14+:
+InsertBraces: true
+
+# Pointer / Reference Style
+PointerAlignment: Right
+ReferenceAlignment: Right
+DerivePointerAlignment: false
+
+# Includes
+SortIncludes: true
+IncludeBlocks: Regroup
+
+IncludeCategories:
+  - Regex: '^<(3ds|citro2d|citro3d|tex3ds|nds|arm).*>'
+    Priority: 1
+  - Regex: '^<.*>'
+    Priority: 2
+  - Regex: '^".*"'
+    Priority: 3
+
+# Functions / Calls
+BinPackArguments: false
+BinPackParameters: false
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+
+# Short statements
+# Prevent one-line if/for/while without braces
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
 AllowShortFunctionsOnASingleLine: Empty
-AllowShortDeclsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: false
+
+# Spacing
+SpaceBeforeParens: ControlStatements
+SpaceBeforeCpp11BracedList: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpaceAfterCStyleCast: true
+SpaceAroundPointerQualifiers: Default
+
+# C++ Modern Style
+Standard: Latest
+Cpp11BracedListStyle: true
+NamespaceIndentation: All
+FixNamespaceComments: true
+
+# Alignment / Readability
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignOperands: Align
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 2
+
+# Switch / Case
+IndentCaseLabels: true
+IndentCaseBlocks: true
+
+# Macros / GCC Extensions / devkitARM
+# Helps preserve formatting around attributes and common macros
+AttributeMacros:
+  - __attribute__
+  - __packed
+  - __aligned
+  - __section
+  - __unused
+
+StatementMacros:
+  - C3D_SAFE
+  - ASSERT
+  - SVC_BREAK
+
+ForEachMacros:
+  - FOREACH
+  - RANGED_FOR
+
+# Preprocessor
+IndentPPDirectives: None
