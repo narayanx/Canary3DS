@@ -1,13 +1,11 @@
 #include "filebrowser.h"
 
-FileController fileController = {
-    .cwd = "sdmc:/Music/",
-    .files = {},
-    .fileHistory = {},
-    .selectedFile = 0,
-    .playingFile = 0,
-    .selectedQueueItem = 0
-};
+FileController fileController = {.cwd = "sdmc:/Music/",
+                                 .files = {},
+                                 .fileHistory = {},
+                                 .selectedFile = 0,
+                                 .playingFile = 0,
+                                 .selectedQueueItem = 0};
 
 std::vector<dirent> getFiles(const char *path) {
     std::vector<dirent> fileList;
@@ -25,4 +23,3 @@ std::vector<dirent> getFiles(const char *path) {
     closedir(dir);
     return fileList;
 }
-

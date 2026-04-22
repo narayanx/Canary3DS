@@ -1,9 +1,8 @@
 #ifndef CANARY_FILEBROWSER_H
 #define CANARY_FILEBROWSER_H
 
-#include <dirent.h>
-
 #include <deque>
+#include <dirent.h>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +27,6 @@ struct FileController {
 
 extern FileController fileController;
 
-std::vector<dirent> getFiles(const char* path);
+std::vector<dirent> getFiles(const char *path);
 
 #endif

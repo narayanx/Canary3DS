@@ -23,25 +23,29 @@ extern "C" {
 // so libctru's fopen patch handles the sdmc:/ path transparently.
 static constexpr int AVIO_BUF_SIZE = 32 * 1024;  // 32 KB read buffer
 
-static int avioRead(void* opaque, uint8_t* buf, int bufSize) {
-    FILE* f = static_cast<FILE*>(opaque);
-    int got = (int)fread(buf, 1, (size_t)bufSize, f);
-    if (got == 0) return AVERROR_EOF;
+static int avioRead(void *opaque, uint8_t *buf, int bufSize) {
+    FILE *f = static_cast<FILE *>(opaque);
+    int got = (int) fread(buf, 1, (size_t) bufSize, f);
+    if (got == 0) {
+        return AVERROR_EOF;
+    }
     return got;
 }
 
-static int64_t avioSeek(void* opaque, int64_t offset, int whence) {
-    FILE* f = static_cast<FILE*>(opaque);
+static int64_t avioSeek(void *opaque, int64_t offset, int whence) {
+    FILE *f = static_cast<FILE *>(opaque);
     if (whence == AVSEEK_SIZE) {
         long cur = ftell(f);
         fseek(f, 0, SEEK_END);
         long end = ftell(f);
         fseek(f, cur, SEEK_SET);
-        return (int64_t)end;
+        return (int64_t) end;
     }
     int stdWhence = (whence == SEEK_SET) ? SEEK_SET : (whence == SEEK_CUR) ? SEEK_CUR : SEEK_END;
-    if (fseek(f, (long)offset, stdWhence) != 0) return -1;
-    return (int64_t)ftell(f);
+    if (fseek(f, (long) offset, stdWhence) != 0) {
+        return -1;
+    }
+    return (int64_t) ftell(f);
 }
 
 // ---------------------------------------------------------------------------
@@ -54,11 +58,13 @@ static int64_t avioSeek(void* opaque, int64_t offset, int whence) {
 // ---------------------------------------------------------------------------
 
 class AacDecoder final : public IAudioDecoder {
-public:
-    AacDecoder()  = default;
-    ~AacDecoder() override { close(); }
+  public:
+    AacDecoder() = default;
+    ~AacDecoder() override {
+        close();
+    }
 
-    bool open(const std::string& path) override {
+    bool open(const std::string &path) override {
         // Open the file via fopen so libctru handles sdmc:/
         file_ = fopen(path.c_str(), "rb");
         if (!file_) {
@@ -66,21 +72,26 @@ public:
             return false;
         }
 
-        uint8_t* ioBuf = static_cast<uint8_t*>(av_malloc(AVIO_BUF_SIZE));
+        uint8_t *ioBuf = static_cast<uint8_t *>(av_malloc(AVIO_BUF_SIZE));
         if (!ioBuf) {
             logToDebugScreen("AAC: av_malloc for avio buffer failed");
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
-        avioCtx_ = avio_alloc_context(ioBuf, AVIO_BUF_SIZE,
+        avioCtx_ = avio_alloc_context(ioBuf,
+                                      AVIO_BUF_SIZE,
                                       /*write_flag=*/0,
                                       /*opaque=*/file_,
-                                      avioRead, nullptr, avioSeek);
+                                      avioRead,
+                                      nullptr,
+                                      avioSeek);
         if (!avioCtx_) {
             logToDebugScreen("AAC: avio_alloc_context failed");
             av_free(ioBuf);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
@@ -89,7 +100,8 @@ public:
             logToDebugScreen("AAC: avformat_alloc_context failed");
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
         fmtCtx_->pb = avioCtx_;
@@ -103,58 +115,67 @@ public:
             fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
         rc = avformat_find_stream_info(fmtCtx_, nullptr);
         if (rc < 0) {
             logToDebugScreen("AAC: avformat_find_stream_info failed");
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
         // Find the first audio stream
         audioStreamIdx_ = -1;
         for (unsigned i = 0; i < fmtCtx_->nb_streams; ++i) {
-            AVStream* s = fmtCtx_->streams[i];
+            AVStream *s = fmtCtx_->streams[i];
             if (s->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && audioStreamIdx_ < 0) {
-                audioStreamIdx_ = (int)i;
+                audioStreamIdx_ = (int) i;
             }
         }
         if (audioStreamIdx_ < 0) {
             logToDebugScreen("AAC: no audio stream found");
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
-        AVStream* audioStream = fmtCtx_->streams[audioStreamIdx_];
-        AVCodecParameters* par = audioStream->codecpar;
+        AVStream *audioStream = fmtCtx_->streams[audioStreamIdx_];
+        AVCodecParameters *par = audioStream->codecpar;
 
         // Set up codec context
-        const AVCodec* codec = avcodec_find_decoder(par->codec_id);
+        const AVCodec *codec = avcodec_find_decoder(par->codec_id);
         if (!codec) {
             logToDebugScreen("AAC: no decoder for codec id " + std::to_string(par->codec_id));
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
         codecCtx_ = avcodec_alloc_context3(codec);
         if (!codecCtx_) {
             logToDebugScreen("AAC: avcodec_alloc_context3 failed");
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
@@ -162,10 +183,12 @@ public:
         if (rc < 0) {
             logToDebugScreen("AAC: avcodec_parameters_to_context failed");
             avcodec_free_context(&codecCtx_);
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
@@ -173,22 +196,26 @@ public:
         if (rc != 0) {
             logToDebugScreen("AAC: avcodec_open2 failed: " + std::to_string(rc));
             avcodec_free_context(&codecCtx_);
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
         sampleRate_ = codecCtx_->sample_rate;
         inChannels_ = codecCtx_->ch_layout.nb_channels;
-        if (inChannels_ < 1) inChannels_ = 1;
+        if (inChannels_ < 1) {
+            inChannels_ = 1;
+        }
 
         // Duration
         if (fmtCtx_->duration != AV_NOPTS_VALUE) {
-            duration_ = (double)fmtCtx_->duration / (double)AV_TIME_BASE;
+            duration_ = (double) fmtCtx_->duration / (double) AV_TIME_BASE;
         } else if (audioStream->duration != AV_NOPTS_VALUE) {
-            duration_ = (double)audioStream->duration * av_q2d(audioStream->time_base);
+            duration_ = (double) audioStream->duration * av_q2d(audioStream->time_base);
         }
 
         // Set up swresample for FLTP → S16 interleaved stereo
@@ -201,16 +228,23 @@ public:
         }
 
         rc = swr_alloc_set_opts2(&swrCtx_,
-                                 &outLayout, AV_SAMPLE_FMT_S16,  sampleRate_,
-                                 &inLayout, codecCtx_->sample_fmt, sampleRate_,
-                                 0, nullptr);
+                                 &outLayout,
+                                 AV_SAMPLE_FMT_S16,
+                                 sampleRate_,
+                                 &inLayout,
+                                 codecCtx_->sample_fmt,
+                                 sampleRate_,
+                                 0,
+                                 nullptr);
         if (rc != 0 || !swrCtx_) {
             logToDebugScreen("AAC: swr_alloc_set_opts2 failed");
             avcodec_free_context(&codecCtx_);
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
@@ -219,10 +253,12 @@ public:
             logToDebugScreen("AAC: swr_init failed: " + std::to_string(rc));
             swr_free(&swrCtx_);
             avcodec_free_context(&codecCtx_);
-            avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
+            avformat_close_input(&fmtCtx_);
+            fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
             return false;
         }
 
@@ -243,8 +279,10 @@ public:
     }
 
     // Pull up to maxFrames interleaved S16 stereo pairs into buffer.
-    int decode(int16_t* buffer, int maxFrames) override {
-        if (!open_) return -1;
+    int decode(int16_t *buffer, int maxFrames) override {
+        if (!open_) {
+            return -1;
+        }
 
         int produced = 0;
 
@@ -252,12 +290,12 @@ public:
             // Drain the PCM ring buffer first
             if (!pcmBuf_.empty()) {
                 size_t available = pcmBuf_.size() / 2;  // stereo frames
-                size_t want = (size_t)(maxFrames - produced);
+                size_t want = (size_t) (maxFrames - produced);
                 size_t copy = (available < want) ? available : want;
 
                 memcpy(buffer + produced * 2, pcmBuf_.data(), copy * 2 * sizeof(int16_t));
-                pcmBuf_.erase(pcmBuf_.begin(), pcmBuf_.begin() + (ptrdiff_t)(copy * 2));
-                produced += (int)copy;
+                pcmBuf_.erase(pcmBuf_.begin(), pcmBuf_.begin() + (ptrdiff_t) (copy * 2));
+                produced += (int) copy;
                 continue;
             }
 
@@ -310,31 +348,41 @@ public:
         // One final drain of whatever landed in pcmBuf_ during flush
         if (!pcmBuf_.empty() && produced < maxFrames) {
             size_t available = pcmBuf_.size() / 2;
-            size_t want = (size_t)(maxFrames - produced);
+            size_t want = (size_t) (maxFrames - produced);
             size_t copy = (available < want) ? available : want;
             memcpy(buffer + produced * 2, pcmBuf_.data(), copy * 2 * sizeof(int16_t));
-            pcmBuf_.erase(pcmBuf_.begin(), pcmBuf_.begin() + (ptrdiff_t)(copy * 2));
-            produced += (int)copy;
+            pcmBuf_.erase(pcmBuf_.begin(), pcmBuf_.begin() + (ptrdiff_t) (copy * 2));
+            produced += (int) copy;
         }
 
         return produced;
     }
 
-    int    getSampleRate()      const override { return sampleRate_; }
-    double getDurationSeconds() const override { return duration_; }
-    bool   isOpen()             const override { return open_; }
+    int getSampleRate() const override {
+        return sampleRate_;
+    }
+    double getDurationSeconds() const override {
+        return duration_;
+    }
+    bool isOpen() const override {
+        return open_;
+    }
 
     double getPositionSeconds() const override {
-        if (!open_ || sampleRate_ <= 0) return 0.0;
-        return (double)samplesDecoded_ / (double)sampleRate_;
+        if (!open_ || sampleRate_ <= 0) {
+            return 0.0;
+        }
+        return (double) samplesDecoded_ / (double) sampleRate_;
     }
 
     void seekTo(double seconds) override {
-        if (!open_) return;
+        if (!open_) {
+            return;
+        }
 
         // Convert target time to the audio stream's time base
-        AVStream* s = fmtCtx_->streams[audioStreamIdx_];
-        int64_t targetPts = (int64_t)(seconds / av_q2d(s->time_base));
+        AVStream *s = fmtCtx_->streams[audioStreamIdx_];
+        int64_t targetPts = (int64_t) (seconds / av_q2d(s->time_base));
 
         // Seek to a keyframe at or before the target
         avformat_seek_file(fmtCtx_, audioStreamIdx_, INT64_MIN, targetPts, targetPts, 0);
@@ -344,14 +392,26 @@ public:
         pcmBuf_.clear();
         eof_ = false;
 
-        samplesDecoded_ = (int64_t)(seconds * sampleRate_);
+        samplesDecoded_ = (int64_t) (seconds * sampleRate_);
     }
 
     void close() override {
-        if (swrCtx_)  { swr_free(&swrCtx_);               swrCtx_   = nullptr; }
-        if (frame_)   { av_frame_free(&frame_);           frame_    = nullptr; }
-        if (pkt_)     { av_packet_free(&pkt_);            pkt_      = nullptr; }
-        if (codecCtx_){ avcodec_free_context(&codecCtx_); codecCtx_ = nullptr; }
+        if (swrCtx_) {
+            swr_free(&swrCtx_);
+            swrCtx_ = nullptr;
+        }
+        if (frame_) {
+            av_frame_free(&frame_);
+            frame_ = nullptr;
+        }
+        if (pkt_) {
+            av_packet_free(&pkt_);
+            pkt_ = nullptr;
+        }
+        if (codecCtx_) {
+            avcodec_free_context(&codecCtx_);
+            codecCtx_ = nullptr;
+        }
         if (fmtCtx_) {
             // Detach our custom AVIO before close so FFmpeg doesn't flush/free it
             fmtCtx_->pb = nullptr;
@@ -362,38 +422,51 @@ public:
             avio_context_free(&avioCtx_);
         }
         if (file_) {
-            fclose(file_); file_ = nullptr;
+            fclose(file_);
+            file_ = nullptr;
         }
         pcmBuf_.clear();
         open_ = false;
     }
 
-    bool loadCoverArt(C2D_Image& image, C3D_Tex& tex, Tex3DS_SubTexture& subtex,
+    bool loadCoverArt(C2D_Image &image,
+                      C3D_Tex &tex,
+                      Tex3DS_SubTexture &subtex,
                       bool freeExisting) override {
-        if (coverArtBytes_.empty()) return false;
-        return loadCoverArtFromBytes(reinterpret_cast<const unsigned char*>(coverArtBytes_.data()),
-                                     (int)coverArtBytes_.size(), image, tex, subtex, freeExisting);
+        if (coverArtBytes_.empty()) {
+            return false;
+        }
+        return loadCoverArtFromBytes(reinterpret_cast<const unsigned char *>(coverArtBytes_.data()),
+                                     (int) coverArtBytes_.size(),
+                                     image,
+                                     tex,
+                                     subtex,
+                                     freeExisting);
     }
 
-    std::string getArtist() const override { return artist_; }
-    std::string getTrackNumber() const override { return trackNumber_; }
+    std::string getArtist() const override {
+        return artist_;
+    }
+    std::string getTrackNumber() const override {
+        return trackNumber_;
+    }
 
-private:
+  private:
     // FFmpeg handles
-    FILE*            file_     = nullptr;
-    AVIOContext*     avioCtx_  = nullptr;
-    AVFormatContext* fmtCtx_   = nullptr;
-    AVCodecContext*  codecCtx_ = nullptr;
-    SwrContext*      swrCtx_   = nullptr;
-    AVPacket*        pkt_      = nullptr;
-    AVFrame*         frame_    = nullptr;
+    FILE *file_ = nullptr;
+    AVIOContext *avioCtx_ = nullptr;
+    AVFormatContext *fmtCtx_ = nullptr;
+    AVCodecContext *codecCtx_ = nullptr;
+    SwrContext *swrCtx_ = nullptr;
+    AVPacket *pkt_ = nullptr;
+    AVFrame *frame_ = nullptr;
 
-    int    audioStreamIdx_ = -1;
-    int    sampleRate_     = 44100;
-    int    inChannels_     = 2;
-    double duration_       = -1.0;
-    bool   open_           = false;
-    bool   eof_            = false;
+    int audioStreamIdx_ = -1;
+    int sampleRate_ = 44100;
+    int inChannels_ = 2;
+    double duration_ = -1.0;
+    bool open_ = false;
+    bool eof_ = false;
 
     // Position tracking (in input samples at native rate)
     int64_t samplesDecoded_ = 0;
@@ -408,21 +481,25 @@ private:
 
     // Convert one decoded AVFrame through swr and push to pcmBuf_.
     void pushFrameToRingBuf() {
-        if (!swrCtx_ || !frame_) return;
+        if (!swrCtx_ || !frame_) {
+            return;
+        }
 
         const int outFrames = frame_->nb_samples;
-        if (outFrames <= 0) return;
+        if (outFrames <= 0) {
+            return;
+        }
 
         // swr_convert wants uint8_t** for output
         // Allocate a temporary S16 interleaved stereo buffer
-        std::vector<int16_t> tmp((size_t)outFrames * 2);
-        uint8_t* outPtr = reinterpret_cast<uint8_t*>(tmp.data());
+        std::vector<int16_t> tmp((size_t) outFrames * 2);
+        uint8_t *outPtr = reinterpret_cast<uint8_t *>(tmp.data());
 
-        int converted = swr_convert(swrCtx_,
-                                    &outPtr, outFrames,
-                                    (const uint8_t**)frame_->data,
-                                    frame_->nb_samples);
-        if (converted <= 0) return;
+        int converted = swr_convert(
+            swrCtx_, &outPtr, outFrames, (const uint8_t **) frame_->data, frame_->nb_samples);
+        if (converted <= 0) {
+            return;
+        }
 
         pcmBuf_.insert(pcmBuf_.end(), tmp.begin(), tmp.begin() + converted * 2);
 
@@ -433,17 +510,23 @@ private:
     // M4A stores tags (artist, album, title …) there as iTunes atoms
     // which FFmpeg maps to standard lowercase key names.
     void cacheTags() {
-        if (!fmtCtx_) return;
-        AVDictionaryEntry* entry = nullptr;
+        if (!fmtCtx_) {
+            return;
+        }
+        AVDictionaryEntry *entry = nullptr;
 
         // "artist" covers both ©ART (iTunes) and ID3-style ARTIST
         entry = av_dict_get(fmtCtx_->metadata, "artist", nullptr, AV_DICT_IGNORE_SUFFIX);
-        if (entry && entry->value && entry->value[0]) artist_ = entry->value;
+        if (entry && entry->value && entry->value[0]) {
+            artist_ = entry->value;
+        }
 
         // Fallback: "album_artist" tag
         if (artist_.empty()) {
             entry = av_dict_get(fmtCtx_->metadata, "album_artist", nullptr, AV_DICT_IGNORE_SUFFIX);
-            if (entry && entry->value && entry->value[0]) artist_ = entry->value;
+            if (entry && entry->value && entry->value[0]) {
+                artist_ = entry->value;
+            }
         }
 
         // Track number (M4A/MP4 tags vary depending on encoder)
@@ -454,7 +537,9 @@ private:
         if (!entry) {
             entry = av_dict_get(fmtCtx_->metadata, "trkn", nullptr, AV_DICT_IGNORE_SUFFIX);
         }
-        if (entry && entry->value && entry->value[0]) trackNumber_ = entry->value;
+        if (entry && entry->value && entry->value[0]) {
+            trackNumber_ = entry->value;
+        }
     }
 
     // Extract cover art from an attached-picture stream.
@@ -462,15 +547,19 @@ private:
     // disposition has AV_DISPOSITION_ATTACHED_PIC set.  The raw image
     // bytes (JPEG or PNG) live in stream->attached_pic.data / size.
     void cacheCoverArt() {
-        if (!fmtCtx_) return;
+        if (!fmtCtx_) {
+            return;
+        }
 
         for (unsigned i = 0; i < fmtCtx_->nb_streams; ++i) {
-            AVStream* s = fmtCtx_->streams[i];
-            if (!(s->disposition & AV_DISPOSITION_ATTACHED_PIC)) continue;
+            AVStream *s = fmtCtx_->streams[i];
+            if (!(s->disposition & AV_DISPOSITION_ATTACHED_PIC)) {
+                continue;
+            }
 
-            const AVPacket& pic = s->attached_pic;
+            const AVPacket &pic = s->attached_pic;
             if (pic.data && pic.size > 0) {
-                coverArtBytes_.assign(reinterpret_cast<const char*>(pic.data), (size_t)pic.size);
+                coverArtBytes_.assign(reinterpret_cast<const char *>(pic.data), (size_t) pic.size);
                 break;  // use the first attached picture
             }
         }
