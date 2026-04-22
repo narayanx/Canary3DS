@@ -9,30 +9,51 @@
 #include <string>
 #include <vector>
 
+#include "audio_decoder.h"
 #include "audio_engine.h"
+#include "ctx_menu.h"
 #include "filebrowser.h"
 #include "gfx.h"
 #include "image.h"
 #include "playlist.h"
 
-// Shared between the renderer and the touch hit-test
 inline constexpr float SEEK_BAR_X = 8.0f;
 inline constexpr float SEEK_BAR_Y = 196.0f;
 inline constexpr float SEEK_BAR_W = 304.0f;
 inline constexpr float SEEK_BAR_H = 18.0f;
 
-enum class TopScreenState {
-    FILEBROWSER,
-    INFO,
-    PLAYLIST_BROWSER,  // list of playlists
-    PLAYLIST_VIEW,     // songs inside a selected playlist (specifically only accessible in from playlist browser)
+inline constexpr int INFO_MAX_VIS = 9;
+inline constexpr size_t AUTOPLAY_PEEK = 5;
+
+enum class TopScreenState { FILEBROWSER, INFO, PLAYLIST_BROWSER, PLAYLIST_VIEW };
+
+struct FileBrowserState {
+    size_t scroll = 0;
 };
 
-enum class ContextMenuState {
-    NONE,
-    MAIN,            // root menu
-    PLAYLIST_SELECT, // sub-menu: pick which playlist
+struct PlaylistState {
+    std::vector<Playlist> playlists;
+    size_t sel           = 0;   // selected playlist index
+    size_t selSong       = 0;   // selected song inside the viewed playlist
+    size_t browserScroll = 0;
+    size_t viewScroll    = 0;
+    bool   dirty         = true;
 };
+
+struct InfoState {
+    int scrollTop = 0;
+    std::vector<std::string> autoplayItems;
+    // Cover art
+    C2D_Image image{};
+    C3D_Tex tex{};
+    Tex3DS_SubTexture subtex{};
+    bool  hasCover = false;
+    bool  displayCover = true;
+    // Seek-bar drag
+    bool  seekDragging = false;
+    float seekDragProgress = 0.0f;
+};
+
 
 int main(int argc, char* argv[]) {
     romfsInit();
@@ -90,37 +111,43 @@ int main(int argc, char* argv[]) {
 
     u64 upPressMs = 0, upRepeatMs = 0, downPressMs = 0, downRepeatMs = 0;
 
-    // Multi-tap state for L and R shoulder buttons
     static constexpr u64 MULTI_TAP_WINDOW_MS = 350;
-    u64  lTapTime = 0, rTapTime = 0;
-    int  lTapCount = 0, rTapCount = 0;
-
-    C2D_Image image; C3D_Tex tex; Tex3DS_SubTexture subtex;
-    bool tryLoadImage = false, loadedImage = false, displayCoverArt = true;
+    u64 lTapTime = 0, rTapTime = 0;
+    int lTapCount = 0, rTapCount = 0;
 
     TopScreenState screenState = TopScreenState::FILEBROWSER;
-
-    std::vector<Playlist> playlists;
-    size_t selPlaylist = 0, selPlaylistSong = 0;
-    bool   playlistsDirty = true;
-    size_t fileBrowserScroll = 0, playlistBrowserScroll = 0, playlistViewScroll = 0;
+    FileBrowserState fb;
+    PlaylistState pl;
+    InfoState info;
+    CtxMenu s_ctx, s_sub;
 
     bool updateFiles = true, needsRender = true;
+    bool wasTouched = false;
+    bool showLog = false;
 
-    static const std::vector<std::string> CTX_OPTS = {
-        "Play next", "Add to queue", "Add to playlist >"
+    // Open the playlist-picker submenu for song path.
+    auto openAddToPlaylistSub = [&](const std::string& songPath) {
+        pl.playlists = loadPlaylists();
+        if (pl.playlists.empty()) {
+            logToBottomScreen("No playlists. Create one first.");
+            s_ctx.close();
+            return;
+        }
+        s_sub.close();
+        for (size_t i = 0; i < pl.playlists.size(); ++i) {
+            s_sub.add(pl.playlists[i].name, [&, songPath, i]() {
+                if (addSongToPlaylist(pl.playlists[i].path, songPath)) {
+                    pl.playlists[i].songs.push_back(songPath);
+                    logToBottomScreen("Added to \"" + pl.playlists[i].name + "\"");
+                } else {
+                    logToBottomScreen("Failed to add to playlist");
+                }
+                s_sub.active = false;
+                s_ctx.close();
+            });
+        }
+        s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
     };
-    ContextMenuState ctxState = ContextMenuState::NONE;
-    size_t ctxMenuIdx = 0, ctxPlaylistIdx = 0;
-    std::string ctxSongPath;
-
-    // Touch-seek state.
-    // seekDragging:     true while the user's finger is held on the seek bar
-    // seekDragProgress: normalised position (0-1) updated every frame while
-    //                   dragging. (The actual decoder seek is issued on finger release.)
-    bool  wasTouched       = false;
-    bool  seekDragging     = false;
-    float seekDragProgress = 0.0f;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -146,80 +173,53 @@ int main(int argc, char* argv[]) {
             updateFiles = false;
         }
 
-        // Touch-seek on the bottom screen.
+        // Autoplay preview (cheap to rebuild each frame)
+        info.autoplayItems.clear();
         if (audioController.songReady) {
-            float px = (float)touchPos.px;
-            float py = (float)touchPos.py;
-            bool  inBar = px >= SEEK_BAR_X && px <= SEEK_BAR_X + SEEK_BAR_W &&
-                          py >= SEEK_BAR_Y && py <= SEEK_BAR_Y + SEEK_BAR_H;
-
-            if (newTouch && inBar) {
-                seekDragging = true;
-                ndspChnSetPaused(0, true);
-            }
-
-            if (seekDragging && screenTouched) {
-                float prog = (px - SEEK_BAR_X) / SEEK_BAR_W;
-                seekDragProgress = std::max(0.0f, std::min(1.0f, prog));
-            }
-
-            if (seekDragging && touchReleased) {
-                double dur = audioController.songDurationSeconds;
-                if (dur > 0) {
-                    audioController.seekTargetSeconds = (double)seekDragProgress * dur;
-                    audioController.seekPending       = true;
-                    LightEvent_Signal(&audioController.fillBufferEvent);
+            size_t nf = fileController.playingFile + 1;
+            while (nf < fileController.files.size() &&
+                   info.autoplayItems.size() < AUTOPLAY_PEEK) {
+                if (fileController.files[nf].d_type == DT_REG) {
+                    std::string p = fileController.cwd + fileController.files[nf].d_name;
+                    if (isSupportedAudioFile(p)) info.autoplayItems.push_back(p);
                 }
-                seekDragging = false;
+                ++nf;
             }
         }
 
-        // Context-menu intercept
-        bool ctxHandled = (ctxState != ContextMenuState::NONE);
-        if (ctxHandled) {
-            if (kDown & KEY_B) {
-                ctxState = (ctxState == ContextMenuState::PLAYLIST_SELECT)
-                           ? ContextMenuState::MAIN
-                           : ContextMenuState::NONE;
-                if (ctxState == ContextMenuState::MAIN) ctxMenuIdx = 2;
+        // Touch-seek
+        if (audioController.songReady) {
+            float px = (float)touchPos.px, py = (float)touchPos.py;
+            bool inBar = px >= SEEK_BAR_X && px <= SEEK_BAR_X + SEEK_BAR_W &&
+                         py >= SEEK_BAR_Y && py <= SEEK_BAR_Y + SEEK_BAR_H;
+            if (newTouch && inBar) { audioController.seekRestorePaused = ndspChnIsPaused(0); info.seekDragging = true; ndspChnSetPaused(0, true); }
+            if (info.seekDragging && screenTouched) {
+                float prog = (px - SEEK_BAR_X) / SEEK_BAR_W;
+                info.seekDragProgress = std::max(0.0f, std::min(1.0f, prog));
             }
-            if (kDown & KEY_A) {
-                if (ctxState == ContextMenuState::MAIN) {
-                    if (ctxMenuIdx == 0) {
-                        fileController.playQueue.push_front(ctxSongPath);
-                        logToBottomScreen("Play next: " + ctxSongPath);
-                        ctxState = ContextMenuState::NONE;
-                    } else if (ctxMenuIdx == 1) {
-                        enqueueSong(ctxSongPath);
-                        ctxState = ContextMenuState::NONE;
-                    } else {
-                        if (playlists.empty()) {
-                            logToBottomScreen("No playlists. Create one first.");
-                            ctxState = ContextMenuState::NONE;
-                        } else {
-                            ctxPlaylistIdx = 0;
-                            ctxState = ContextMenuState::PLAYLIST_SELECT;
-                        }
-                    }
-                } else {
-                    if (!playlists.empty() && ctxPlaylistIdx < playlists.size()) {
-                        if (addSongToPlaylist(playlists[ctxPlaylistIdx].path, ctxSongPath)) {
-                            playlists[ctxPlaylistIdx].songs.push_back(ctxSongPath);
-                            logToBottomScreen("Added to \"" + playlists[ctxPlaylistIdx].name + "\"");
-                        } else logToBottomScreen("Failed to add to playlist");
-                    }
-                    ctxState = ContextMenuState::NONE;
+            if (info.seekDragging && touchReleased) {
+                double dur = audioController.songDurationSeconds;
+                if (dur > 0) {
+                    audioController.seekTargetSeconds = (double)info.seekDragProgress * dur;
+                    audioController.seekPending       = true;
+                    LightEvent_Signal(&audioController.fillBufferEvent);
                 }
+                info.seekDragging = false;
             }
-            if (kDown & KEY_UP) {
-                if (ctxState == ContextMenuState::MAIN && ctxMenuIdx > 0) --ctxMenuIdx;
-                else if (ctxState == ContextMenuState::PLAYLIST_SELECT && ctxPlaylistIdx > 0) --ctxPlaylistIdx;
+        }
+
+        // Context menu input
+        bool ctxHandled = s_ctx.active || s_sub.active;
+        if (ctxHandled) {
+            CtxMenu& active = s_sub.active ? s_sub : s_ctx;
+            if (kDown & KEY_A && !active.actions.empty())
+                active.actions[active.idx]();
+            else if (kDown & KEY_B) {
+                if (s_sub.active) s_sub.active = false;
+                else              s_ctx.close();
             }
-            if (kDown & KEY_DOWN) {
-                if (ctxState == ContextMenuState::MAIN && ctxMenuIdx < CTX_OPTS.size()-1) ++ctxMenuIdx;
-                else if (ctxState == ContextMenuState::PLAYLIST_SELECT &&
-                         !playlists.empty() && ctxPlaylistIdx < playlists.size()-1) ++ctxPlaylistIdx;
-            }
+            if (kDown & KEY_UP   && active.idx > 0)                        --active.idx;
+            if (kDown & KEY_DOWN && active.idx + 1 < active.labels.size()) ++active.idx;
         }
 
         // A button
@@ -229,9 +229,9 @@ int main(int argc, char* argv[]) {
                 if (ft == DT_DIR) {
                     fileController.cwd += fileController.files[fileController.selectedFile].d_name;
                     fileController.cwd += '/';
-                    fileController.fileHistory.push_back({fileController.selectedFile, fileBrowserScroll});
+                    fileController.fileHistory.push_back({fileController.selectedFile, fb.scroll});
                     fileController.selectedFile = 0;
-                    fileBrowserScroll = 0;
+                    fb.scroll = 0;
                     if (fileController.fileHistory.size() > MAX_DEPTH)
                         fileController.fileHistory.pop_front();
                     fileController.files = getFiles(fileController.cwd.c_str());
@@ -245,18 +245,18 @@ int main(int argc, char* argv[]) {
                     fileController.playingFile = fileController.selectedFile;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                if (!playlists.empty()) {
-                    selPlaylistSong = 0; playlistViewScroll = 0;
+                if (!pl.playlists.empty()) {
+                    pl.selSong = 0; pl.viewScroll = 0;
                     screenState = TopScreenState::PLAYLIST_VIEW;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (!playlists.empty() && selPlaylist < playlists.size() &&
-                    !playlists[selPlaylist].songs.empty()) {
-                    const Playlist& pl = playlists[selPlaylist];
+                if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                    !pl.playlists[pl.sel].songs.empty()) {
+                    const Playlist& lst = pl.playlists[pl.sel];
                     stopPlaybackIfPlaying();
-                    if (playSong(pl.songs[selPlaylistSong])) {
-                        for (size_t i = selPlaylistSong + 1; i < pl.songs.size(); ++i)
-                            enqueueSong(pl.songs[i]);
+                    if (playSong(lst.songs[pl.selSong])) {
+                        for (size_t i = pl.selSong + 1; i < lst.songs.size(); ++i)
+                            enqueueSong(lst.songs[i]);
                         screenState = TopScreenState::INFO;
                     }
                 }
@@ -267,43 +267,134 @@ int main(int argc, char* argv[]) {
         if (!ctxHandled && (kDown & KEY_X)) {
             if (screenState == TopScreenState::FILEBROWSER) {
                 if (!fileController.files.empty()) {
-                    auto ft = fileController.files[fileController.selectedFile].d_type;
-                    if (ft == DT_REG) {
-                        ctxSongPath = fileController.cwd +
-                                      fileController.files[fileController.selectedFile].d_name;
-                        ctxMenuIdx = 0;
-                        playlists  = loadPlaylists();
-                        ctxState   = ContextMenuState::MAIN;
+                    auto& f = fileController.files[fileController.selectedFile];
+                    if (f.d_type == DT_REG) {
+                        std::string songPath = fileController.cwd + f.d_name;
+                        float row = (float)(fileController.selectedFile - fb.scroll) + 1.0f;
+                        s_ctx.close();
+                        s_ctx.add("Play next", [&, songPath]() {
+                            fileController.playQueue.push_front(songPath);
+                            logToBottomScreen("Play next: " + songPath);
+                            s_ctx.close();
+                        });
+                        s_ctx.add("Add to queue", [&, songPath]() {
+                            enqueueSong(songPath);
+                            s_ctx.close();
+                        });
+                        s_ctx.add("Add to playlist >", [&, songPath]() {
+                            openAddToPlaylistSub(songPath);
+                        });
+                        s_ctx.open(50.0f, 16.0f * row);
                     }
                 }
-            } else if (screenState == TopScreenState::INFO &&
-                       !fileController.playQueue.empty()) {
-                fileController.playQueue.erase(
-                    fileController.playQueue.begin() + fileController.selectedQueueItem);
-                if (fileController.selectedQueueItem > 0 &&
-                    (size_t)fileController.selectedQueueItem >= fileController.playQueue.size())
-                    --fileController.selectedQueueItem;
-            } else if (screenState == TopScreenState::PLAYLIST_BROWSER && !playlists.empty()) {
-                if (deletePlaylist(playlists[selPlaylist].path)) {
-                    logToBottomScreen("Deleted: " + playlists[selPlaylist].name);
-                    playlistsDirty = true;
-                } else logToBottomScreen("Failed to delete playlist");
+
+            } else if (screenState == TopScreenState::INFO) {
+                const int sel = fileController.selectedQueueItem;
+                const int qSz = (int)fileController.playQueue.size();
+                const int hSz = (int)fileController.playHistory.size();
+                const int aSz = (int)info.autoplayItems.size();
+
+                std::string path;
+                if      (sel < 0)    { int hi = -(sel+1); if (hi < hSz) path = fileController.playHistory[(size_t)hi]; }
+                else if (sel == 0)   { path = audioController.songPath; }
+                else if (sel <= qSz) { path = fileController.playQueue[(size_t)(sel-1)]; }
+                else                 { int ai = sel-qSz-1; if (ai < aSz) path = info.autoplayItems[(size_t)ai]; }
+
+                if (!path.empty()) {
+                    float row = (float)(sel - info.scrollTop) + 1.0f;
+                    s_ctx.close();
+                    s_ctx.add("Play next", [&, path]() {
+                        fileController.playQueue.push_front(path);
+                        logToBottomScreen("Play next: " + path);
+                        s_ctx.close();
+                    });
+                    s_ctx.add("Add to queue", [&, path]() {
+                        enqueueSong(path);
+                        s_ctx.close();
+                    });
+                    if (sel < 0) {
+                        int hi = -(sel + 1);
+                        s_ctx.add("Remove from history", [&, hi]() {
+                            if (hi < (int)fileController.playHistory.size()) {
+                                fileController.playHistory.erase(
+                                    fileController.playHistory.begin() + hi);
+                                if (-(fileController.selectedQueueItem + 1) >=
+                                    (int)fileController.playHistory.size())
+                                    fileController.selectedQueueItem =
+                                        -((int)fileController.playHistory.size());
+                                if (info.scrollTop > fileController.selectedQueueItem)
+                                    info.scrollTop = fileController.selectedQueueItem;
+                            }
+                            s_ctx.close();
+                        });
+                    } else if (sel >= 1 && sel <= qSz) {
+                        s_ctx.add("Remove from queue", [&, sel]() {
+                            int qi = sel - 1;
+                            if (qi < (int)fileController.playQueue.size()) {
+                                fileController.playQueue.erase(
+                                    fileController.playQueue.begin() + qi);
+                                int newMax = (int)fileController.playQueue.size() +
+                                             (int)info.autoplayItems.size();
+                                if (fileController.selectedQueueItem > newMax)
+                                    fileController.selectedQueueItem = newMax > 0 ? newMax : 0;
+                                if (info.scrollTop > fileController.selectedQueueItem)
+                                    info.scrollTop = fileController.selectedQueueItem;
+                            }
+                            s_ctx.close();
+                        });
+                    }
+                    s_ctx.add("Add to playlist >", [&, path]() {
+                        openAddToPlaylistSub(path);
+                    });
+                    s_ctx.open(212.0f, 10.0f + 24.0f + 16.0f * row);
+                }
+
+            } else if (screenState == TopScreenState::PLAYLIST_BROWSER && !pl.playlists.empty()) {
+                // Direct action: no menu needed for a single destructive op
+                if (deletePlaylist(pl.playlists[pl.sel].path)) {
+                    logToBottomScreen("Deleted: " + pl.playlists[pl.sel].name);
+                    pl.dirty = true;
+                } else {
+                    logToBottomScreen("Failed to delete playlist");
+                }
+
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (!playlists.empty() && selPlaylist < playlists.size() &&
-                    !playlists[selPlaylist].songs.empty()) {
-                    if (removeSongFromPlaylist(playlists[selPlaylist].path, selPlaylistSong)) {
-                        playlists[selPlaylist].songs.erase(
-                            playlists[selPlaylist].songs.begin() + selPlaylistSong);
-                        if (selPlaylistSong > 0 &&
-                            selPlaylistSong >= playlists[selPlaylist].songs.size())
-                            --selPlaylistSong;
-                        const auto& songs = playlists[selPlaylist].songs;
-                        if (playlistViewScroll > 0 &&
-                            playlistViewScroll + MAX_FILES > songs.size())
-                            playlistViewScroll = (songs.size() > (size_t)MAX_FILES)
-                                                 ? songs.size() - MAX_FILES : 0;
-                        logToBottomScreen("Removed song from playlist");
-                    } else logToBottomScreen("Failed to remove song");
+                if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                    !pl.playlists[pl.sel].songs.empty()) {
+                    std::string songPath = pl.playlists[pl.sel].songs[pl.selSong];
+                    size_t      snapIdx  = pl.selSong;
+                    float row = (float)(pl.selSong - pl.viewScroll) + 1.0f;
+                    s_ctx.close();
+                    s_ctx.add("Play next", [&, songPath]() {
+                        fileController.playQueue.push_front(songPath);
+                        logToBottomScreen("Play next: " + songPath);
+                        s_ctx.close();
+                    });
+                    s_ctx.add("Add to queue", [&, songPath]() {
+                        enqueueSong(songPath);
+                        s_ctx.close();
+                    });
+                    s_ctx.add("Remove from playlist", [&, snapIdx]() {
+                        if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+                            if (removeSongFromPlaylist(pl.playlists[pl.sel].path, snapIdx)) {
+                                pl.playlists[pl.sel].songs.erase(
+                                    pl.playlists[pl.sel].songs.begin() + snapIdx);
+                                if (pl.selSong > 0 &&
+                                    pl.selSong >= pl.playlists[pl.sel].songs.size())
+                                    --pl.selSong;
+                                const auto& songs = pl.playlists[pl.sel].songs;
+                                if (pl.viewScroll > 0 &&
+                                    pl.viewScroll + MAX_FILES > songs.size())
+                                    pl.viewScroll = songs.size() > (size_t)MAX_FILES
+                                                    ? songs.size() - MAX_FILES : 0;
+                                logToBottomScreen("Removed song from playlist");
+                            } else {
+                                logToBottomScreen("Failed to remove song");
+                            }
+                        }
+                        s_ctx.close();
+                    });
+                    s_ctx.open(50.0f, 16.0f * row);
                 }
             }
         }
@@ -311,10 +402,9 @@ int main(int argc, char* argv[]) {
         // B button
         if (!ctxHandled && (kDown & KEY_B)) {
             if (screenState == TopScreenState::INFO) {
-                stopPlaybackIfPlaying();
-                screenState  = TopScreenState::FILEBROWSER;
-                tryLoadImage = false;
-                logToBottomScreen("Stopping playback...");
+                screenState = TopScreenState::FILEBROWSER;
+                ndspChnSetPaused(0, true);
+                logToBottomScreen("Pausing and going to filebrowser");
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
                 screenState = TopScreenState::PLAYLIST_BROWSER;
             } else {
@@ -325,10 +415,10 @@ int main(int argc, char* argv[]) {
                         auto [rf, rs] = fileController.fileHistory.back();
                         fileController.fileHistory.pop_back();
                         fileController.selectedFile = rf;
-                        fileBrowserScroll = rs;
+                        fb.scroll = rs;
                     } else {
                         fileController.selectedFile = 0;
-                        fileBrowserScroll = 0;
+                        fb.scroll = 0;
                     }
                     fileController.files = getFiles(fileController.cwd.c_str());
                 }
@@ -337,174 +427,180 @@ int main(int argc, char* argv[]) {
 
         // Y button
         if (!ctxHandled && (kDown & KEY_Y)) {
-            if      (screenState == TopScreenState::FILEBROWSER)  screenState = TopScreenState::INFO;
-            else if (screenState == TopScreenState::INFO)        { playlistsDirty = true; screenState = TopScreenState::PLAYLIST_BROWSER; }
-            else                                                   screenState = TopScreenState::FILEBROWSER;
-        }
-
-        // SELECT – create playlist
-        if (!ctxHandled && (kDown & KEY_SELECT) &&
-            screenState == TopScreenState::PLAYLIST_BROWSER) {
-            SwkbdState swkbd; char nameBuf[64] = {0};
-            swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, 63);
-            swkbdSetHintText(&swkbd, "Playlist name");
-            swkbdSetButton(&swkbd, SWKBD_BUTTON_LEFT,  "Cancel", false);
-            swkbdSetButton(&swkbd, SWKBD_BUTTON_RIGHT, "Create", true);
-            if (swkbdInputText(&swkbd, nameBuf, sizeof(nameBuf)) == SWKBD_BUTTON_RIGHT
-                && nameBuf[0]) {
-                if (createPlaylist(nameBuf)) {
-                    logToBottomScreen((std::string)"Created: " + nameBuf);
-                    playlistsDirty = true;
-                } else logToBottomScreen("Failed to create playlist");
+            if (screenState == TopScreenState::FILEBROWSER) {
+                screenState = TopScreenState::INFO;
+                fileController.selectedQueueItem = 0;
+                info.scrollTop = 0;
+            } else if (screenState == TopScreenState::INFO) {
+                pl.dirty    = true;
+                screenState = TopScreenState::PLAYLIST_BROWSER;
+            } else {
+                screenState = TopScreenState::FILEBROWSER;
             }
         }
 
-        // Shoulder button multi-tap detection
-        u64 now = osGetTime();
+        // SELECT: toggle log overlay; 
+        if (!ctxHandled && (kDown & KEY_SELECT)) {
+            showLog = !showLog;
+        }
 
+        // Shoulder multi-tap
+        u64 now = osGetTime();
         if (kDown & KEY_L) {
-            if (lTapCount > 0 && (now - lTapTime) <= MULTI_TAP_WINDOW_MS)
-                ++lTapCount;
-            else
-                lTapCount = 1;
+            lTapCount = (lTapCount > 0 && (now - lTapTime) <= MULTI_TAP_WINDOW_MS)
+                        ? lTapCount + 1 : 1;
             lTapTime = now;
         }
         if (kDown & KEY_R) {
-            if (rTapCount > 0 && (now - rTapTime) <= MULTI_TAP_WINDOW_MS)
-                ++rTapCount;
-            else
-                rTapCount = 1;
+            rTapCount = (rTapCount > 0 && (now - rTapTime) <= MULTI_TAP_WINDOW_MS)
+                        ? rTapCount + 1 : 1;
             rTapTime = now;
         }
-
-        // Commit L taps once the window expires
         if (lTapCount > 0 && (now - lTapTime) > MULTI_TAP_WINDOW_MS) {
-            if (lTapCount >= 3 && audioController.songReady) {
-                // Triple-tap L → previous song
-                if (fileController.playingFile != 0) {
-                    size_t prev = fileController.playingFile - 1;
-                    stopPlaybackIfPlaying();
-                    if (playSong(fileController.cwd + fileController.files[prev].d_name))
-                        fileController.playingFile = prev;
-                }
+            if (lTapCount >= 3 && audioController.songReady && fileController.playingFile != 0) {
+                size_t prev = fileController.playingFile - 1;
+                stopPlaybackIfPlaying();
+                if (playSong(fileController.cwd + fileController.files[prev].d_name))
+                    fileController.playingFile = prev;
             }
             lTapCount = 0;
         }
-
-        // Commit R taps once the window expires
         if (rTapCount > 0 && (now - rTapTime) > MULTI_TAP_WINDOW_MS) {
-            if (rTapCount == 2 && audioController.songReady) {
-                // Double-tap R: pause / resume
-                bool paused = ndspChnIsPaused(0);
-                ndspChnSetPaused(0, !paused);
-            } else if (rTapCount >= 3 && audioController.songReady) {
-                // Triple-tap R: next song
-                if (fileController.playingFile < fileController.files.size() - 1)
-                    goToNextSong();
-            }
+            if (rTapCount == 2 && audioController.songReady)
+                ndspChnSetPaused(0, !ndspChnIsPaused(0));
+            else if (rTapCount >= 3 && audioController.songReady &&
+                     fileController.playingFile < fileController.files.size() - 1)
+                goToNextSong();
             rTapCount = 0;
         }
 
-        // D-pad auto-repeat
+        // D-pad auto-repeat timing
         if (kDown & KEY_UP)   { upPressMs   = now; upRepeatMs   = now; }
         if (kDown & KEY_DOWN) { downPressMs = now; downRepeatMs = now; }
 
+        // INFO virtual list bounds
+        const int histSzInfo = (int)fileController.playHistory.size();
+        const int qSzInfo    = (int)fileController.playQueue.size();
+        const int aSzInfo    = (int)info.autoplayItems.size();
+        const int minInfoIdx = -histSzInfo;
+        const int maxInfoIdx = qSzInfo + aSzInfo;
+
         bool firstItem =
             (screenState == TopScreenState::FILEBROWSER      && fileController.selectedFile == 0) ||
-            (screenState == TopScreenState::INFO             && fileController.selectedQueueItem == 0) ||
-            (screenState == TopScreenState::PLAYLIST_BROWSER && selPlaylist == 0) ||
-            (screenState == TopScreenState::PLAYLIST_VIEW    && selPlaylistSong == 0);
+            (screenState == TopScreenState::INFO             && fileController.selectedQueueItem <= minInfoIdx) ||
+            (screenState == TopScreenState::PLAYLIST_BROWSER && pl.sel == 0) ||
+            (screenState == TopScreenState::PLAYLIST_VIEW    && pl.selSong == 0);
         bool upRepeat = (kHeld & KEY_UP) && !firstItem &&
             (double)(now - upPressMs)  > REPEAT_INITIAL_DELAY_MS &&
             (double)(now - upRepeatMs) > REPEAT_INTERVAL_MS;
 
+        // UP
         if (!ctxHandled && ((kDown & KEY_UP) || upRepeat)) {
             if (upRepeat) upRepeatMs = now;
             if (screenState == TopScreenState::FILEBROWSER) {
                 if (fileController.selectedFile > 0) {
                     --fileController.selectedFile;
-                    if (fileController.selectedFile < fileBrowserScroll) --fileBrowserScroll;
+                    if (fileController.selectedFile < fb.scroll) --fb.scroll;
                 } else {
                     fileController.selectedFile = fileController.files.size() - 1;
-                    fileBrowserScroll = (fileController.files.size() > (size_t)MAX_FILES)
-                                        ? fileController.files.size() - MAX_FILES : 0;
+                    fb.scroll = (fileController.files.size() > (size_t)MAX_FILES)
+                                ? fileController.files.size() - MAX_FILES : 0;
                 }
-            } else if (screenState == TopScreenState::INFO && !fileController.playQueue.empty()) {
-                if (fileController.selectedQueueItem > 0) --fileController.selectedQueueItem;
-            } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                if (selPlaylist > 0) {
-                    --selPlaylist;
-                    if (selPlaylist < playlistBrowserScroll) --playlistBrowserScroll;
+            } else if (screenState == TopScreenState::INFO) {
+                if (fileController.selectedQueueItem > minInfoIdx) {
+                    --fileController.selectedQueueItem;
+                    if (fileController.selectedQueueItem < info.scrollTop) --info.scrollTop;
                 } else if (!upRepeat) {
-                    selPlaylist = playlists.size() - 1;
-                    playlistBrowserScroll = (playlists.size() > (size_t)MAX_FILES)
-                                           ? playlists.size() - MAX_FILES : 0;
+                    fileController.selectedQueueItem = maxInfoIdx;
+                    info.scrollTop = std::max(minInfoIdx, maxInfoIdx - INFO_MAX_VIS + 1);
+                }
+            } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
+                if (pl.sel > 0) {
+                    --pl.sel;
+                    if (pl.sel < pl.browserScroll) --pl.browserScroll;
+                } else if (!upRepeat) {
+                    pl.sel = pl.playlists.size() - 1;
+                    pl.browserScroll = (pl.playlists.size() > (size_t)MAX_FILES)
+                                       ? pl.playlists.size() - MAX_FILES : 0;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (selPlaylistSong > 0) {
-                    --selPlaylistSong;
-                    if (selPlaylistSong < playlistViewScroll) --playlistViewScroll;
-                } else if (!upRepeat && !playlists.empty()) {
-                    const auto& s = playlists[selPlaylist].songs;
-                    selPlaylistSong = s.size() - 1;
-                    playlistViewScroll = (s.size() > (size_t)MAX_FILES) ? s.size() - MAX_FILES : 0;
+                if (pl.selSong > 0) {
+                    --pl.selSong;
+                    if (pl.selSong < pl.viewScroll) --pl.viewScroll;
+                } else if (!upRepeat && !pl.playlists.empty()) {
+                    const auto& s = pl.playlists[pl.sel].songs;
+                    pl.selSong    = s.size() - 1;
+                    pl.viewScroll = (s.size() > (size_t)MAX_FILES) ? s.size() - MAX_FILES : 0;
                 }
             }
         }
 
         bool lastItem =
             (screenState == TopScreenState::FILEBROWSER      && fileController.selectedFile == fileController.files.size()-1) ||
-            (screenState == TopScreenState::INFO             && (size_t)fileController.selectedQueueItem == fileController.playQueue.size()-1) ||
-            (screenState == TopScreenState::PLAYLIST_BROWSER && selPlaylist == playlists.size()-1) ||
-            (screenState == TopScreenState::PLAYLIST_VIEW    && !playlists.empty() &&
-                selPlaylistSong == playlists[selPlaylist].songs.size()-1);
+            (screenState == TopScreenState::INFO             && fileController.selectedQueueItem >= maxInfoIdx) ||
+            (screenState == TopScreenState::PLAYLIST_BROWSER && pl.sel == pl.playlists.size()-1) ||
+            (screenState == TopScreenState::PLAYLIST_VIEW    && !pl.playlists.empty() &&
+                pl.selSong == pl.playlists[pl.sel].songs.size()-1);
         bool downRepeat = (kHeld & KEY_DOWN) && !lastItem &&
             (double)(now - downPressMs)  > REPEAT_INITIAL_DELAY_MS &&
             (double)(now - downRepeatMs) > REPEAT_INTERVAL_MS;
 
+        // DOWN
         if (!ctxHandled && ((kDown & KEY_DOWN) || downRepeat)) {
             if (downRepeat) downRepeatMs = now;
             if (screenState == TopScreenState::FILEBROWSER) {
                 if (fileController.selectedFile < fileController.files.size()-1) {
                     ++fileController.selectedFile;
-                    if (fileController.selectedFile >= fileBrowserScroll + MAX_FILES) ++fileBrowserScroll;
-                } else { fileController.selectedFile = 0; fileBrowserScroll = 0; }
-            } else if (screenState == TopScreenState::INFO && !fileController.playQueue.empty()) {
-                if ((size_t)fileController.selectedQueueItem < fileController.playQueue.size()-1)
+                    if (fileController.selectedFile >= fb.scroll + MAX_FILES) ++fb.scroll;
+                } else { fileController.selectedFile = 0; fb.scroll = 0; }
+            } else if (screenState == TopScreenState::INFO) {
+                if (fileController.selectedQueueItem < maxInfoIdx) {
                     ++fileController.selectedQueueItem;
+                    if (fileController.selectedQueueItem >= info.scrollTop + INFO_MAX_VIS)
+                        ++info.scrollTop;
+                } else if (!downRepeat) {
+                    fileController.selectedQueueItem = 0;
+                    info.scrollTop = 0;
+                }
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                if (selPlaylist < playlists.size()-1) {
-                    ++selPlaylist;
-                    if (selPlaylist >= playlistBrowserScroll + MAX_FILES) ++playlistBrowserScroll;
-                } else if (!downRepeat) { selPlaylist = 0; playlistBrowserScroll = 0; }
+                if (pl.sel < pl.playlists.size()-1) {
+                    ++pl.sel;
+                    if (pl.sel >= pl.browserScroll + MAX_FILES) ++pl.browserScroll;
+                } else if (!downRepeat) { pl.sel = 0; pl.browserScroll = 0; }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (!playlists.empty() && selPlaylistSong < playlists[selPlaylist].songs.size()-1) {
-                    ++selPlaylistSong;
-                    if (selPlaylistSong >= playlistViewScroll + MAX_FILES) ++playlistViewScroll;
-                } else if (!downRepeat && !playlists.empty()) { selPlaylistSong = 0; playlistViewScroll = 0; }
+                if (!pl.playlists.empty() &&
+                    pl.selSong < pl.playlists[pl.sel].songs.size()-1) {
+                    ++pl.selSong;
+                    if (pl.selSong >= pl.viewScroll + MAX_FILES) ++pl.viewScroll;
+                } else if (!downRepeat && !pl.playlists.empty()) {
+                    pl.selSong = 0; pl.viewScroll = 0;
+                }
             }
         }
 
-        // New song started – load cover art
+        // New song started
         if (audioController.newSongStarted) {
             audioController.newSongStarted = false;
-            updateFiles = true;
-            bool ok = loadCoverArtForCurrentSong(image, tex, subtex, loadedImage);
-            tryLoadImage = loadedImage && ok;
+            updateFiles   = true;
+            // hasCover is passed as freeExisting to release the previous texture
+            info.hasCover = loadCoverArtForCurrentSong(info.image, info.tex,
+                                                       info.subtex, info.hasCover);
+            fileController.selectedQueueItem = 0;
+            info.scrollTop = 0;
         }
 
-        // Reload playlists when needed
-        if (playlistsDirty &&
-            (screenState == TopScreenState::PLAYLIST_BROWSER ||
-             screenState == TopScreenState::PLAYLIST_VIEW)) {
-            playlists      = loadPlaylists();
-            playlistsDirty = false;
-            if (!playlists.empty() && selPlaylist >= playlists.size()) {
-                selPlaylist = playlists.size() - 1;
-                playlistBrowserScroll = (selPlaylist >= MAX_FILES) ? selPlaylist - MAX_FILES + 1 : 0;
+        // Reload playlists when dirty
+        if (pl.dirty && (screenState == TopScreenState::PLAYLIST_BROWSER ||
+                         screenState == TopScreenState::PLAYLIST_VIEW)) {
+            pl.playlists = loadPlaylists();
+            pl.dirty     = false;
+            if (!pl.playlists.empty() && pl.sel >= pl.playlists.size()) {
+                pl.sel = pl.playlists.size() - 1;
+                pl.browserScroll = (pl.sel >= MAX_FILES) ? pl.sel - MAX_FILES + 1 : 0;
             }
         }
 
+        // Render
         if (needsRender) {
             consoleClear();
             C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
@@ -515,22 +611,28 @@ int main(int argc, char* argv[]) {
             if (screenState == TopScreenState::FILEBROWSER) {
                 printC2DText(fileController.cwd, 0);
                 printFiles(fileController.files, fileController.selectedFile,
-                           fileBrowserScroll, MAX_FILES, 1);
+                           fb.scroll, MAX_FILES, 1);
 
             } else if (screenState == TopScreenState::INFO) {
-                if (displayCoverArt && tryLoadImage)
-                    drawCoverScaled(image, subtex, 10.0f, 10.0f);
+                if (info.displayCover && info.hasCover)
+                    drawCoverScaled(info.image, info.subtex, 10.0f, 10.0f);
 
-                printQueue(fileController.playQueue,
-                           fileController.selectedQueueItem, 1);
+                printNowPlayingList(
+                    fileController.playHistory,
+                    fileController.playQueue,
+                    info.autoplayItems,
+                    fileController.selectedQueueItem,
+                    info.scrollTop,
+                    audioController.songPath,
+                    audioController.songArtist,
+                    audioController.songTrackNumber);
 
                 {
-                    double dur = audioController.songDurationSeconds;
-                    bool   showDrag = seekDragging || audioController.seekPending;
-                    double pos = (showDrag && dur > 0)
-                                 ? (double)seekDragProgress * dur
-                                 : audioController.songPositionSeconds;
-
+                    double dur    = audioController.songDurationSeconds;
+                    bool showDrag = info.seekDragging || audioController.seekPending;
+                    double pos    = (showDrag && dur > 0)
+                                    ? (double)info.seekDragProgress * dur
+                                    : audioController.songPositionSeconds;
                     drawProgressBar(10.0f, 206.0f, 190.0f, 7.0f,
                                     (dur > 0) ? (float)(pos / dur) : 0.0f);
                     drawTimeText(pos, dur, 10.0f, 217.0f, 0.44f, 0.44f);
@@ -539,37 +641,35 @@ int main(int argc, char* argv[]) {
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
                 printC2DText("Playlists  A=Open  X=Delete  SELECT=New", 0);
                 std::vector<std::string> names;
-                for (const auto& p : playlists) names.push_back(p.name);
-                printStringList(names, selPlaylist, playlistBrowserScroll, 1);
+                for (const auto& p : pl.playlists) names.push_back(p.name);
+                printStringList(names, pl.sel, pl.browserScroll, 1);
 
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (!playlists.empty() && selPlaylist < playlists.size()) {
-                    const Playlist& pl = playlists[selPlaylist];
-                    printC2DText("< " + pl.name + "  A=Play  X=Remove", 0);
+                if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+                    const Playlist& lst = pl.playlists[pl.sel];
+                    printC2DText("< " + lst.name + "  A=Play  X=Menu", 0);
                     std::vector<std::string> songNames;
-                    for (const auto& s : pl.songs) {
+                    for (const auto& s : lst.songs) {
                         size_t sl = s.find_last_of('/');
                         songNames.push_back(sl != std::string::npos ? s.substr(sl+1) : s);
                     }
-                    printStringList(songNames, selPlaylistSong, playlistViewScroll, 1);
+                    printStringList(songNames, pl.selSong, pl.viewScroll, 1);
                 }
             }
 
-            // Context-menu overlay
-            if (ctxState == ContextMenuState::MAIN) {
-                float row = (float)(fileController.selectedFile - fileBrowserScroll) + 1.0f;
-                printContextMenu(CTX_OPTS, ctxMenuIdx, 50.0f, 16.0f * row);
-            } else if (ctxState == ContextMenuState::PLAYLIST_SELECT) {
-                std::vector<std::string> pn;
-                for (const auto& p : playlists) pn.push_back(p.name);
-                float row = (float)(fileController.selectedFile - fileBrowserScroll) + 1.0f;
-                printContextMenu(pn, ctxPlaylistIdx, 245.0f, 16.0f * row);
-            }
+            // Context menu overlay
+            if (s_sub.active)
+                printContextMenu(s_sub.labels, s_sub.idx, s_sub.x, s_sub.y);
+            else if (s_ctx.active)
+                printContextMenu(s_ctx.labels, s_ctx.idx, s_ctx.x, s_ctx.y);
+
+            // Log overlay (drawn last so it sits on top of everything)
+            if (showLog)
+                renderLogOverlay();
 
             // Bottom screen
             C2D_TargetClear(bottom, BOTTOM_CLEAR_COLOR);
             C2D_SceneBegin(bottom);
-
             renderBottomScreen(
                 audioController.songReady,
                 audioController.songPositionSeconds,
@@ -577,8 +677,8 @@ int main(int argc, char* argv[]) {
                 audioController.songPath,
                 audioController.songArtist,
                 SEEK_BAR_X, SEEK_BAR_Y, SEEK_BAR_W, SEEK_BAR_H,
-                (seekDragging || audioController.seekPending)
-                    ? seekDragProgress : -1.0f);
+                (info.seekDragging || audioController.seekPending)
+                    ? info.seekDragProgress : -1.0f);
 
             C3D_FrameEnd(0);
         }
@@ -586,13 +686,13 @@ int main(int argc, char* argv[]) {
     }
 
     // Cleanup
-    if (audioController.songReady) {audioController.stopPlayback = true;}
-    audioController.interrupted = true;  // don't try to autoplay next song
+    if (audioController.songReady) audioController.stopPlayback = true;
+    audioController.interrupted = true;
     runThreads = false;
     LightEvent_Signal(&audioController.startEvent);
     LightEvent_Signal(&audioController.fillBufferEvent);
 
-    threadJoin(audioTid,    UINT64_MAX); threadFree(audioTid);
+    threadJoin(audioTid, UINT64_MAX); threadFree(audioTid);
 
     audioExit();
     ndspExit();

@@ -23,6 +23,7 @@ AudioController audioController = {
     .newSongStarted      = false,
     .seekPending         = false,
     .seekTargetSeconds   = 0.0,
+    .seekRestorePaused   = false,
     .songPositionSeconds = 0.0,
     .songDurationSeconds = -1.0,
     .startEvent          = {0},
@@ -97,8 +98,11 @@ static void resetChannel(int sampleRate) {
 // Execute a pending seek: reset the channel, move the decoder, then prime all
 // three wave buffers with post-seek audio so there's no audible gap on resume.
 static void handlePendingSeek(IAudioDecoder* dec) {
-    resetChannel(dec->getSampleRate());
+    // Capture before resetChannel clears channel state
+    const bool wasPaused = audioController.seekRestorePaused;
 
+    resetChannel(dec->getSampleRate());
+    if (wasPaused) ndspChnSetPaused(0, true);  // pause before filling to avoid blip on resume
     dec->seekTo(audioController.seekTargetSeconds);
     audioController.songPositionSeconds = dec->getPositionSeconds();
     audioController.seekPending         = false;
@@ -106,13 +110,12 @@ static void handlePendingSeek(IAudioDecoder* dec) {
     for (auto& wb : s_waveBufs) {
         if (!fillBuffer(dec, &wb)) break;
     }
-    ndspChnSetPaused(0, false);
+    ndspChnSetPaused(0, wasPaused);
 }
 
 // Audio thread handles the entire playback lifecycle.
 void audioThread(void*) {
     while (runThreads) {
-
         // Wait for a song
         // playSong() sets songReady = true then signals startEvent.
         LightEvent_Wait(&audioController.startEvent);
@@ -123,6 +126,8 @@ void audioThread(void*) {
         // audioController.decoder, so a concurrent playSong() call on the
         // main thread cannot cause us to delete the wrong object.
         IAudioDecoder* dec = audioController.decoder;
+        std::string finishedPath = audioController.songPath;
+
         resetChannel(dec->getSampleRate());
 
         // Fill loop
@@ -147,7 +152,6 @@ void audioThread(void*) {
                 }
             }
 
-            // Publish position for the UI (main thread reads this).
             audioController.songPositionSeconds = dec->getPositionSeconds();
 
             // Sleep until NDSP frees a buffer, or until waked early by signalling fillBufferEvent.
@@ -168,9 +172,12 @@ void audioThread(void*) {
         audioController.seekPending         = false;
         audioController.songPositionSeconds = 0.0;
 
-        // Delete through the local pointer captured at song start.
-        // This is safe even if the main thread has already called playSong()
-        // and overwritten audioController.decoder with a new value.
+        if (!finishedPath.empty()) {
+            fileController.playHistory.push_front(finishedPath);
+            while (fileController.playHistory.size() > MAX_HISTORY)
+                fileController.playHistory.pop_back();
+        }
+
         delete dec;
         dec = nullptr;
         audioController.decoder = nullptr;
@@ -199,8 +206,6 @@ void audioThread(void*) {
                 }
             }
         }
-        // If playSong() succeeded above it has already signalled startEvent,
-        // so the LightEvent_Wait at the top of this loop won't block.
     }
 }
 

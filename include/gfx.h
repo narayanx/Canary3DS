@@ -11,7 +11,7 @@
 
 inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x12, 0x12, 0x12, 0xFF);
 inline constexpr u32 BOTTOM_CLEAR_COLOR = C2D_Color32(0x0E, 0x0E, 0x0E, 0xFF);
-inline constexpr int MAX_BOTTOM_LOG_LINES = 10;
+inline constexpr int MAX_LOG_LINES = 16;  // max lines kept in the log buffer
 
 extern C2D_TextBuf   g_dynamicBuf;
 extern C3D_RenderTarget *top, *bottom;
@@ -24,8 +24,15 @@ void printC2DText(std::string msg, size_t lineOffset = 0);
 void printFiles(std::vector<dirent> files, size_t selectedFile,
                 size_t scrollOffset, size_t maxFiles, size_t lineOffset);
 
-void printQueue(const std::deque<std::string>& queue,
-                size_t selectedItem, size_t lineOffset = 0);
+void printNowPlayingList(
+    const std::deque<std::string>& history,
+    const std::deque<std::string>& queue,
+    const std::vector<std::string>& autoplay,
+    int selectedVirtualIdx,
+    int topVirtualIdx,
+    const std::string& nowPlayingName,
+    const std::string& nowPlayingArtist,
+    const std::string& nowPlayingTrack);
 
 void printStringList(const std::vector<std::string>& items,
                      size_t selectedIdx, size_t scrollOffset,
@@ -44,6 +51,9 @@ void drawTimeText(double positionSeconds, double durationSeconds,
 // Append a log message
 void logToBottomScreen(const char* message);
 void logToBottomScreen(const std::string& message);
+
+// Semi-transparent log overlay drawn on the top screen.
+void renderLogOverlay();
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).

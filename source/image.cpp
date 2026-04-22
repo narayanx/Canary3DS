@@ -93,7 +93,7 @@ void drawCoverScaled(C2D_Image& image, Tex3DS_SubTexture& /*subtex*/,
     float sx = COVER_TARGET_WIDTH  / (float)image.tex->width;
     float sy = COVER_TARGET_HEIGHT / (float)image.tex->height;
     float s  = std::min(sx, sy);
-    C2D_DrawImageAt(image, x, y, 1.0f, nullptr, s, s);
+    C2D_DrawImageAt(image, x, y, 0.3f, nullptr, s, s);
 }
 
 // METADATA_BLOCK_PICTURE parser

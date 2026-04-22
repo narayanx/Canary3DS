@@ -18,9 +18,9 @@ inline constexpr int AUDIO_THREAD_STACK_SZ = 32 * 1024;
 
 struct AudioController {
     // Metadata (written by main thread in playSong, read by main thread for UI)
-    std::string    songPath;
-    std::string    songArtist;
-    std::string    songTrackNumber;
+    std::string songPath;
+    std::string songArtist;
+    std::string songTrackNumber;
 
     // Decoder (owned exclusively by audioThread during playback)
     // Main thread only touches this in loadCoverArtForCurrentSong() and audioExit(),
@@ -28,21 +28,22 @@ struct AudioController {
     IAudioDecoder* decoder;
 
     // Playback-control flags (written by main thread, read by audio thread)
-    volatile bool  songReady;       // true while a decoder is loaded and filling buffers
-    volatile bool  stopPlayback;    // audio thread exits the fill loop when this is set
-    volatile bool  interrupted;     // suppresses autoplay; set when user explicitly stops
-    volatile bool  newSongStarted;  // pulsed once per song; main thread resets to false
+    volatile bool songReady;  // true while a decoder is loaded and filling buffers
+    volatile bool stopPlayback;  // audio thread exits the fill loop when this is set
+    volatile bool interrupted;  // suppresses autoplay; set when user explicitly stops
+    volatile bool newSongStarted;  // pulsed once per song; main thread resets to false
 
     // Seek request (main thread writes, audio thread consumes)
-    volatile bool   seekPending;
+    volatile bool seekPending;
     volatile double seekTargetSeconds;
+    volatile bool seekRestorePaused;
 
     // Position/duration (audio thread writes, main thread reads for UI)
     volatile double songPositionSeconds;
     volatile double songDurationSeconds;  // -1.0 if unknown
 
     // Synchronisation events
-    LightEvent startEvent;       // playSong() signals: audioThread wakes and begins filling
+    LightEvent startEvent;  // playSong() signals: audioThread wakes and begins filling
     LightEvent fillBufferEvent;  // NDSP callback signals: audioThread checks for free wave buffers, also signalled for immediate wakeup
 };
 
@@ -62,8 +63,8 @@ void audioCallback(void* arg);
 
 // Song-control API (called from main thread)
 bool playSong(const std::string& path);
-void stopPlaybackIfPlaying();   // stops current song, suppresses autoplay
-bool goToNextSong();            // stops current song, allows autoplay to advance
+void stopPlaybackIfPlaying();  // stops current song, suppresses autoplay
+bool goToNextSong();  // stops current song, allows autoplay to advance
 void enqueueSong(const std::string& path);
 bool playNextFromQueue();
 

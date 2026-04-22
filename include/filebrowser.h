@@ -10,14 +10,19 @@
 
 #include "constants.h"
 
+// Maximum number of songs remembered in playback history
+inline constexpr size_t MAX_HISTORY = 30;
+
 struct FileController {
     std::string cwd;
     std::vector<dirent> files;
-    std::deque<std::pair<size_t, size_t>> fileHistory;  //  { selectedFile, fileBrowserScrollOffset }
+    std::deque<std::pair<size_t, size_t>> fileHistory;  // { selectedFile, fileBrowserScrollOffset }
     size_t selectedFile;
     size_t playingFile;
     std::deque<std::string> playQueue;
-    // use int to potentially use negative numbers for selecting song in history
+    // Playback history: most recent song first.
+    std::deque<std::string> playHistory;
+    // use int so it can go negative (negative = scrolled into history)
     int selectedQueueItem;
 };
 
