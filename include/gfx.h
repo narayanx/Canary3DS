@@ -49,8 +49,8 @@ void drawTimeText(double positionSeconds, double durationSeconds,
                   float x, float y, float scaleX = 0.45f, float scaleY = 0.45f);
 
 // Append a log message
-void logToBottomScreen(const char* message);
-void logToBottomScreen(const std::string& message);
+void logToDebugScreen(const char* message);
+void logToDebugScreen(const std::string& message);
 
 // Semi-transparent log overlay drawn on the top screen.
 void renderLogOverlay();

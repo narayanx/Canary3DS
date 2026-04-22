@@ -13,7 +13,7 @@ public:
 
     bool open(const std::string& path) override {
         if (!drwav_init_file(&wav_, path.c_str(), nullptr)) {
-            logToBottomScreen("dr_wav: failed to open " + path);
+            logToDebugScreen("dr_wav: failed to open " + path);
             return false;
         }
         open_       = true;

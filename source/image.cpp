@@ -25,7 +25,7 @@ bool loadC2DImage(const char* filepath, C2D_Image& image,
     int w, h;
     stbi_uc* data = stbi_load(filepath, &w, &h, nullptr, 4);
     if (!data) {
-        logToBottomScreen("Failed to load image");
+        logToDebugScreen("Failed to load image");
         return false;
     }
 
@@ -47,7 +47,7 @@ bool loadC2DImageMemory(const unsigned char* buffer, int len,
     int w = -1, h = -1;
     stbi_uc* data = stbi_load_from_memory(buffer, len, &w, &h, nullptr, 4);
     if (!data) {
-        logToBottomScreen("Failed to load image from memory");
+        logToDebugScreen("Failed to load image from memory");
         return false;
     }
 
@@ -57,7 +57,7 @@ bool loadC2DImageMemory(const unsigned char* buffer, int len,
     unsigned char* padded = (unsigned char*)linearAlloc((size_t)nw * nh * 4);
     if (!padded) {
         stbi_image_free(data);
-        logToBottomScreen("linearAlloc failed for image");
+        logToDebugScreen("linearAlloc failed for image");
         return false;
     }
     memset(padded, 0, (size_t)nw * nh * 4);
@@ -69,7 +69,7 @@ bool loadC2DImageMemory(const unsigned char* buffer, int len,
     if (!C3D_TexInit(&imageTex, (u16)nw, (u16)nh, GPU_RGBA8)) {
         linearFree(padded);
         stbi_image_free(data);
-        logToBottomScreen("C3D_TexInit failed");
+        logToDebugScreen("C3D_TexInit failed");
         return false;
     }
     ripConvertAndLoadC3DTexImage(&imageTex, padded, GPU_TEXFACE_2D, 0);

@@ -37,7 +37,7 @@ void sceneExit() {
     C2D_TextBufDelete(g_dynamicBuf);
 }
 
-void logToBottomScreen(const char* message) {
+void logToDebugScreen(const char* message) {
     ensureLogLock();
     LightLock_Lock(&s_logLock);
     s_logLines.emplace_back(message);
@@ -46,8 +46,8 @@ void logToBottomScreen(const char* message) {
     LightLock_Unlock(&s_logLock);
 }
 
-void logToBottomScreen(const std::string& message) {
-    logToBottomScreen(message.c_str());
+void logToDebugScreen(const std::string& message) {
+    logToDebugScreen(message.c_str());
 }
 
 static void drawStr(const char* str, float x, float y, float z,

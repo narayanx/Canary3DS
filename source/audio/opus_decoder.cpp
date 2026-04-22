@@ -15,7 +15,7 @@ public:
         int err = 0;
         file_ = op_open_file(path.c_str(), &err);
         if (err || !file_) {
-            logToBottomScreen("Opus open error: " + std::to_string(err));
+            logToDebugScreen("Opus open error: " + std::to_string(err));
             return false;
         }
         ogg_int64_t total = op_pcm_total(file_, -1);

@@ -29,7 +29,7 @@ public:
 
         if (ov_open(f, &vf_, nullptr, 0) < 0) {
             fclose(f);
-            logToBottomScreen("Tremor: failed to open " + path);
+            logToDebugScreen("Tremor: failed to open " + path);
             return false;
         }
         open_ = true;

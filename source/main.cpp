@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
 
     // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
     if (!audioInit()) {
-        logToBottomScreen("Failed to init audio");
+        logToDebugScreen("Failed to init audio");
         waitForInput();
         gfxExit(); ndspExit(); romfsExit();
         return EXIT_FAILURE;
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
     auto openAddToPlaylistSub = [&](const std::string& songPath) {
         pl.playlists = loadPlaylists();
         if (pl.playlists.empty()) {
-            logToBottomScreen("No playlists. Create one first.");
+            logToDebugScreen("No playlists. Create one first.");
             s_ctx.close();
             return;
         }
@@ -138,9 +138,9 @@ int main(int argc, char* argv[]) {
             s_sub.add(pl.playlists[i].name, [&, songPath, i]() {
                 if (addSongToPlaylist(pl.playlists[i].path, songPath)) {
                     pl.playlists[i].songs.push_back(songPath);
-                    logToBottomScreen("Added to \"" + pl.playlists[i].name + "\"");
+                    logToDebugScreen("Added to \"" + pl.playlists[i].name + "\"");
                 } else {
-                    logToBottomScreen("Failed to add to playlist");
+                    logToDebugScreen("Failed to add to playlist");
                 }
                 s_sub.active = false;
                 s_ctx.close();
@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
                     stopPlaybackIfPlaying();
                     char* nm = fileController.files[fileController.selectedFile].d_name;
                     if (playSong(fileController.cwd + nm)) {
-                        logToBottomScreen("Playing: " + (std::string)nm);
+                        logToDebugScreen("Playing: " + (std::string)nm);
                         screenState = TopScreenState::INFO;
                     }
                     fileController.playingFile = fileController.selectedFile;
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
                         s_ctx.close();
                         s_ctx.add("Play next", [&, songPath]() {
                             fileController.playQueue.push_front(songPath);
-                            logToBottomScreen("Play next: " + songPath);
+                            logToDebugScreen("Play next: " + songPath);
                             s_ctx.close();
                         });
                         s_ctx.add("Add to queue", [&, songPath]() {
@@ -305,7 +305,7 @@ int main(int argc, char* argv[]) {
                     s_ctx.close();
                     s_ctx.add("Play next", [&, path]() {
                         fileController.playQueue.push_front(path);
-                        logToBottomScreen("Play next: " + path);
+                        logToDebugScreen("Play next: " + path);
                         s_ctx.close();
                     });
                     s_ctx.add("Add to queue", [&, path]() {
@@ -352,10 +352,10 @@ int main(int argc, char* argv[]) {
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER && !pl.playlists.empty()) {
                 // Direct action: no menu needed for a single destructive op
                 if (deletePlaylist(pl.playlists[pl.sel].path)) {
-                    logToBottomScreen("Deleted: " + pl.playlists[pl.sel].name);
+                    logToDebugScreen("Deleted: " + pl.playlists[pl.sel].name);
                     pl.dirty = true;
                 } else {
-                    logToBottomScreen("Failed to delete playlist");
+                    logToDebugScreen("Failed to delete playlist");
                 }
 
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
@@ -367,7 +367,7 @@ int main(int argc, char* argv[]) {
                     s_ctx.close();
                     s_ctx.add("Play next", [&, songPath]() {
                         fileController.playQueue.push_front(songPath);
-                        logToBottomScreen("Play next: " + songPath);
+                        logToDebugScreen("Play next: " + songPath);
                         s_ctx.close();
                     });
                     s_ctx.add("Add to queue", [&, songPath]() {
@@ -387,9 +387,9 @@ int main(int argc, char* argv[]) {
                                     pl.viewScroll + MAX_FILES > songs.size())
                                     pl.viewScroll = songs.size() > (size_t)MAX_FILES
                                                     ? songs.size() - MAX_FILES : 0;
-                                logToBottomScreen("Removed song from playlist");
+                                logToDebugScreen("Removed song from playlist");
                             } else {
-                                logToBottomScreen("Failed to remove song");
+                                logToDebugScreen("Failed to remove song");
                             }
                         }
                         s_ctx.close();
@@ -404,7 +404,7 @@ int main(int argc, char* argv[]) {
             if (screenState == TopScreenState::INFO) {
                 screenState = TopScreenState::FILEBROWSER;
                 ndspChnSetPaused(0, true);
-                logToBottomScreen("Pausing and going to filebrowser");
+                logToDebugScreen("Pausing and going to filebrowser");
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
                 screenState = TopScreenState::PLAYLIST_BROWSER;
             } else {

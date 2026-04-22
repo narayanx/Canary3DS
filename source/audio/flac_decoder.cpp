@@ -23,7 +23,7 @@ public:
 
     bool open(const std::string& path) override {
         dec_ = FLAC__stream_decoder_new();
-        if (!dec_) { logToBottomScreen("FLAC: alloc failed"); return false; }
+        if (!dec_) { logToDebugScreen("FLAC: alloc failed"); return false; }
 
         // Request both PICTURE and VORBIS_COMMENT metadata blocks.
         FLAC__stream_decoder_set_metadata_respond(dec_, FLAC__METADATA_TYPE_PICTURE);
@@ -34,14 +34,14 @@ public:
                                            writeCallback, metadataCallback,
                                            errorCallback, this);
         if (st != FLAC__STREAM_DECODER_INIT_STATUS_OK) {
-            logToBottomScreen("FLAC init error: " + std::to_string((int)st));
+            logToDebugScreen("FLAC init error: " + std::to_string((int)st));
             FLAC__stream_decoder_delete(dec_); dec_ = nullptr;
             return false;
         }
 
         // Process until end of metadata to populate sampleRate_, totalSamples_, channels_
         if (!FLAC__stream_decoder_process_until_end_of_metadata(dec_)) {
-            logToBottomScreen("FLAC: metadata read failed");
+            logToDebugScreen("FLAC: metadata read failed");
             FLAC__stream_decoder_delete(dec_); dec_ = nullptr;
             return false;
         }
@@ -226,7 +226,7 @@ private:
         FLAC__StreamDecoderErrorStatus status,
         void* /*client_data*/)
     {
-        logToBottomScreen("FLAC decode error: " + std::to_string((int)status));
+        logToDebugScreen("FLAC decode error: " + std::to_string((int)status));
     }
 };
 

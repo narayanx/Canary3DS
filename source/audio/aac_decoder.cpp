@@ -62,13 +62,13 @@ public:
         // Open the file via fopen so libctru handles sdmc:/
         file_ = fopen(path.c_str(), "rb");
         if (!file_) {
-            logToBottomScreen("AAC: fopen failed: " + path);
+            logToDebugScreen("AAC: fopen failed: " + path);
             return false;
         }
 
         uint8_t* ioBuf = static_cast<uint8_t*>(av_malloc(AVIO_BUF_SIZE));
         if (!ioBuf) {
-            logToBottomScreen("AAC: av_malloc for avio buffer failed");
+            logToDebugScreen("AAC: av_malloc for avio buffer failed");
             fclose(file_); file_ = nullptr;
             return false;
         }
@@ -78,7 +78,7 @@ public:
                                       /*opaque=*/file_,
                                       avioRead, nullptr, avioSeek);
         if (!avioCtx_) {
-            logToBottomScreen("AAC: avio_alloc_context failed");
+            logToDebugScreen("AAC: avio_alloc_context failed");
             av_free(ioBuf);
             fclose(file_); file_ = nullptr;
             return false;
@@ -86,7 +86,7 @@ public:
 
         fmtCtx_ = avformat_alloc_context();
         if (!fmtCtx_) {
-            logToBottomScreen("AAC: avformat_alloc_context failed");
+            logToDebugScreen("AAC: avformat_alloc_context failed");
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
             fclose(file_); file_ = nullptr;
@@ -98,7 +98,7 @@ public:
         // the byte stream, not by the file extension.
         int rc = avformat_open_input(&fmtCtx_, nullptr, nullptr, nullptr);
         if (rc != 0) {
-            logToBottomScreen("AAC: avformat_open_input failed");
+            logToDebugScreen("AAC: avformat_open_input failed");
             // avformat_open_input frees fmtCtx_ on failure
             fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
@@ -109,7 +109,7 @@ public:
 
         rc = avformat_find_stream_info(fmtCtx_, nullptr);
         if (rc < 0) {
-            logToBottomScreen("AAC: avformat_find_stream_info failed");
+            logToDebugScreen("AAC: avformat_find_stream_info failed");
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
@@ -126,7 +126,7 @@ public:
             }
         }
         if (audioStreamIdx_ < 0) {
-            logToBottomScreen("AAC: no audio stream found");
+            logToDebugScreen("AAC: no audio stream found");
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
@@ -140,7 +140,7 @@ public:
         // Set up codec context
         const AVCodec* codec = avcodec_find_decoder(par->codec_id);
         if (!codec) {
-            logToBottomScreen("AAC: no decoder for codec id " + std::to_string(par->codec_id));
+            logToDebugScreen("AAC: no decoder for codec id " + std::to_string(par->codec_id));
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
@@ -150,7 +150,7 @@ public:
 
         codecCtx_ = avcodec_alloc_context3(codec);
         if (!codecCtx_) {
-            logToBottomScreen("AAC: avcodec_alloc_context3 failed");
+            logToDebugScreen("AAC: avcodec_alloc_context3 failed");
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
             avio_context_free(&avioCtx_);
@@ -160,7 +160,7 @@ public:
 
         rc = avcodec_parameters_to_context(codecCtx_, par);
         if (rc < 0) {
-            logToBottomScreen("AAC: avcodec_parameters_to_context failed");
+            logToDebugScreen("AAC: avcodec_parameters_to_context failed");
             avcodec_free_context(&codecCtx_);
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
@@ -171,7 +171,7 @@ public:
 
         rc = avcodec_open2(codecCtx_, codec, nullptr);
         if (rc != 0) {
-            logToBottomScreen("AAC: avcodec_open2 failed: " + std::to_string(rc));
+            logToDebugScreen("AAC: avcodec_open2 failed: " + std::to_string(rc));
             avcodec_free_context(&codecCtx_);
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
@@ -205,7 +205,7 @@ public:
                                  &inLayout, codecCtx_->sample_fmt, sampleRate_,
                                  0, nullptr);
         if (rc != 0 || !swrCtx_) {
-            logToBottomScreen("AAC: swr_alloc_set_opts2 failed");
+            logToDebugScreen("AAC: swr_alloc_set_opts2 failed");
             avcodec_free_context(&codecCtx_);
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
             av_freep(&avioCtx_->buffer);
@@ -216,7 +216,7 @@ public:
 
         rc = swr_init(swrCtx_);
         if (rc != 0) {
-            logToBottomScreen("AAC: swr_init failed: " + std::to_string(rc));
+            logToDebugScreen("AAC: swr_init failed: " + std::to_string(rc));
             swr_free(&swrCtx_);
             avcodec_free_context(&codecCtx_);
             avformat_close_input(&fmtCtx_); fmtCtx_ = nullptr;
@@ -230,7 +230,7 @@ public:
         pkt_ = av_packet_alloc();
         frame_ = av_frame_alloc();
         if (!pkt_ || !frame_) {
-            logToBottomScreen("AAC: av_packet/frame_alloc failed");
+            logToDebugScreen("AAC: av_packet/frame_alloc failed");
             close();
             return false;
         }

@@ -114,7 +114,7 @@ std::vector<Playlist> loadPlaylists() {
 
     DIR* dir = opendir(std::string(PLAYLIST_DIR).c_str());
     if (!dir) {
-        logToBottomScreen("Failed to open playlist directory");
+        logToDebugScreen("Failed to open playlist directory");
         return playlists;
     }
 

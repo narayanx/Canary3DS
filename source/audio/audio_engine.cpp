@@ -42,7 +42,7 @@ bool audioInit() {
     const size_t totalBytes = AUDIO_WAVEBUF_SIZE * AUDIO_ARRAY_SIZE(s_waveBufs);
     s_audioBuffer = static_cast<int16_t*>(linearAlloc(totalBytes));
     if (!s_audioBuffer) {
-        logToBottomScreen("Failed to allocate audio buffer");
+        logToDebugScreen("Failed to allocate audio buffer");
         return false;
     }
 
@@ -201,7 +201,7 @@ void audioThread(void*) {
                     fileController.cwd + fileController.files[next].d_name;
                 if (playSong(path)) {
                     fileController.playingFile = next;
-                    logToBottomScreen("Autoplaying: " +
+                    logToDebugScreen("Autoplaying: " +
                         std::string(fileController.files[next].d_name));
                 }
             }
@@ -224,11 +224,11 @@ void audioCallback(void*) {
 bool playSong(const std::string& path) {
     auto dec = createDecoder(path);
     if (!dec) {
-        logToBottomScreen("Unsupported format: " + path);
+        logToDebugScreen("Unsupported format: " + path);
         return false;
     }
     if (!dec->open(path)) {
-        logToBottomScreen("Failed to open: " + path);
+        logToDebugScreen("Failed to open: " + path);
         return false;
     }
 
@@ -268,7 +268,7 @@ bool goToNextSong() {
 
 void enqueueSong(const std::string& path) {
     fileController.playQueue.push_back(path);
-    logToBottomScreen("Queued: " + path);
+    logToDebugScreen("Queued: " + path);
 }
 
 // Pop the front of the play queue and start it. Returns false if queue empty
@@ -278,7 +278,7 @@ bool playNextFromQueue() {
     const std::string next = fileController.playQueue.front();
     fileController.playQueue.pop_front();
     if (playSong(next)) {
-        logToBottomScreen("Playing from queue: " + next);
+        logToDebugScreen("Playing from queue: " + next);
         return true;
     }
     return false;
@@ -296,7 +296,7 @@ bool loadCoverArtForCurrentSong(C2D_Image& image, C3D_Tex& tex,
 }
 
 void waitForInput() {
-    logToBottomScreen("Press any button to exit...");
+    logToDebugScreen("Press any button to exit...");
     while (aptMainLoop()) {
         hidScanInput();
         if (hidKeysDown()) break;

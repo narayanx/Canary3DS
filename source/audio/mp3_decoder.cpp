@@ -21,7 +21,7 @@ public:
         int err = MPG123_OK;
         mh_ = mpg123_new(nullptr, &err);
         if (!mh_) {
-            logToBottomScreen("mpg123_new failed: " + std::to_string(err));
+            logToDebugScreen("mpg123_new failed: " + std::to_string(err));
             return false;
         }
 
@@ -29,7 +29,7 @@ public:
         mpg123_param(mh_, MPG123_ADD_FLAGS, MPG123_PICTURE, 0.0);
 
         if (mpg123_open(mh_, path.c_str()) != MPG123_OK) {
-            logToBottomScreen("mpg123_open failed: " + path);
+            logToDebugScreen("mpg123_open failed: " + path);
             mpg123_delete(mh_); mh_ = nullptr;
             return false;
         }
