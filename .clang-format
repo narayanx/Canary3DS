@@ -1,4 +1,4 @@
-# Compatible with clang-format 14+
+# Compatible with clang-format 15+
 Language: Cpp
 BasedOnStyle: LLVM
 
@@ -27,7 +27,7 @@ BraceWrapping:
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
 
-# clang-format 14+:
+# clang-format 15+:
 InsertBraces: true
 
 # Pointer / Reference Style
