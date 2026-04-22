@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/**",
+                "/opt/devkitpro/libctru/include/**",
+                "/opt/devkitpro/devkitARM/include/**",
+                "/opt/devkitpro/portlibs/3ds/include/**",
+                "include/",
+                "external/base64/"
+
+            ],
+            "defines": ["RIP_BACKEND=RIP_BACKEND_CITRO3D"],
+            "compilerPath": "/opt/devkitpro/devkitARM/bin/arm-none-eabi-gcc",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
