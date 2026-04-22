@@ -23,12 +23,15 @@ add_executable(${PROJECT_NAME}
   source/audio/aac_decoder.cpp
 
   source/main.cpp
-  source/stb_image.cpp
   source/filebrowser.cpp
   source/gfx.cpp
   source/image.cpp
-  source/base64.cpp
   source/playlist.cpp
+)
+
+target_sources(${PROJECT_NAME} PRIVATE
+  external/stb/stb_image.cpp
+  external/base64/base64.cpp
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE
@@ -37,6 +40,10 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include/
+  
+  ${CMAKE_SOURCE_DIR}/external/stb/
+  ${CMAKE_SOURCE_DIR}/external/base64/
+  ${CMAKE_SOURCE_DIR}/external/dr_wav/
   ${CMAKE_SOURCE_DIR}/external/ffmpeg/
 
   $ENV{DEVKITPRO}/libctru/include
