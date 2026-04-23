@@ -21,6 +21,7 @@ AudioController audioController = {
     .stopPlayback = false,
     .interrupted = false,
     .newSongStarted = false,
+    .skipNextHistoryEntry = false,
     .seekPending = false,
     .seekTargetSeconds = 0.0,
     .seekRestorePaused = false,
@@ -188,12 +189,14 @@ void audioThread(void *) {
         audioController.seekPending = false;
         audioController.songPositionSeconds = 0.0;
 
-        if (!finishedPath.empty()) {
+        // For going back in history navigation "slide" through history
+        if (!finishedPath.empty() && !audioController.skipNextHistoryEntry) {
             fileController.playHistory.push_front(finishedPath);
             while (fileController.playHistory.size() > MAX_HISTORY) {
                 fileController.playHistory.pop_back();
             }
         }
+        audioController.skipNextHistoryEntry = false;
 
         delete dec;
         dec = nullptr;

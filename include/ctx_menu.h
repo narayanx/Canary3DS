@@ -7,15 +7,18 @@
 // Lightweight context menu: a list of (label, action) pairs.
 // s_sub is used as a second instance for the playlist-picker sub-menu.
 //
-// Usage:
-//   s_ctx.add("Label", [&]{ ... });
-//   s_ctx.open(x, y);
-//   // input loop: A → actions[idx](), B → close(), UP/DOWN → --/++ idx
-//   // render: printContextMenu(s_ctx.labels, s_ctx.idx, s_ctx.x, s_ctx.y)
+// Button shortcuts (always active when menu is open):
+//   A  – executes actions[idx]  (cursor-following; hint label tracks idx)
+//   X  – executes actions[1]    (fixed shortcut, shown when n >= 2)
+//   Y  – executes actions[2]    (fixed shortcut, shown when n >= 3);
+//        if n < 3, Y closes the menu and falls through to the view-switch.
+//   B  – close / back
+// D-pad UP/DOWN scrolls the cursor; scrollOffset tracks the visible window.
 struct CtxMenu {
     std::vector<std::string> labels;
     std::vector<std::function<void()>> actions;
     size_t idx = 0;
+    size_t scrollOffset = 0;
     float x = 0, y = 0;
     bool active = false;
 
@@ -27,6 +30,7 @@ struct CtxMenu {
 
     void open(float ax, float ay) {
         idx = 0;
+        scrollOffset = 0;
         x = ax;
         y = ay;
         active = true;
@@ -37,5 +41,6 @@ struct CtxMenu {
         labels.clear();
         actions.clear();
         idx = 0;
+        scrollOffset = 0;
     }
 };

@@ -18,9 +18,9 @@
 #include "playlist.h"
 
 inline constexpr float SEEK_BAR_X = 8.0f;
-inline constexpr float SEEK_BAR_Y = 196.0f;
+inline constexpr float SEEK_BAR_Y = 220.0f;
 inline constexpr float SEEK_BAR_W = 304.0f;
-inline constexpr float SEEK_BAR_H = 18.0f;
+inline constexpr float SEEK_BAR_H = 10.0f;
 
 inline constexpr int INFO_MAX_VIS = 9;
 inline constexpr size_t AUTOPLAY_PEEK = 5;
@@ -190,6 +190,28 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        // Nav button touch
+        if (newTouch) {
+            float px = (float) touchPos.px, py = (float) touchPos.py;
+            if (py >= NAV_BTN_Y && py <= NAV_BTN_Y + NAV_BTN_H) {
+                for (int i = 0; i < 3; ++i) {
+                    if (px >= NAV_BTN_X[i] && px <= NAV_BTN_X[i] + NAV_BTN_W) {
+                        if (i == 0) {
+                            screenState = TopScreenState::FILEBROWSER;
+                        } else if (i == 1) {
+                            screenState = TopScreenState::INFO;
+                            fileController.selectedQueueItem = 0;
+                            info.scrollTop = 0;
+                        } else if (i == 2) {
+                            pl.dirty = true;
+                            screenState = TopScreenState::PLAYLIST_BROWSER;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         // Touch-seek
         if (audioController.songReady) {
             float px = (float) touchPos.px, py = (float) touchPos.py;
@@ -219,8 +241,20 @@ int main(int argc, char *argv[]) {
         bool ctxHandled = s_ctx.active || s_sub.active;
         if (ctxHandled) {
             CtxMenu &active = s_sub.active ? s_sub : s_ctx;
-            if (kDown & KEY_A && !active.actions.empty()) {
+            const size_t n = active.labels.size();
+            if (kDown & KEY_A && n > 0) {
                 active.actions[active.idx]();
+            } else if (kDown & KEY_X && n >= 2) {
+                active.actions[1]();
+            } else if (kDown & KEY_Y) {
+                if (n >= 3) {
+                    active.actions[2]();
+                } else {
+                    // No third item: close menu and let the Y view-switch run below.
+                    s_sub.active = false;
+                    s_ctx.close();
+                    ctxHandled = false;
+                }
             } else if (kDown & KEY_B) {
                 if (s_sub.active) {
                     s_sub.active = false;
@@ -230,9 +264,15 @@ int main(int argc, char *argv[]) {
             }
             if (kDown & KEY_UP && active.idx > 0) {
                 --active.idx;
+                if (active.idx < active.scrollOffset) {
+                    active.scrollOffset = active.idx;
+                }
             }
-            if (kDown & KEY_DOWN && active.idx + 1 < active.labels.size()) {
+            if (kDown & KEY_DOWN && active.idx + 1 < n) {
                 ++active.idx;
+                if (active.idx >= active.scrollOffset + (size_t) MAX_CTX_VISIBLE) {
+                    ++active.scrollOffset;
+                }
             }
         }
 
@@ -285,7 +325,8 @@ int main(int argc, char *argv[]) {
             if (screenState == TopScreenState::FILEBROWSER) {
                 if (!fileController.files.empty()) {
                     auto &f = fileController.files[fileController.selectedFile];
-                    if (f.d_type == DT_REG) {
+                    std::string songPath = fileController.cwd + f.d_name;
+                    if (f.d_type == DT_REG && isSupportedAudioFile(songPath)) {
                         std::string songPath = fileController.cwd + f.d_name;
                         float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
                         s_ctx.close();
@@ -488,12 +529,15 @@ int main(int argc, char *argv[]) {
             rTapTime = now;
         }
         if (lTapCount > 0 && (now - lTapTime) > MULTI_TAP_WINDOW_MS) {
-            if (lTapCount >= 3 && audioController.songReady && fileController.playingFile != 0) {
-                size_t prev = fileController.playingFile - 1;
-                stopPlaybackIfPlaying();
-                if (playSong(fileController.cwd + fileController.files[prev].d_name)) {
-                    fileController.playingFile = prev;
+            if (lTapCount >= 3 && !fileController.playHistory.empty()) {
+                std::string prevSong = fileController.playHistory.front();
+                fileController.playHistory.pop_front();
+                if (audioController.songReady) {
+                    fileController.playQueue.push_front(audioController.songPath);
+                    audioController.skipNextHistoryEntry = true;
+                    stopPlaybackIfPlaying();
                 }
+                playSong(prevSong);
             }
             lTapCount = 0;
         }
@@ -729,9 +773,9 @@ int main(int argc, char *argv[]) {
 
             // Context menu overlay
             if (s_sub.active) {
-                printContextMenu(s_sub.labels, s_sub.idx, s_sub.x, s_sub.y);
+                printContextMenu(s_sub.labels, s_sub.idx, s_sub.scrollOffset, s_sub.x, s_sub.y);
             } else if (s_ctx.active) {
-                printContextMenu(s_ctx.labels, s_ctx.idx, s_ctx.x, s_ctx.y);
+                printContextMenu(s_ctx.labels, s_ctx.idx, s_ctx.scrollOffset, s_ctx.x, s_ctx.y);
             }
 
             // Log overlay (drawn last so it sits on top of everything)
@@ -742,6 +786,13 @@ int main(int argc, char *argv[]) {
             // Bottom screen
             C2D_TargetClear(bottom, BOTTOM_CLEAR_COLOR);
             C2D_SceneBegin(bottom);
+            int activeTab = 0;
+            if (screenState == TopScreenState::INFO) {
+                activeTab = 1;
+            } else if (screenState == TopScreenState::PLAYLIST_BROWSER ||
+                       screenState == TopScreenState::PLAYLIST_VIEW) {
+                activeTab = 2;
+            }
             renderBottomScreen(
                 audioController.songReady,
                 audioController.songPositionSeconds,
@@ -752,8 +803,8 @@ int main(int argc, char *argv[]) {
                 SEEK_BAR_Y,
                 SEEK_BAR_W,
                 SEEK_BAR_H,
-                (info.seekDragging || audioController.seekPending) ? info.seekDragProgress : -1.0f);
-
+                (info.seekDragging || audioController.seekPending) ? info.seekDragProgress : -1.0f,
+                activeTab);
             C3D_FrameEnd(0);
         }
         needsRender = false;

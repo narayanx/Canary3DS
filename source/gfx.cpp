@@ -355,32 +355,56 @@ void printStringList(const std::vector<std::string> &items,
 
 void printContextMenu(const std::vector<std::string> &options,
                       size_t selectedIdx,
+                      size_t scrollOffset,
                       float anchorX,
                       float anchorY) {
     if (options.empty()) {
         return;
     }
 
+    const size_t n = options.size();
+    const size_t visible = std::min(n - scrollOffset, (size_t) MAX_CTX_VISIBLE);
+
     const float PAD = 6.0f;
     const float LINE_H = 16.0f;
     const float BOX_W = 190.0f;
-    float BOX_H = LINE_H * (float) options.size() + PAD * 2.0f;
+    float BOX_H = LINE_H * (float) visible + PAD * 2.0f;
     float BOX_X = std::min(anchorX, 400.0f - BOX_W - 2.0f);
     float BOX_Y = std::min(anchorY, 240.0f - BOX_H - 2.0f);
 
+    // Shadow + background
     C2D_DrawRectSolid(BOX_X + 3, BOX_Y + 3, 0.55f, BOX_W, BOX_H, C2D_Color32(0, 0, 0, 0xB0));
     C2D_DrawRectSolid(BOX_X, BOX_Y, 0.60f, BOX_W, BOX_H, C2D_Color32(0x1E, 0x1E, 0x1E, 0xF8));
 
+    // Border
     u32 border = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
     C2D_DrawRectSolid(BOX_X, BOX_Y, 0.65f, BOX_W, 1, border);
     C2D_DrawRectSolid(BOX_X, BOX_Y + BOX_H - 1, 0.65f, BOX_W, 1, border);
     C2D_DrawRectSolid(BOX_X, BOX_Y, 0.65f, 1, BOX_H, border);
     C2D_DrawRectSolid(BOX_X + BOX_W - 1, BOX_Y, 0.65f, 1, BOX_H, border);
 
+    // Scroll nub on the right edge (only when content overflows)
+    if (n > (size_t) MAX_CTX_VISIBLE) {
+        const float trackH = BOX_H - PAD * 2.0f;
+        const float nubH = std::max(4.0f, trackH * (float) MAX_CTX_VISIBLE / (float) n);
+        const float nubFrac = (float) scrollOffset / (float) (n - MAX_CTX_VISIBLE);
+        const float nubY = BOX_Y + PAD + (trackH - nubH) * nubFrac;
+        C2D_DrawRectSolid(BOX_X + BOX_W - 4.0f,
+                          BOX_Y + PAD,
+                          0.66f,
+                          3.0f,
+                          trackH,
+                          C2D_Color32(0x22, 0x22, 0x22, 0xFF));
+        C2D_DrawRectSolid(
+            BOX_X + BOX_W - 4.0f, nubY, 0.67f, 3.0f, nubH, C2D_Color32(0x55, 0x55, 0x55, 0xFF));
+    }
+
     C2D_TextBufClear(g_dynamicBuf);
-    for (size_t i = 0; i < options.size(); ++i) {
-        bool sel = (i == selectedIdx);
-        float itemY = BOX_Y + PAD + LINE_H * (float) i;
+    for (size_t vi = 0; vi < visible; ++vi) {
+        const size_t i = scrollOffset + vi;
+        const bool sel = (i == selectedIdx);
+        const float itemY = BOX_Y + PAD + LINE_H * (float) vi;
+
         if (sel) {
             C2D_DrawRectSolid(BOX_X + 1,
                               itemY - 1,
@@ -389,8 +413,29 @@ void printContextMenu(const std::vector<std::string> &options,
                               LINE_H,
                               C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
         }
+
         u32 col = sel ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.6f, 0.6f, 0.6f, 1);
         drawStr(options[i].c_str(), BOX_X + PAD, itemY, 0.7f, 0.46f, 0.46f, col);
+
+        // Button hint on the right: A tracks the cursor; X/Y are fixed to items 1/2.
+        const char *hint = nullptr;
+        if (sel) {
+            hint = "A";
+        } else if (i == 1 && selectedIdx != 1) {
+            hint = "X";
+        } else if (i == 2 && selectedIdx != 2) {
+            hint = "Y";
+        }
+
+        if (hint) {
+            drawStr(hint,
+                    BOX_X + BOX_W - 13.0f,
+                    itemY,
+                    0.70f,
+                    0.38f,
+                    0.38f,
+                    C2D_Color32f(0.38f, 0.38f, 0.38f, 1));
+        }
     }
 }
 
@@ -431,6 +476,7 @@ void drawTimeText(
     drawStr(text.c_str(), x, y, 0.5f, scaleX, scaleY, C2D_Color32f(0.85f, 0.85f, 0.85f, 1));
 }
 
+// Log overlay
 void renderLogOverlay() {
     LightLock_Lock(&s_logLock);
     std::vector<std::string> lines = s_logLines;
@@ -485,6 +531,7 @@ void renderLogOverlay() {
     }
 }
 
+// Bottom screen
 void renderBottomScreen(bool songPlaying,
                         double positionSeconds,
                         double durationSeconds,
@@ -494,27 +541,60 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarY,
                         float seekBarW,
                         float seekBarH,
-                        float seekProgressOverride) {
+                        float seekProgressOverride,
+                        int activeTab) {
     C2D_TextBufClear(g_dynamicBuf);
 
+    // Nav buttons - always drawn regardless of playback state
+    static const char *const TAB_LABELS[3] = {"Fl", "NP", "Pl"};
+    for (int i = 0; i < 3; ++i) {
+        const float bx = NAV_BTN_X[i];
+        const bool sel = (i == activeTab);
+        C2D_DrawRectSolid(bx,
+                          NAV_BTN_Y,
+                          0.40f,
+                          NAV_BTN_W,
+                          NAV_BTN_H,
+                          sel ? C2D_Color32(0x28, 0x28, 0x28, 0xFF)
+                              : C2D_Color32(0x18, 0x18, 0x18, 0xFF));
+        // active indicator bar along the bottom edge
+        if (sel) {
+            C2D_DrawRectSolid(bx,
+                              NAV_BTN_Y + NAV_BTN_H - 2.0f,
+                              0.45f,
+                              NAV_BTN_W,
+                              2.0f,
+                              C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+        }
+        drawStr(TAB_LABELS[i],
+                bx + NAV_BTN_W * 0.5f,
+                NAV_BTN_Y + 7.0f,
+                0.5f,
+                0.42f,
+                0.42f,
+                sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
+                    : C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f),
+                C2D_AlignCenter | C2D_WithColor);
+    }
+
+    // Content area begins below the nav bar
+    const float TITLE_Y = seekBarY - 28.0f;
+    const float META_Y = seekBarY - 14.0f;
+
     if (!songPlaying) {
-        drawStr("No song playing", 4, 8, 0.5f, 0.42f, 0.42f, C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
+        drawStr("No song playing",
+                4,
+                TITLE_Y,
+                0.5f,
+                0.42f,
+                0.42f,
+                C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
         C2D_DrawRectSolid(
             seekBarX, seekBarY, 0.5f, seekBarW, seekBarH, C2D_Color32(0x22, 0x22, 0x22, 0xFF));
         return;
     }
 
-    const bool hasArtist = !songArtist.empty();
-
-    if (hasArtist) {
-        std::string artist = songArtist;
-        if (artist.length() > 40) {
-            artist = artist.substr(0, 37) + "...";
-        }
-        drawStr(artist.c_str(), 4, 8, 0.5f, 0.40f, 0.40f, C2D_Color32f(0.55f, 0.55f, 0.55f, 1));
-    }
-
-    // Song title (strip path and extension)
+    // Song title
     {
         std::string name = songName;
         size_t sl = name.find_last_of('/');
@@ -528,12 +608,10 @@ void renderBottomScreen(bool songPlaying,
         if (name.length() > 38) {
             name = name.substr(0, 35) + "...";
         }
-
-        float titleY = hasArtist ? 22.0f : 8.0f;
-        drawStr(name.c_str(), 4, titleY, 0.5f, 0.44f, 0.44f, C2D_Color32f(0.90f, 0.90f, 0.90f, 1));
+        drawStr(name.c_str(), 4, TITLE_Y, 0.5f, 0.44f, 0.44f, C2D_Color32f(0.90f, 0.90f, 0.90f, 1));
     }
 
-    // Timestamp: use drag position when scrubbing
+    // Artist + timestamp combined on one line
     {
         double displayPos = (seekProgressOverride >= 0.0f && durationSeconds > 0)
                                 ? (double) seekProgressOverride * durationSeconds
@@ -541,8 +619,17 @@ void renderBottomScreen(bool songPlaying,
         std::string t = (durationSeconds > 0)
                             ? fmtTime(displayPos) + " / " + fmtTime(durationSeconds)
                             : fmtTime(displayPos);
-        float timeY = hasArtist ? 38.0f : 24.0f;
-        drawStr(t.c_str(), 4, timeY, 0.5f, 0.46f, 0.46f, C2D_Color32f(0.80f, 0.80f, 0.80f, 1));
+        std::string meta;
+        if (!songArtist.empty()) {
+            std::string artist = songArtist;
+            if (artist.length() > 22) {
+                artist = artist.substr(0, 19) + "...";
+            }
+            meta = artist + "  " + t;
+        } else {
+            meta = t;
+        }
+        drawStr(meta.c_str(), 4, META_Y, 0.5f, 0.40f, 0.40f, C2D_Color32f(0.60f, 0.60f, 0.60f, 1));
     }
 
     float progress =
@@ -550,12 +637,4 @@ void renderBottomScreen(bool songPlaying,
             ? seekProgressOverride
             : ((durationSeconds > 0) ? (float) (positionSeconds / durationSeconds) : 0.0f);
     drawProgressBar(seekBarX, seekBarY, seekBarW, seekBarH, progress);
-
-    drawStr("Touch to seek",
-            4,
-            seekBarY + seekBarH + 5,
-            0.5f,
-            0.38f,
-            0.38f,
-            C2D_Color32f(0.35f, 0.35f, 0.35f, 1));
 }

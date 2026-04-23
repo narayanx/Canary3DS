@@ -34,6 +34,10 @@ struct AudioController {
     volatile bool interrupted;     // suppresses autoplay; set when user explicitly stops
     volatile bool newSongStarted;  // pulsed once per song; main thread resets to false
 
+    // Set by the main thread before stopping playback during history navigation,
+    // the audio thread resets it to false after each stop.
+    volatile bool skipNextHistoryEntry;
+
     // Seek request (main thread writes, audio thread consumes)
     volatile bool seekPending;
     volatile double seekTargetSeconds;

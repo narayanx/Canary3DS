@@ -12,6 +12,15 @@ inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x12, 0x12, 0x12, 0xFF);
 inline constexpr u32 BOTTOM_CLEAR_COLOR = C2D_Color32(0x0E, 0x0E, 0x0E, 0xFF);
 inline constexpr int MAX_LOG_LINES = 16;  // max lines kept in the log buffer
 
+// Bottom screen nav buttons (Files=0, Now Playing=1, Playlists=2)
+inline constexpr float NAV_BTN_Y = 3.0f;
+inline constexpr float NAV_BTN_H = 32.0f;
+inline constexpr float NAV_BTN_W = 32.0f;
+inline constexpr float NAV_BTN_X[3] = {3.0f, 37.0f, 71.0f};
+
+// Maximum number of context-menu rows visible at once before scrolling kicks in
+inline constexpr int MAX_CTX_VISIBLE = 8;
+
 extern C2D_TextBuf g_dynamicBuf;
 extern C3D_RenderTarget *top, *bottom;
 
@@ -40,8 +49,11 @@ void printStringList(const std::vector<std::string> &items,
                      size_t scrollOffset,
                      size_t lineOffset = 0);
 
+// selectedIdx : cursor row (A executes this item)
+// scrollOffset: first visible row index
 void printContextMenu(const std::vector<std::string> &options,
                       size_t selectedIdx,
+                      size_t scrollOffset,
                       float anchorX,
                       float anchorY);
 
@@ -61,12 +73,15 @@ void logToDebugScreen(const char *message);
 void logToDebugScreen(const std::string &message);
 
 // Semi-transparent log overlay drawn on the top screen.
+// Call after all other top-screen rendering within the same C3D frame.
 void renderLogOverlay();
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).
+// activeTab:            0=Files, 1=Now Playing, 2=Playlists; highlights the
+//                       matching nav button.
 // seekProgressOverride: when >= 0 the progress bar and timestamp are drawn at
-//                       this normalised position (0–1) instead of computing
+//                       this normalised position (0-1) instead of computing
 //                       from positionSeconds/durationSeconds.  Pass -1 (the
 //                       default) for normal playback display.
 void renderBottomScreen(bool songPlaying,
@@ -78,4 +93,5 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarY,
                         float seekBarW,
                         float seekBarH,
-                        float seekProgressOverride = -1.0f);
+                        float seekProgressOverride = -1.0f,
+                        int activeTab = 0);
