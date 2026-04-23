@@ -18,8 +18,9 @@ inline constexpr float NAV_BTN_H = 32.0f;
 inline constexpr float NAV_BTN_W = 32.0f;
 inline constexpr float NAV_BTN_X[3] = {3.0f, 37.0f, 71.0f};
 
-// Maximum number of context-menu rows visible at once before scrolling kicks in
+// Maximum number of rows visible at once before scrolling kicks in
 inline constexpr int MAX_CTX_VISIBLE = 8;
+inline constexpr int MAX_FILES = 14;
 
 extern C2D_TextBuf g_dynamicBuf;
 extern C3D_RenderTarget *top, *bottom;

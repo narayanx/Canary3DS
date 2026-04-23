@@ -10,8 +10,6 @@
 #include <string>
 #include <vector>
 
-#include "constants.h"
-
 C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
 C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
 

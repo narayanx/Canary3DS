@@ -6,8 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include "constants.h"
-
 // Maximum number of songs remembered in playback history
 inline constexpr size_t MAX_HISTORY = 30;
 

@@ -25,6 +25,15 @@ inline constexpr float SEEK_BAR_H = 10.0f;
 inline constexpr int INFO_MAX_VIS = 9;
 inline constexpr size_t AUTOPLAY_PEEK = 5;
 
+// make sure to have trailing '/' character
+inline constexpr std::string_view START_PATH = "sdmc:/Music/";
+// how long to hold before auto-repeat begins (ms)
+inline constexpr double REPEAT_INITIAL_DELAY_MS = 400.0;
+// interval between each repeated scroll step once repeating (ms)
+inline constexpr double REPEAT_INTERVAL_MS = 30.0;
+// stop saving depth after this many directories (conserve memory, TODO allow changing in settings)
+inline constexpr size_t MAX_DEPTH = 20;
+
 enum class TopScreenState { FILEBROWSER, INFO, PLAYLIST_BROWSER, PLAYLIST_VIEW };
 
 struct FileBrowserState {
