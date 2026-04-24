@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
     bool updateFiles = true, needsRender = true;
     bool wasTouched = false;
     bool showLog = false;
+    bool prevHeadphonesConnected = true;
 
     // Open the playlist-picker submenu for song path.
     auto openAddToPlaylistSub = [&](const std::string &songPath) {
@@ -175,6 +176,13 @@ int main(int argc, char *argv[]) {
         if (kDown & KEY_START) {
             break;
         }
+
+        bool hpNow = osIsHeadsetConnected();
+        if (!hpNow && prevHeadphonesConnected && audioController.songReady) {
+            ndspChnSetPaused(0, true);
+            logToDebugScreen("Headphones disconnected, pausing");
+        }
+        prevHeadphonesConnected = hpNow;
 
         needsRender = kDown || kHeld || screenTouched || audioController.newSongStarted ||
                       audioController.songReady || needsRender;
