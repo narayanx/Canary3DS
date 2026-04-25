@@ -317,7 +317,21 @@ int main(int argc, char *argv[]) {
                     fileController.playingFile = fileController.selectedFile;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                if (!pl.playlists.empty()) {
+                if (pl.sel == pl.playlists.size()) {
+                    SwkbdState swkbd;
+                    char nameBuf[64] = {0};
+                    swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, 32);
+                    swkbdSetHintText(&swkbd, "Playlist name");
+                    SwkbdButton btn = swkbdInputText(&swkbd, nameBuf, sizeof(nameBuf));
+                    if (btn == SWKBD_BUTTON_CONFIRM && nameBuf[0]) {
+                        if (createPlaylist(nameBuf)) {
+                            pl.dirty = true;
+                            logToDebugScreen("Created: " + std::string(nameBuf));
+                        } else {
+                            logToDebugScreen("Failed to create playlist");
+                        }
+                    }
+                } else if (!pl.playlists.empty()) {
                     pl.selSong = 0;
                     pl.viewScroll = 0;
                     screenState = TopScreenState::PLAYLIST_VIEW;
@@ -436,8 +450,8 @@ int main(int argc, char *argv[]) {
                     s_ctx.open(212.0f, 10.0f + 24.0f + 16.0f * row);
                 }
 
-            } else if (screenState == TopScreenState::PLAYLIST_BROWSER && !pl.playlists.empty()) {
-                // Direct action: no menu needed for a single destructive op
+            } else if (screenState == TopScreenState::PLAYLIST_BROWSER && !pl.playlists.empty() &&
+                       pl.sel < pl.playlists.size()) {
                 if (deletePlaylist(pl.playlists[pl.sel].path)) {
                     logToDebugScreen("Deleted: " + pl.playlists[pl.sel].name);
                     pl.dirty = true;
@@ -629,9 +643,10 @@ int main(int argc, char *argv[]) {
                         --pl.browserScroll;
                     }
                 } else if (!upRepeat) {
-                    pl.sel = pl.playlists.size() - 1;
-                    pl.browserScroll = (pl.playlists.size() > (size_t) MAX_FILES)
-                                           ? pl.playlists.size() - MAX_FILES
+                    // count make playlist entry
+                    pl.sel = pl.playlists.size();
+                    pl.browserScroll = (pl.playlists.size() + 1 > (size_t) MAX_FILES)
+                                           ? pl.playlists.size() + 1 - MAX_FILES
                                            : 0;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
@@ -648,14 +663,17 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        bool lastItem = (screenState == TopScreenState::FILEBROWSER &&
-                         fileController.selectedFile == fileController.files.size() - 1) ||
-                        (screenState == TopScreenState::INFO &&
-                         fileController.selectedQueueItem >= maxInfoIdx) ||
-                        (screenState == TopScreenState::PLAYLIST_BROWSER &&
-                         pl.sel == pl.playlists.size() - 1) ||
-                        (screenState == TopScreenState::PLAYLIST_VIEW && !pl.playlists.empty() &&
-                         pl.selSong == pl.playlists[pl.sel].songs.size() - 1);
+        bool lastFile = screenState == TopScreenState::FILEBROWSER &&
+                        fileController.selectedFile == fileController.files.size() - 1;
+        bool lastInfo =
+            screenState == TopScreenState::INFO && fileController.selectedQueueItem >= maxInfoIdx;
+        bool lastPlaylist =
+            screenState == TopScreenState::PLAYLIST_BROWSER &&
+            pl.sel == pl.playlists.size();  // consider "make playlist" entry at bottom
+        bool lastPlaylistSong = screenState == TopScreenState::PLAYLIST_VIEW &&
+                                !pl.playlists.empty() &&
+                                pl.selSong == pl.playlists[pl.sel].songs.size() - 1;
+        bool lastItem = (lastFile) || (lastInfo) || (lastPlaylist) || (lastPlaylistSong);
         bool downRepeat = (kHeld & KEY_DOWN) && !lastItem &&
                           (double) (now - downPressMs) > REPEAT_INITIAL_DELAY_MS &&
                           (double) (now - downRepeatMs) > REPEAT_INTERVAL_MS;
@@ -686,7 +704,8 @@ int main(int argc, char *argv[]) {
                     info.scrollTop = 0;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                if (pl.sel < pl.playlists.size() - 1) {
+                // count make playlist entry
+                if (pl.sel < pl.playlists.size()) {
                     ++pl.sel;
                     if (pl.sel >= pl.browserScroll + MAX_FILES) {
                         ++pl.browserScroll;
@@ -724,9 +743,9 @@ int main(int argc, char *argv[]) {
                          screenState == TopScreenState::PLAYLIST_VIEW)) {
             pl.playlists = loadPlaylists();
             pl.dirty = false;
-            if (!pl.playlists.empty() && pl.sel >= pl.playlists.size()) {
-                pl.sel = pl.playlists.size() - 1;
-                pl.browserScroll = (pl.sel >= MAX_FILES) ? pl.sel - MAX_FILES + 1 : 0;
+            if (!pl.playlists.empty() && pl.sel > pl.playlists.size()) {
+                pl.sel = pl.playlists.size();
+                pl.browserScroll = (pl.sel + 1 > (size_t) MAX_FILES) ? pl.sel + 1 - MAX_FILES : 0;
             }
         }
 
@@ -768,11 +787,12 @@ int main(int argc, char *argv[]) {
                 }
 
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                printC2DText("Playlists  A=Open  X=Delete  SELECT=New", 0);
+                printC2DText("Playlists  A=Open  X=Delete", 0);
                 std::vector<std::string> names;
                 for (const auto &p : pl.playlists) {
                     names.push_back(p.name);
                 }
+                names.push_back("(+ Create playlist)");
                 printStringList(names, pl.sel, pl.browserScroll, 1);
 
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
