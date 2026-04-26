@@ -49,6 +49,59 @@ void logToDebugScreen(const std::string &message) {
     logToDebugScreen(message.c_str());
 }
 
+// Count UTF-8 code points (characters, not bytes)
+static size_t utf8Len(const std::string &s) {
+    size_t n = 0;
+    for (unsigned char c : s) {
+        if ((c & 0xC0) != 0x80) {
+            ++n;
+        }
+    }
+    return n;
+}
+
+// Return the first maxChars code points of s as a string.
+static std::string utf8Truncate(const std::string &s, size_t maxChars) {
+    size_t cp = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if ((((unsigned char) (s[i])) & 0xC0) != 0x80) {
+            if (cp == maxChars) {
+                return s.substr(0, i);
+            }
+            ++cp;
+        }
+    }
+    return s;
+}
+
+// Split a line into wrapped segments of at most maxChars code points.
+static std::vector<std::string> wrapLine(const std::string &line, size_t maxChars) {
+    std::vector<std::string> result;
+    std::string rem = line;
+    while (utf8Len(rem) > maxChars) {
+        size_t bytePos = 0, cp = 0;
+        size_t lastSpaceByte = std::string::npos;
+        while (bytePos < rem.size() && cp < maxChars) {
+            if ((((unsigned char) rem[bytePos]) & 0xC0) != 0x80) {
+                if (rem[bytePos] == ' ') {
+                    lastSpaceByte = bytePos;
+                }
+                ++cp;
+            }
+            ++bytePos;
+        }
+        if (lastSpaceByte != std::string::npos) {
+            result.push_back(rem.substr(0, lastSpaceByte));
+            rem = rem.substr(lastSpaceByte + 1);
+        } else {
+            result.push_back(rem.substr(0, bytePos));
+            rem = rem.substr(bytePos);
+        }
+    }
+    result.push_back(rem);
+    return result;
+}
+
 static void drawStr(const char *str,
                     float x,
                     float y,
@@ -226,8 +279,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (dot != std::string::npos) {
                     name = name.substr(0, dot);
                 }
-                if (name.length() > 19) {
-                    name = name.substr(0, 16) + "...";
+                if (utf8Len(name) > 19) {
+                    name = utf8Truncate(name, 16) + "...";
                 }
                 u32 col = isSelected ? C2D_Color32f(0.75f, 1.00f, 0.80f, 1.0f)
                                      : C2D_Color32f(0.55f, 0.85f, 0.62f, 1.0f);
@@ -241,8 +294,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (!nowPlayingArtist.empty()) {
                     sub += nowPlayingArtist;
                 }
-                if (sub.length() > 22) {
-                    sub = sub.substr(0, 19) + "...";
+                if (utf8Len(sub) > 22) {
+                    sub = utf8Truncate(sub, 19) + "...";
                 }
                 if (!sub.empty()) {
                     u32 col = isSelected ? C2D_Color32f(0.55f, 0.80f, 0.62f, 1.0f)
@@ -288,8 +341,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
         if (sl != std::string::npos) {
             name = name.substr(sl + 1);
         }
-        if (name.length() > 20) {
-            name = name.substr(0, 17) + "...";
+        if (utf8Len(name) > 20) {
+            name = utf8Truncate(name, 17) + "...";
         }
 
         if (isSelected) {
@@ -519,13 +572,17 @@ void renderLogOverlay() {
     const float TEXT_Y = PAD + 18.0f;  // below header
     const float MAX_Y = PAD + H - 4.0f;
 
-    for (size_t i = 0; i < lines.size(); ++i) {
-        float y = TEXT_Y + LINE_H * (float) i;
-        if (y + LINE_H > MAX_Y) {
-            break;
+    const size_t CHARS_PER_LINE = 50;
+    float y = TEXT_Y;
+    for (size_t i = 0; i < lines.size() && y < MAX_Y; ++i) {
+        for (const auto &seg : wrapLine(lines[i], CHARS_PER_LINE)) {
+            if (y + LINE_H > MAX_Y) {
+                break;
+            }
+            drawStr(
+                seg.c_str(), TEXT_X, y, 0.92f, 0.38f, 0.38f, C2D_Color32f(0.78f, 0.78f, 0.78f, 1));
+            y += LINE_H;
         }
-        drawStr(
-            lines[i].c_str(), TEXT_X, y, 0.92f, 0.38f, 0.38f, C2D_Color32f(0.78f, 0.78f, 0.78f, 1));
     }
 }
 
@@ -603,8 +660,8 @@ void renderBottomScreen(bool songPlaying,
         if (dot != std::string::npos) {
             name = name.substr(0, dot);
         }
-        if (name.length() > 38) {
-            name = name.substr(0, 35) + "...";
+        if (utf8Len(name) > 38) {
+            name = utf8Truncate(name, 35) + "...";
         }
         drawStr(name.c_str(), 4, TITLE_Y, 0.5f, 0.44f, 0.44f, C2D_Color32f(0.90f, 0.90f, 0.90f, 1));
     }
@@ -620,8 +677,8 @@ void renderBottomScreen(bool songPlaying,
         std::string meta;
         if (!songArtist.empty()) {
             std::string artist = songArtist;
-            if (artist.length() > 22) {
-                artist = artist.substr(0, 19) + "...";
+            if (utf8Len(artist) > 22) {
+                artist = utf8Truncate(artist, 19) + "...";
             }
             meta = artist + "  " + t;
         } else {
