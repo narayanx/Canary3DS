@@ -6,7 +6,6 @@ build/
 *.elf
 *.cia
 *.t3x
-*.bcfnt
 *~
 !.vscode/
 !.vscode/settings.json

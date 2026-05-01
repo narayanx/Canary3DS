@@ -24,6 +24,7 @@ inline constexpr int MAX_FILES = 14;
 
 extern C2D_TextBuf g_dynamicBuf;
 extern C3D_RenderTarget *top, *bottom;
+extern C2D_Font g_font;
 
 void sceneInit();
 void sceneExit();

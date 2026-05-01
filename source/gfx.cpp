@@ -12,6 +12,7 @@
 
 C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
 C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+C2D_Font g_font = nullptr;
 
 C2D_TextBuf g_dynamicBuf;
 
@@ -27,12 +28,17 @@ static void ensureLogLock() {
 }
 
 void sceneInit() {
+    g_font = C2D_FontLoad("romfs:/font/OpenSans-Semibold.bcfnt");
     g_dynamicBuf = C2D_TextBufNew(4096);
     ensureLogLock();
 }
 
 void sceneExit() {
     C2D_TextBufDelete(g_dynamicBuf);
+    if (g_font) {
+        C2D_FontFree(g_font);
+        g_font = nullptr;
+    }
 }
 
 void logToDebugScreen(const char *message) {
@@ -110,10 +116,14 @@ static void drawStr(const char *str,
                     float sy,
                     u32 col,
                     int flags = C2D_AlignLeft | C2D_WithColor) {
-    char tmp[192];
+    char tmp[512];
     C2D_Text t;
     snprintf(tmp, sizeof(tmp), "%s", str);
-    C2D_TextParse(&t, g_dynamicBuf, tmp);
+    if (g_font) {
+        C2D_TextFontParse(&t, g_font, g_dynamicBuf, tmp);
+    } else {
+        C2D_TextParse(&t, g_dynamicBuf, tmp);
+    }
     C2D_TextOptimize(&t);
     C2D_DrawText(&t, flags, x, y, z, sx, sy, col);
 }
