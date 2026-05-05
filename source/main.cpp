@@ -256,6 +256,8 @@ int main(int argc, char *argv[]) {
             if (py >= NAV_BTN_Y && py <= NAV_BTN_Y + NAV_BTN_H) {
                 for (int i = 0; i < NAV_BTN_COUNT; ++i) {
                     if (px >= NAV_BTN_X[i] && px <= NAV_BTN_X[i] + NAV_BTN_W) {
+                        s_sub.active = false;
+                        s_ctx.close();
                         if (i == 0) {
                             screenState = TopScreenState::FILEBROWSER;
                         } else if (i == 1) {
