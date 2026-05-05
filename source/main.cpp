@@ -16,6 +16,7 @@
 #include "gfx.h"
 #include "image.h"
 #include "playlist.h"
+#include "settings.h"
 
 inline constexpr float SEEK_BAR_X = 8.0f;
 inline constexpr float SEEK_BAR_Y = 220.0f;
@@ -34,7 +35,7 @@ inline constexpr double REPEAT_INTERVAL_MS = 30.0;
 // stop saving depth after this many directories (conserve memory, TODO allow changing in settings)
 inline constexpr size_t MAX_DEPTH = 20;
 
-enum class TopScreenState { FILEBROWSER, INFO, PLAYLIST_BROWSER, PLAYLIST_VIEW };
+enum class TopScreenState { FILEBROWSER, INFO, PLAYLIST_BROWSER, PLAYLIST_VIEW, SETTINGS };
 
 struct FileBrowserState {
     size_t scroll = 0;
@@ -63,6 +64,42 @@ struct InfoState {
     float seekDragProgress = 0.0f;
 };
 
+struct SettingsState {
+    size_t sel = 0;  // currently highlighted row index
+
+    // Build display strings for each row from current g_settings values.
+    static std::vector<std::string> buildRows() {
+        auto yn = [](bool b) -> const char * { return b ? "Yes" : "No"; };
+        auto repeat = [](RepeatMode r) -> const char * {
+            return r == RepeatMode::ALL ? "All" : "Off";
+        };
+
+        char vol[32];
+        snprintf(vol, sizeof(vol), "Volume:       %d / 10", g_settings.volume);
+
+        char rep[32];
+        snprintf(rep, sizeof(rep), "Repeat:       %s", repeat(g_settings.repeat));
+
+        char cov[32];
+        snprintf(cov, sizeof(cov), "Cover Art:    %s", yn(g_settings.showCoverArt));
+
+        char slp[48];
+        snprintf(
+            slp, sizeof(slp), "Sleep (lid):  %s", g_settings.sleepAllowed ? "Allowed" : "Blocked");
+
+        std::string path = "Start Path:   " + g_settings.startPath;
+
+        return {vol, rep, cov, slp, path};
+    }
+
+    static constexpr size_t ROW_VOLUME = 0;
+    static constexpr size_t ROW_REPEAT = 1;
+    static constexpr size_t ROW_COVER_ART = 2;
+    static constexpr size_t ROW_SLEEP = 3;
+    static constexpr size_t ROW_START_PATH = 4;
+    static constexpr size_t ROW_COUNT = 5;
+};
+
 int main(int argc, char *argv[]) {
     romfsInit();
     gfxInitDefault();
@@ -78,6 +115,10 @@ int main(int argc, char *argv[]) {
     LightEvent_Init(&audioController.startEvent, RESET_ONESHOT);
     LightEvent_Init(&audioController.fillBufferEvent, RESET_ONESHOT);
 
+    // Load settings before everything else that depends on them
+    loadSettings();
+    aptSetSleepAllowed(g_settings.sleepAllowed);
+
     // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
     if (!audioInit()) {
         logToDebugScreen("Failed to init audio");
@@ -87,6 +128,7 @@ int main(int argc, char *argv[]) {
         romfsExit();
         return EXIT_FAILURE;
     }
+    applyVolume();  // push saved volume to NDSP
 
     int32_t mainPrio = 0x30;
     svcGetThreadPriority(&mainPrio, CUR_THREAD_HANDLE);
@@ -95,7 +137,7 @@ int main(int argc, char *argv[]) {
 
     ndspSetCallback(audioCallback, nullptr);
 
-    fileController.cwd = START_PATH;
+    fileController.cwd = g_settings.startPath;
     DIR *tmp = opendir(fileController.cwd.c_str());
     if (!tmp) {
         fileController.cwd = "sdmc:/";
@@ -130,6 +172,7 @@ int main(int argc, char *argv[]) {
     FileBrowserState fb;
     PlaylistState pl;
     InfoState info;
+    SettingsState st;
     CtxMenu s_ctx, s_sub;
 
     bool updateFiles = true, needsRender = true;
@@ -211,7 +254,7 @@ int main(int argc, char *argv[]) {
         if (newTouch) {
             float px = (float) touchPos.px, py = (float) touchPos.py;
             if (py >= NAV_BTN_Y && py <= NAV_BTN_Y + NAV_BTN_H) {
-                for (int i = 0; i < 3; ++i) {
+                for (int i = 0; i < NAV_BTN_COUNT; ++i) {
                     if (px >= NAV_BTN_X[i] && px <= NAV_BTN_X[i] + NAV_BTN_W) {
                         if (i == 0) {
                             screenState = TopScreenState::FILEBROWSER;
@@ -222,6 +265,9 @@ int main(int argc, char *argv[]) {
                         } else if (i == 2) {
                             pl.dirty = true;
                             screenState = TopScreenState::PLAYLIST_BROWSER;
+                        } else if (i == 3) {
+                            screenState = TopScreenState::SETTINGS;
+                            st.sel = 0;
                         }
                         break;
                     }
@@ -295,7 +341,29 @@ int main(int argc, char *argv[]) {
 
         // A button
         if (!ctxHandled && (kDown & KEY_A)) {
-            if (screenState == TopScreenState::FILEBROWSER) {
+            if (screenState == TopScreenState::SETTINGS) {
+                if (st.sel == SettingsState::ROW_START_PATH) {
+                    SwkbdState swkbd;
+                    char buf[256] = {};
+                    strncpy(buf, g_settings.startPath.c_str(), sizeof(buf) - 1);
+                    swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, sizeof(buf) - 1);
+                    swkbdSetHintText(&swkbd, "Start path (e.g. sdmc:/Music/)");
+                    swkbdSetInitialText(&swkbd, buf);
+                    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM &&
+                        buf[0]) {
+                        std::string p(buf);
+                        if (p.back() != '/') {
+                            p += '/';
+                        }
+                        g_settings.startPath = p;
+                        saveSettings();
+                        logToDebugScreen("Start path: " + p);
+                    }
+                } else {
+                    // A cycles the same as RIGHT for non-path rows
+                    kDown |= KEY_DRIGHT;
+                }
+            } else if (screenState == TopScreenState::FILEBROWSER) {
                 auto ft = fileController.files[fileController.selectedFile].d_type;
                 if (ft == DT_DIR) {
                     fileController.cwd += fileController.files[fileController.selectedFile].d_name;
@@ -504,7 +572,9 @@ int main(int argc, char *argv[]) {
 
         // B button
         if (!ctxHandled && (kDown & KEY_B)) {
-            if (screenState == TopScreenState::INFO) {
+            if (screenState == TopScreenState::SETTINGS) {
+                screenState = TopScreenState::FILEBROWSER;
+            } else if (screenState == TopScreenState::INFO) {
                 screenState = TopScreenState::FILEBROWSER;
                 ndspChnSetPaused(0, true);
                 logToDebugScreen("Pausing and going to filebrowser");
@@ -528,9 +598,68 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        // Settings value change (LEFT / RIGHT)
+        if (!ctxHandled && screenState == TopScreenState::SETTINGS) {
+            bool changed = false;
+            bool right = (kDown & KEY_DRIGHT) || (kDown & KEY_RIGHT);
+            bool left = (kDown & KEY_DLEFT) || (kDown & KEY_LEFT);
+            if (right || left) {
+                switch (st.sel) {
+                    case SettingsState::ROW_VOLUME:
+                        if (right && g_settings.volume < 10) {
+                            ++g_settings.volume;
+                            changed = true;
+                        }
+                        if (left && g_settings.volume > 1) {
+                            --g_settings.volume;
+                            changed = true;
+                        }
+                        if (changed) {
+                            applyVolume();
+                        }
+                        break;
+                    case SettingsState::ROW_REPEAT:
+                        g_settings.repeat = (g_settings.repeat == RepeatMode::OFF)
+                                                ? RepeatMode::ALL
+                                                : RepeatMode::OFF;
+                        changed = true;
+                        break;
+                    case SettingsState::ROW_COVER_ART:
+                        g_settings.showCoverArt = !g_settings.showCoverArt;
+                        info.displayCover = g_settings.showCoverArt;
+                        changed = true;
+                        break;
+                    case SettingsState::ROW_SLEEP:
+                        g_settings.sleepAllowed = !g_settings.sleepAllowed;
+                        aptSetSleepAllowed(g_settings.sleepAllowed);
+                        changed = true;
+                        break;
+                    default:
+                        break;
+                }
+                if (changed) {
+                    saveSettings();
+                }
+            }
+
+            // UP / DOWN navigation inside settings
+            if (kDown & KEY_UP) {
+                if (st.sel > 0) {
+                    --st.sel;
+                }
+            }
+            if (kDown & KEY_DOWN) {
+                if (st.sel + 1 < SettingsState::ROW_COUNT) {
+                    ++st.sel;
+                }
+            }
+        }
+
         // Y button
         if (!ctxHandled && (kDown & KEY_Y)) {
-            if (screenState == TopScreenState::FILEBROWSER) {
+            if (screenState == TopScreenState::SETTINGS) {
+                screenState = TopScreenState::FILEBROWSER;
+            } else if (screenState == TopScreenState::FILEBROWSER) {
                 screenState = TopScreenState::INFO;
                 fileController.selectedQueueItem = 0;
                 info.scrollTop = 0;
@@ -610,7 +739,8 @@ int main(int argc, char *argv[]) {
                         (double) (now - upRepeatMs) > REPEAT_INTERVAL_MS;
 
         // UP
-        if (!ctxHandled && ((kDown & KEY_UP) || upRepeat)) {
+        if (!ctxHandled && screenState != TopScreenState::SETTINGS &&
+            ((kDown & KEY_UP) || upRepeat)) {
             if (upRepeat) {
                 upRepeatMs = now;
             }
@@ -679,7 +809,8 @@ int main(int argc, char *argv[]) {
                           (double) (now - downRepeatMs) > REPEAT_INTERVAL_MS;
 
         // DOWN
-        if (!ctxHandled && ((kDown & KEY_DOWN) || downRepeat)) {
+        if (!ctxHandled && screenState != TopScreenState::SETTINGS &&
+            ((kDown & KEY_DOWN) || downRepeat)) {
             if (downRepeat) {
                 downRepeatMs = now;
             }
@@ -806,6 +937,8 @@ int main(int argc, char *argv[]) {
                     }
                     printStringList(songNames, pl.selSong, pl.viewScroll, 1);
                 }
+            } else if (screenState == TopScreenState::SETTINGS) {
+                printSettingsMenu(SettingsState::buildRows(), st.sel);
             }
 
             // Context menu overlay
@@ -829,6 +962,8 @@ int main(int argc, char *argv[]) {
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER ||
                        screenState == TopScreenState::PLAYLIST_VIEW) {
                 activeTab = 2;
+            } else if (screenState == TopScreenState::SETTINGS) {
+                activeTab = 3;
             }
             renderBottomScreen(
                 audioController.songReady,

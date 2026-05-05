@@ -9,6 +9,7 @@
 #include "filebrowser.h"
 #include "gfx.h"
 #include "image.h"
+#include "settings.h"
 
 ndspWaveBuf s_waveBufs[3];
 int16_t *s_audioBuffer = nullptr;
@@ -224,6 +225,20 @@ void audioThread(void *) {
                     fileController.playingFile = next;
                     logToDebugScreen("Autoplaying: " +
                                      std::string(fileController.files[next].d_name));
+                }
+            } else if (g_settings.repeat == RepeatMode::ALL && !fileController.files.empty()) {
+                // Wrap around to the first audio file in the directory
+                for (size_t i = 0; i < fileController.files.size(); ++i) {
+                    if (fileController.files[i].d_type == DT_REG) {
+                        const std::string path =
+                            fileController.cwd + fileController.files[i].d_name;
+                        if (isSupportedAudioFile(path) && playSong(path)) {
+                            fileController.playingFile = i;
+                            logToDebugScreen("Repeat All: " +
+                                             std::string(fileController.files[i].d_name));
+                            break;
+                        }
+                    }
                 }
             }
         }

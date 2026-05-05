@@ -27,6 +27,7 @@ add_executable(${PROJECT_NAME}
   source/gfx.cpp
   source/image.cpp
   source/playlist.cpp
+  source/settings.cpp
 )
 
 target_sources(${PROJECT_NAME} PRIVATE

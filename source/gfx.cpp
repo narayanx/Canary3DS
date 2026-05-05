@@ -596,6 +596,45 @@ void renderLogOverlay() {
     }
 }
 
+// Settings screen
+void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx) {
+    C2D_TextBufClear(g_dynamicBuf);
+
+    const float LINE_H = 20.0f;
+    const float X_LABEL = 14.0f;
+    const float Y_START = 16.0f;
+
+    // Header
+    drawStr("Settings  </>=Change  A=Edit  B=Back",
+            X_LABEL,
+            2.0f,
+            0.5f,
+            0.40f,
+            0.40f,
+            C2D_Color32(0x88, 0x88, 0x88, 0xFF));
+
+    // Separator line
+    C2D_DrawRectSolid(X_LABEL, 14.0f, 0.5f, 372.0f, 1.0f, C2D_Color32(0x2A, 0x2A, 0x2A, 0xFF));
+
+    for (size_t i = 0; i < items.size(); ++i) {
+        float y = Y_START + LINE_H * (float) i;
+        bool sel = (i == selectedIdx);
+
+        if (sel) {
+            // Highlight bar
+            C2D_DrawRectSolid(
+                4.0f, y - 1.0f, 0.45f, 392.0f, LINE_H, C2D_Color32(0x1E, 0x3A, 0x55, 0xFF));
+            // Left accent
+            C2D_DrawRectSolid(
+                4.0f, y - 1.0f, 0.50f, 3.0f, LINE_H, C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+        }
+
+        u32 col =
+            sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.65f, 0.65f, 0.65f, 1.0f);
+        drawStr(items[i].c_str(), X_LABEL + 4.0f, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+    }
+}
+
 // Bottom screen
 void renderBottomScreen(bool songPlaying,
                         double positionSeconds,
@@ -611,8 +650,8 @@ void renderBottomScreen(bool songPlaying,
     C2D_TextBufClear(g_dynamicBuf);
 
     // Nav buttons - always drawn regardless of playback state
-    static const char *const TAB_LABELS[3] = {"Fl", "NP", "Pl"};
-    for (int i = 0; i < 3; ++i) {
+    static const char *const TAB_LABELS[4] = {"Fl", "NP", "Pl", "St"};
+    for (int i = 0; i < NAV_BTN_COUNT; ++i) {
         const float bx = NAV_BTN_X[i];
         const bool sel = (i == activeTab);
         C2D_DrawRectSolid(bx,

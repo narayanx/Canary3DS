@@ -12,11 +12,12 @@ inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x12, 0x12, 0x12, 0xFF);
 inline constexpr u32 BOTTOM_CLEAR_COLOR = C2D_Color32(0x0E, 0x0E, 0x0E, 0xFF);
 inline constexpr int MAX_LOG_LINES = 16;  // max lines kept in the log buffer
 
-// Bottom screen nav buttons (Files=0, Now Playing=1, Playlists=2)
+// Bottom screen nav buttons
 inline constexpr float NAV_BTN_Y = 3.0f;
 inline constexpr float NAV_BTN_H = 32.0f;
 inline constexpr float NAV_BTN_W = 32.0f;
-inline constexpr float NAV_BTN_X[3] = {3.0f, 37.0f, 71.0f};
+inline constexpr float NAV_BTN_X[4] = {3.0f, 37.0f, 71.0f, 105.0f};
+inline constexpr int NAV_BTN_COUNT = 4;
 
 // Maximum number of rows visible at once before scrolling kicks in
 inline constexpr int MAX_CTX_VISIBLE = 8;
@@ -77,6 +78,9 @@ void logToDebugScreen(const std::string &message);
 // Semi-transparent log overlay drawn on the top screen.
 // Call after all other top-screen rendering within the same C3D frame.
 void renderLogOverlay();
+
+// Draw the settings screen on the top screen.
+void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx);
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).
