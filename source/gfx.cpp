@@ -137,13 +137,14 @@ void printC2DText(std::string msg, size_t lineOffset) {
 void printFiles(std::vector<dirent> files,
                 size_t selectedFile,
                 size_t scrollOffset,
-                size_t /*maxFiles*/,
-                size_t lineOffset) {
+                size_t shownCount,
+                size_t lineOffset,
+                size_t totalFiles) {
     const float LINE_H = 16.0f;
     C2D_TextBufClear(g_dynamicBuf);
 
     size_t iter = 0;
-    for (size_t i = scrollOffset; i < std::min(files.size(), scrollOffset + (size_t) MAX_FILES);
+    for (size_t i = scrollOffset; i < std::min(shownCount, scrollOffset + (size_t) MAX_FILES);
          ++i) {
 
         float y = LINE_H * (iter + lineOffset);
@@ -160,6 +161,18 @@ void printFiles(std::vector<dirent> files,
             (i == selectedFile) ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
         drawStr(name.c_str(), 10, y, 0.5f, 0.5f, 0.5f, col);
         ++iter;
+    }
+
+    // Lazy-load indicator: shown when there are hidden files and the bottom of
+    // the current page is within the visible window.
+    if (totalFiles > shownCount) {
+        const size_t indicatorRow = shownCount;
+        if (indicatorRow >= scrollOffset && indicatorRow < scrollOffset + (size_t) MAX_FILES) {
+            float y = LINE_H * (float) (indicatorRow - scrollOffset + lineOffset);
+            char buf[40];
+            snprintf(buf, sizeof(buf), "... +%zu more (down)", totalFiles - shownCount);
+            drawStr(buf, 10, y, 0.5f, 0.45f, 0.45f, C2D_Color32f(0.42f, 0.42f, 0.42f, 1));
+        }
     }
 }
 

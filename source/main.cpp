@@ -252,6 +252,15 @@ int main(int argc, char *argv[]) {
 
         if (updateFiles) {
             fileController.files = getFiles(fileController.cwd.c_str());
+            fileController.filesShown = (fileController.files.size() > FILE_LAZY_THRESHOLD)
+                                            ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
+                                            : fileController.files.size();
+            // selectedFile may be beyond the initial page (e.g. after pagination then song start)
+            if (!fileController.files.empty() &&
+                fileController.selectedFile >= fileController.filesShown) {
+                fileController.filesShown =
+                    std::min(fileController.files.size(), fileController.selectedFile + 1);
+            }
             updateFiles = false;
         }
 
@@ -397,6 +406,10 @@ int main(int argc, char *argv[]) {
                         fileController.fileHistory.pop_front();
                     }
                     fileController.files = getFiles(fileController.cwd.c_str());
+                    fileController.filesShown =
+                        (fileController.files.size() > FILE_LAZY_THRESHOLD)
+                            ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
+                            : fileController.files.size();
                 } else if (ft == DT_REG) {
                     stopPlaybackIfPlaying();
                     char *nm = fileController.files[fileController.selectedFile].d_name;
@@ -452,8 +465,12 @@ int main(int argc, char *argv[]) {
                         float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
                         s_ctx.close();
                         s_ctx.add("Play next", [&, songPath]() {
-                            fileController.playQueue.push_front(songPath);
-                            logToDebugScreen("Play next: " + songPath);
+                            if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                                fileController.playQueue.push_front(songPath);
+                                logToDebugScreen("Play next: " + songPath);
+                            } else {
+                                logToDebugScreen("Queue full, cannot play next");
+                            }
                             s_ctx.close();
                         });
                         s_ctx.add("Add to queue", [&, songPath]() {
@@ -493,8 +510,12 @@ int main(int argc, char *argv[]) {
                     float row = (float) (sel - info.scrollTop) + 1.0f;
                     s_ctx.close();
                     s_ctx.add("Play next", [&, path]() {
-                        fileController.playQueue.push_front(path);
-                        logToDebugScreen("Play next: " + path);
+                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                            fileController.playQueue.push_front(path);
+                            logToDebugScreen("Play next: " + path);
+                        } else {
+                            logToDebugScreen("Queue full, cannot play next");
+                        }
                         s_ctx.close();
                     });
                     s_ctx.add("Add to queue", [&, path]() {
@@ -557,8 +578,12 @@ int main(int argc, char *argv[]) {
                     float row = (float) (pl.selSong - pl.viewScroll) + 1.0f;
                     s_ctx.close();
                     s_ctx.add("Play next", [&, songPath]() {
-                        fileController.playQueue.push_front(songPath);
-                        logToDebugScreen("Play next: " + songPath);
+                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                            fileController.playQueue.push_front(songPath);
+                            logToDebugScreen("Play next: " + songPath);
+                        } else {
+                            logToDebugScreen("Queue full, cannot play next");
+                        }
                         s_ctx.close();
                     });
                     s_ctx.add("Add to queue", [&, songPath]() {
@@ -616,11 +641,20 @@ int main(int argc, char *argv[]) {
                         fb.scroll = 0;
                     }
                     fileController.files = getFiles(fileController.cwd.c_str());
+                    fileController.filesShown =
+                        (fileController.files.size() > FILE_LAZY_THRESHOLD)
+                            ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
+                            : fileController.files.size();
+                    // Ensure restored selectedFile index is within the shown range.
+                    if (!fileController.files.empty() &&
+                        fileController.selectedFile >= fileController.filesShown) {
+                        fileController.filesShown =
+                            std::min(fileController.files.size(), fileController.selectedFile + 1);
+                    }
                 }
             }
         }
 
-        // Settings value change (LEFT / RIGHT)
         if (!ctxHandled && screenState == TopScreenState::SETTINGS) {
             bool changed = false;
             bool right = (kDown & KEY_DRIGHT) || (kDown & KEY_RIGHT);
@@ -773,9 +807,10 @@ int main(int argc, char *argv[]) {
                         --fb.scroll;
                     }
                 } else {
-                    fileController.selectedFile = fileController.files.size() - 1;
-                    fb.scroll = (fileController.files.size() > (size_t) MAX_FILES)
-                                    ? fileController.files.size() - MAX_FILES
+                    fileController.filesShown = fileController.files.size();
+                    fileController.selectedFile = fileController.filesShown - 1;
+                    fb.scroll = (fileController.filesShown > (size_t) MAX_FILES)
+                                    ? fileController.filesShown - MAX_FILES
                                     : 0;
                 }
             } else if (screenState == TopScreenState::INFO) {
@@ -816,7 +851,8 @@ int main(int argc, char *argv[]) {
         }
 
         bool lastFile = screenState == TopScreenState::FILEBROWSER &&
-                        fileController.selectedFile == fileController.files.size() - 1;
+                        fileController.selectedFile == fileController.filesShown - 1 &&
+                        fileController.filesShown >= fileController.files.size();
         bool lastInfo =
             screenState == TopScreenState::INFO && fileController.selectedQueueItem >= maxInfoIdx;
         bool lastPlaylist =
@@ -837,7 +873,13 @@ int main(int argc, char *argv[]) {
                 downRepeatMs = now;
             }
             if (screenState == TopScreenState::FILEBROWSER) {
-                if (fileController.selectedFile < fileController.files.size() - 1) {
+                // At the last shown entry: extend the page before advancing if more exist.
+                if (fileController.selectedFile == fileController.filesShown - 1 &&
+                    fileController.filesShown < fileController.files.size()) {
+                    fileController.filesShown = std::min(
+                        fileController.files.size(), fileController.filesShown + FILE_PAGE_SIZE);
+                }
+                if (fileController.selectedFile < fileController.filesShown - 1) {
                     ++fileController.selectedFile;
                     if (fileController.selectedFile >= fb.scroll + MAX_FILES) {
                         ++fb.scroll;
@@ -912,8 +954,12 @@ int main(int argc, char *argv[]) {
 
             if (screenState == TopScreenState::FILEBROWSER) {
                 printC2DText(fileController.cwd, 0);
-                printFiles(
-                    fileController.files, fileController.selectedFile, fb.scroll, MAX_FILES, 1);
+                printFiles(fileController.files,
+                           fileController.selectedFile,
+                           fb.scroll,
+                           fileController.filesShown,
+                           1,
+                           fileController.files.size());
 
             } else if (screenState == TopScreenState::INFO) {
                 if (info.displayCover && info.hasCover) {

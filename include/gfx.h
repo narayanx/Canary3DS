@@ -35,8 +35,9 @@ void printC2DText(std::string msg, size_t lineOffset = 0);
 void printFiles(std::vector<dirent> files,
                 size_t selectedFile,
                 size_t scrollOffset,
-                size_t maxFiles,
-                size_t lineOffset);
+                size_t shownCount,
+                size_t lineOffset,
+                size_t totalFiles = 0);
 
 void printNowPlayingList(const std::deque<std::string> &history,
                          const std::deque<std::string> &queue,

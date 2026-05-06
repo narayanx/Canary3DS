@@ -308,6 +308,10 @@ bool goToNextSong() {
 }
 
 void enqueueSong(const std::string &path) {
+    if (fileController.playQueue.size() >= MAX_QUEUE_SIZE) {
+        logToDebugScreen("Queue full (" + std::to_string(MAX_QUEUE_SIZE) + "), skipping: " + path);
+        return;
+    }
     fileController.playQueue.push_back(path);
     logToDebugScreen("Queued: " + path);
 }

@@ -8,6 +8,12 @@
 
 // Maximum number of songs remembered in playback history
 inline constexpr size_t MAX_HISTORY = 30;
+// Maximum entries in the play queue (prevents unbounded memory use)
+inline constexpr size_t MAX_QUEUE_SIZE = 500;
+// If a directory contains more than this many files use paginated display
+inline constexpr size_t FILE_LAZY_THRESHOLD = 200;
+// Number of files revealed per page when lazy loading
+inline constexpr size_t FILE_PAGE_SIZE = 50;
 
 struct FileController {
     std::string cwd;
@@ -15,6 +21,8 @@ struct FileController {
     std::deque<std::pair<size_t, size_t>> fileHistory;  // { selectedFile, fileBrowserScrollOffset }
     size_t selectedFile;
     size_t playingFile;
+    // Equals files.size() for small dirs, grows in FILE_PAGE_SIZE steps for large ones
+    size_t filesShown;
     std::deque<std::string> playQueue;
     // Playback history: most recent song first.
     std::deque<std::string> playHistory;

@@ -5,6 +5,7 @@ FileController fileController = {.cwd = "sdmc:/Music/",
                                  .fileHistory = {},
                                  .selectedFile = 0,
                                  .playingFile = 0,
+                                 .filesShown = 0,
                                  .selectedQueueItem = 0};
 
 std::vector<dirent> getFiles(const char *path) {
