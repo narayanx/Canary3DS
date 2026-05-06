@@ -144,21 +144,41 @@ int main(int argc, char *argv[]) {
         fileController.fileHistory.clear();
     } else {
         closedir(tmp);
-        tmp = opendir("sdmc:/");
-        int idx = 0;
-        while (tmp) {
-            dirent *ent = readdir(tmp);
-            if (!ent) {
+        // Ensure going up directories restores the correct selection at each level
+        std::string cur = "sdmc:/";
+        const std::string &sp = g_settings.startPath;
+        size_t pos = 6;  // skip "sdmc:/"
+        while (pos < sp.size()) {
+            size_t slash = sp.find('/', pos);
+            if (slash == std::string::npos) {
                 break;
             }
-            if (ent->d_type == DT_DIR && strncmp(ent->d_name, "Music", 6) == 0) {
-                fileController.fileHistory.push_back(
-                    {(size_t) idx,
-                     (size_t) idx >= (size_t) MAX_FILES ? (size_t) idx - MAX_FILES + 1 : 0});
-                closedir(tmp);
+            std::string component = sp.substr(pos, slash - pos);
+            pos = slash + 1;
+
+            DIR *d = opendir(cur.c_str());
+            if (!d) {
                 break;
             }
-            ++idx;
+            int idx = 0, found = -1;
+            struct dirent *ent;
+            while ((ent = readdir(d)) != nullptr) {
+                if (ent->d_type == DT_DIR && component == ent->d_name) {
+                    found = idx;
+                }
+                ++idx;
+            }
+            closedir(d);
+
+            if (found < 0) {
+                break;
+            }
+
+            fileController.fileHistory.push_back(
+                {(size_t) found,
+                 (size_t) found >= (size_t) MAX_FILES ? (size_t) found - MAX_FILES + 1 : 0});
+
+            cur += component + '/';
         }
     }
 
