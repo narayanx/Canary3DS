@@ -609,6 +609,81 @@ void renderLogOverlay() {
     }
 }
 
+// Playlist view: name + Play/Shuffle buttons + song list
+void printPlaylistView(const std::string &playlistName,
+                       const std::vector<std::string> &songNames,
+                       size_t selSong,
+                       size_t viewScroll,
+                       bool inHeader,
+                       int headerBtnSel) {
+    const float LINE_H = 16.0f;
+    const float BTN_Y = LINE_H;
+    const float BTN_H = 14.0f;
+    const float BTN1_X = 8.0f;
+    const float BTN1_W = 68.0f;
+    const float BTN2_X = 84.0f;
+    const float BTN2_W = 80.0f;
+    // songs start at line 2
+    const size_t SONG_ROWS = (size_t) (MAX_FILES - 1);
+
+    C2D_TextBufClear(g_dynamicBuf);
+
+    // Playlist name
+    drawStr(playlistName.c_str(), 10.0f, 0.0f, 0.5f, 0.5f, 0.5f, C2D_Color32f(1, 1, 1, 1));
+
+    // Helper to draw one button
+    auto drawBtn = [&](float bx, float bw, const char *label, bool sel) {
+        u32 bgCol = sel ? C2D_Color32(0x1A, 0x3A, 0x55, 0xFF) : C2D_Color32(0x18, 0x18, 0x18, 0xFF);
+        u32 bdCol = sel ? C2D_Color32(0x30, 0x7A, 0xB8, 0xFF) : C2D_Color32(0x33, 0x33, 0x33, 0xFF);
+        C2D_DrawRectSolid(bx, BTN_Y, 0.4f, bw, BTN_H, bgCol);
+        C2D_DrawRectSolid(bx, BTN_Y, 0.45f, bw, 1, bdCol);
+        C2D_DrawRectSolid(bx, BTN_Y + BTN_H - 1, 0.45f, bw, 1, bdCol);
+        C2D_DrawRectSolid(bx, BTN_Y, 0.45f, 1, BTN_H, bdCol);
+        C2D_DrawRectSolid(bx + bw - 1, BTN_Y, 0.45f, 1, BTN_H, bdCol);
+        u32 txtCol =
+            sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.55f, 0.55f, 0.55f, 1.0f);
+        drawStr(label,
+                bx + bw * 0.5f,
+                BTN_Y + 2.0f,
+                0.5f,
+                0.44f,
+                0.44f,
+                txtCol,
+                C2D_AlignCenter | C2D_WithColor);
+    };
+
+    drawBtn(BTN1_X, BTN1_W, "Play", inHeader && headerBtnSel == 0);
+    drawBtn(BTN2_X, BTN2_W, "Shuffle", inHeader && headerBtnSel == 1);
+
+    // hint text to the right of buttons
+    drawStr("X=Menu",
+            BTN2_X + BTN2_W + 8.0f,
+            BTN_Y + 2.0f,
+            0.5f,
+            0.38f,
+            0.38f,
+            C2D_Color32f(0.35f, 0.35f, 0.35f, 1.0f));
+
+    // Song list
+    if (songNames.empty()) {
+        drawStr(
+            "(empty)", 10.0f, LINE_H * 2.0f, 0.5f, 0.5f, 0.5f, C2D_Color32f(0.5f, 0.5f, 0.5f, 1));
+        return;
+    }
+
+    size_t iter = 0;
+    for (size_t i = viewScroll; i < std::min(songNames.size(), viewScroll + SONG_ROWS); ++i) {
+        float y = LINE_H * (float) (iter + 2);
+        bool sel = !inHeader && i == selSong;
+        if (sel) {
+            C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
+        }
+        u32 col = sel ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
+        drawStr(songNames[i].c_str(), 10.0f, y, 0.5f, 0.5f, 0.5f, col);
+        ++iter;
+    }
+}
+
 // Settings screen
 void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx) {
     C2D_TextBufClear(g_dynamicBuf);

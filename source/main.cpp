@@ -48,6 +48,8 @@ struct PlaylistState {
     size_t browserScroll = 0;
     size_t viewScroll = 0;
     bool dirty = true;
+    bool inHeader = false;  // cursor is on the Play/Shuffle buttons row
+    int headerBtnSel = 0;   // 0=Play, 1=Shuffle
 };
 
 struct InfoState {
@@ -199,6 +201,51 @@ int main(int argc, char *argv[]) {
     bool wasTouched = false;
     bool showLog = false;
     bool prevHeadphonesConnected = true;
+
+    // Play or shuffle-play all songs in the currently viewed playlist.
+    // Shows a confirmation popup if the queue is non-empty.
+    auto triggerPlaylistPlay = [&](bool shuffle) {
+        if (pl.playlists.empty() || pl.sel >= pl.playlists.size()) {
+            return;
+        }
+        const Playlist &lst = pl.playlists[pl.sel];
+        if (lst.songs.empty()) {
+            return;
+        }
+
+        std::vector<std::string> songs = lst.songs;
+        if (shuffle) {
+            srand((unsigned) svcGetSystemTick());
+            for (size_t i = songs.size() - 1; i > 0; --i) {
+                size_t j = (size_t) rand() % (i + 1);
+                std::string tmp = songs[i];
+                songs[i] = songs[j];
+                songs[j] = tmp;
+            }
+        }
+
+        auto doPlay = [&, songs]() {
+            fileController.playQueue.clear();
+            stopPlaybackIfPlaying();
+            if (playSong(songs[0])) {
+                for (size_t i = 1; i < songs.size(); ++i) {
+                    enqueueSong(songs[i]);
+                }
+                screenState = TopScreenState::INFO;
+            }
+            s_ctx.close();
+        };
+
+        if (!fileController.playQueue.empty()) {
+            s_ctx.close();
+            const char *lbl = shuffle ? "Shuffle  (clears queue)" : "Play  (clears queue)";
+            s_ctx.add(lbl, doPlay);
+            s_ctx.add("Cancel", [&]() { s_ctx.close(); });
+            s_ctx.open(60.0f, 60.0f);
+        } else {
+            doPlay();
+        }
+    };
 
     // Open the playlist-picker submenu for song path.
     auto openAddToPlaylistSub = [&](const std::string &songPath) {
@@ -437,11 +484,14 @@ int main(int argc, char *argv[]) {
                 } else if (!pl.playlists.empty()) {
                     pl.selSong = 0;
                     pl.viewScroll = 0;
+                    pl.inHeader = false;
                     screenState = TopScreenState::PLAYLIST_VIEW;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
-                    !pl.playlists[pl.sel].songs.empty()) {
+                if (pl.inHeader) {
+                    triggerPlaylistPlay(pl.headerBtnSel == 1);
+                } else if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                           !pl.playlists[pl.sel].songs.empty()) {
                     const Playlist &lst = pl.playlists[pl.sel];
                     stopPlaybackIfPlaying();
                     if (playSong(lst.songs[pl.selSong])) {
@@ -572,10 +622,10 @@ int main(int argc, char *argv[]) {
 
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
                 if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
-                    !pl.playlists[pl.sel].songs.empty()) {
+                    !pl.playlists[pl.sel].songs.empty() && !pl.inHeader) {
                     std::string songPath = pl.playlists[pl.sel].songs[pl.selSong];
                     size_t snapIdx = pl.selSong;
-                    float row = (float) (pl.selSong - pl.viewScroll) + 1.0f;
+                    float row = (float) (pl.selSong - pl.viewScroll) + 2.0f;
                     s_ctx.close();
                     s_ctx.add("Play next", [&, songPath]() {
                         if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
@@ -600,10 +650,11 @@ int main(int argc, char *argv[]) {
                                     --pl.selSong;
                                 }
                                 const auto &songs = pl.playlists[pl.sel].songs;
-                                if (pl.viewScroll > 0 && pl.viewScroll + MAX_FILES > songs.size()) {
-                                    pl.viewScroll = songs.size() > (size_t) MAX_FILES
-                                                        ? songs.size() - MAX_FILES
-                                                        : 0;
+                                const size_t PVIEW_ROWS = (size_t) (MAX_FILES - 1);
+                                if (pl.viewScroll > 0 &&
+                                    pl.viewScroll + PVIEW_ROWS > songs.size()) {
+                                    pl.viewScroll =
+                                        songs.size() > PVIEW_ROWS ? songs.size() - PVIEW_ROWS : 0;
                                 }
                                 logToDebugScreen("Removed song from playlist");
                             } else {
@@ -711,6 +762,16 @@ int main(int argc, char *argv[]) {
             }
         }
 
+        // Left/right to switch between Play/Shuffle when cursor is on header
+        if (!ctxHandled && screenState == TopScreenState::PLAYLIST_VIEW && pl.inHeader) {
+            if ((kDown & KEY_DLEFT) || (kDown & KEY_LEFT)) {
+                pl.headerBtnSel = 0;
+            }
+            if ((kDown & KEY_DRIGHT) || (kDown & KEY_RIGHT)) {
+                pl.headerBtnSel = 1;
+            }
+        }
+
         // Y button
         if (!ctxHandled && (kDown & KEY_Y)) {
             if (screenState == TopScreenState::SETTINGS) {
@@ -789,7 +850,7 @@ int main(int argc, char *argv[]) {
             (screenState == TopScreenState::INFO &&
              fileController.selectedQueueItem <= minInfoIdx) ||
             (screenState == TopScreenState::PLAYLIST_BROWSER && pl.sel == 0) ||
-            (screenState == TopScreenState::PLAYLIST_VIEW && pl.selSong == 0);
+            (screenState == TopScreenState::PLAYLIST_VIEW && pl.inHeader);
         bool upRepeat = (kHeld & KEY_UP) && !firstItem &&
                         (double) (now - upPressMs) > REPEAT_INITIAL_DELAY_MS &&
                         (double) (now - upRepeatMs) > REPEAT_INTERVAL_MS;
@@ -837,15 +898,22 @@ int main(int argc, char *argv[]) {
                                            : 0;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (pl.selSong > 0) {
-                    --pl.selSong;
-                    if (pl.selSong < pl.viewScroll) {
-                        --pl.viewScroll;
+                if (!pl.inHeader) {
+                    if (pl.selSong > 0) {
+                        --pl.selSong;
+                        if (pl.selSong < pl.viewScroll) {
+                            --pl.viewScroll;
+                        }
+                    } else if (!upRepeat) {
+                        pl.inHeader = true;
                     }
                 } else if (!upRepeat && !pl.playlists.empty()) {
+                    // wrap from header to last song
                     const auto &s = pl.playlists[pl.sel].songs;
-                    pl.selSong = s.size() - 1;
-                    pl.viewScroll = (s.size() > (size_t) MAX_FILES) ? s.size() - MAX_FILES : 0;
+                    pl.inHeader = false;
+                    pl.selSong = s.empty() ? 0 : s.size() - 1;
+                    const size_t PVIEW_ROWS = (size_t) (MAX_FILES - 1);
+                    pl.viewScroll = (s.size() > PVIEW_ROWS) ? s.size() - PVIEW_ROWS : 0;
                 }
             }
         }
@@ -858,7 +926,7 @@ int main(int argc, char *argv[]) {
         bool lastPlaylist =
             screenState == TopScreenState::PLAYLIST_BROWSER &&
             pl.sel == pl.playlists.size();  // consider "make playlist" entry at bottom
-        bool lastPlaylistSong = screenState == TopScreenState::PLAYLIST_VIEW &&
+        bool lastPlaylistSong = screenState == TopScreenState::PLAYLIST_VIEW && !pl.inHeader &&
                                 !pl.playlists.empty() &&
                                 pl.selSong == pl.playlists[pl.sel].songs.size() - 1;
         bool lastItem = (lastFile) || (lastInfo) || (lastPlaylist) || (lastPlaylistSong);
@@ -910,14 +978,20 @@ int main(int argc, char *argv[]) {
                     pl.browserScroll = 0;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-                if (!pl.playlists.empty() && pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
+                if (pl.inHeader) {
+                    pl.inHeader = false;
+                    pl.selSong = 0;
+                    pl.viewScroll = 0;
+                } else if (!pl.playlists.empty() &&
+                           pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
                     ++pl.selSong;
-                    if (pl.selSong >= pl.viewScroll + MAX_FILES) {
+                    const size_t PVIEW_ROWS = (size_t) (MAX_FILES - 1);
+                    if (pl.selSong >= pl.viewScroll + PVIEW_ROWS) {
                         ++pl.viewScroll;
                     }
                 } else if (!downRepeat && !pl.playlists.empty()) {
-                    pl.selSong = 0;
-                    pl.viewScroll = 0;
+                    // wrap to header
+                    pl.inHeader = true;
                 }
             }
         }
@@ -997,13 +1071,17 @@ int main(int argc, char *argv[]) {
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
                 if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
                     const Playlist &lst = pl.playlists[pl.sel];
-                    printC2DText("< " + lst.name + "  A=Play  X=Menu", 0);
                     std::vector<std::string> songNames;
                     for (const auto &s : lst.songs) {
                         size_t sl = s.find_last_of('/');
                         songNames.push_back(sl != std::string::npos ? s.substr(sl + 1) : s);
                     }
-                    printStringList(songNames, pl.selSong, pl.viewScroll, 1);
+                    printPlaylistView(lst.name,
+                                      songNames,
+                                      pl.selSong,
+                                      pl.viewScroll,
+                                      pl.inHeader,
+                                      pl.headerBtnSel);
                 }
             } else if (screenState == TopScreenState::SETTINGS) {
                 printSettingsMenu(SettingsState::buildRows(), st.sel);
