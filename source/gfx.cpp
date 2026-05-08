@@ -615,7 +615,8 @@ void printPlaylistView(const std::string &playlistName,
                        size_t selSong,
                        size_t viewScroll,
                        bool inHeader,
-                       int headerBtnSel) {
+                       int headerBtnSel,
+                       C2D_Image *coverImage) {
     const float LINE_H = 16.0f;
     const float BTN_Y = LINE_H;
     const float BTN_H = 14.0f;
@@ -626,7 +627,19 @@ void printPlaylistView(const std::string &playlistName,
     // songs start at line 2
     const size_t SONG_ROWS = (size_t) (MAX_FILES - 1);
 
+    // Cover art drawn in the top-right corner (132x132), songs are left-aligned so no text overlap
+    const float COVER_TARGET = 132.0f;
+    const float COVER_X = 264.0f;
+    const float COVER_Y = 4.0f;
+
     C2D_TextBufClear(g_dynamicBuf);
+
+    if (coverImage && coverImage->tex) {
+        float sx = COVER_TARGET / (float) coverImage->tex->width;
+        float sy = COVER_TARGET / (float) coverImage->tex->height;
+        float s = std::min(sx, sy);
+        C2D_DrawImageAt(*coverImage, COVER_X, COVER_Y, 0.3f, nullptr, s, s);
+    }
 
     // Playlist name
     drawStr(playlistName.c_str(), 10.0f, 0.0f, 0.5f, 0.5f, 0.5f, C2D_Color32f(1, 1, 1, 1));

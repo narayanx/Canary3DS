@@ -8,7 +8,9 @@
 #include <sys/types.h>
 #include <vector>
 
+#include "audio_decoder.h"
 #include "gfx.h"
+#include "image.h"
 
 static std::vector<std::string> splitPath(const std::string &path) {
     std::vector<std::string> parts;
@@ -94,6 +96,20 @@ static void ensurePlaylistDirExists() {
     mkdir(path.c_str(), 0777);
 }
 
+static void ensurePlaylistCoverDirExists() {
+    std::string path(PLAYLIST_COVER_DIR);
+    size_t pos = 0;
+    while ((pos = path.find('/', pos + 1)) != std::string::npos) {
+        std::string subdir = path.substr(0, pos);
+        mkdir(subdir.c_str(), 0777);
+    }
+    mkdir(path.c_str(), 0777);
+}
+
+std::string playlistCoverPath(const std::string &name) {
+    return std::string(PLAYLIST_COVER_DIR) + name + ".bmp";
+}
+
 std::vector<std::string> readPlaylistSongs(const std::string &playlistPath) {
     std::vector<std::string> songs;
     std::ifstream f(playlistPath);
@@ -155,6 +171,18 @@ bool createPlaylist(const std::string &name) {
 }
 
 bool deletePlaylist(const std::string &playlistPath) {
+    // Derive name from path to remove the cover art cache
+    std::string name;
+    size_t sl = playlistPath.rfind('/');
+    if (sl != std::string::npos && sl + 1 < playlistPath.size()) {
+        name = playlistPath.substr(sl + 1);
+    } else {
+        name = playlistPath;
+    }
+    if (name.size() > 4 && name.substr(name.size() - 4) == ".m3u") {
+        name = name.substr(0, name.size() - 4);
+    }
+    remove(playlistCoverPath(name).c_str());
     return remove(playlistPath.c_str()) == 0;
 }
 
@@ -183,4 +211,24 @@ bool removeSongFromPlaylist(const std::string &playlistPath, size_t songIdx) {
         f << toRelativePath(s) << "\n";
     }
     return true;
+}
+
+bool cachePlaylistCoverArt(const std::string &playlistName, const std::string &songPath) {
+    auto dec = createDecoder(songPath);
+    if (!dec) {
+        return false;
+    }
+    if (!dec->open(songPath)) {
+        return false;
+    }
+    const std::string &bytes = dec->getCoverArtBytes();
+    bool ok = false;
+    if (!bytes.empty()) {
+        ensurePlaylistCoverDirExists();
+        ok = saveAsBmp128(playlistCoverPath(playlistName),
+                          reinterpret_cast<const unsigned char *>(bytes.data()),
+                          (int) bytes.size());
+    }
+    dec->close();
+    return ok;
 }

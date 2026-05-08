@@ -41,3 +41,6 @@ bool loadCoverArtFromBytes(const unsigned char *data,
 // Target dimensions (pixels) for displayed cover art
 constexpr float COVER_TARGET_WIDTH = 190.0f;
 constexpr float COVER_TARGET_HEIGHT = 190.0f;
+
+// Scale image bytes (JPEG/PNG) to 128x128 and write as a 24-bit BMP file.
+bool saveAsBmp128(const std::string &path, const unsigned char *data, int len);

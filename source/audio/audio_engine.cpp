@@ -347,6 +347,23 @@ bool loadCoverArtForCurrentSong(C2D_Image &image,
     return ok;
 }
 
+bool loadCoverArtFromFile(const std::string &songPath,
+                          C2D_Image &image,
+                          C3D_Tex &tex,
+                          Tex3DS_SubTexture &subtex,
+                          bool freeExisting) {
+    auto dec = createDecoder(songPath);
+    if (!dec) {
+        return false;
+    }
+    if (!dec->open(songPath)) {
+        return false;
+    }
+    bool ok = dec->loadCoverArt(image, tex, subtex, freeExisting);
+    dec->close();
+    return ok;
+}
+
 void waitForInput() {
     logToDebugScreen("Press any button to exit...");
     while (aptMainLoop()) {

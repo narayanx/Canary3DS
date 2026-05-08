@@ -51,6 +51,11 @@ class IAudioDecoder {
 
     // Upload embedded cover art (main thread, after open()).
     // freeExisting: call C3D_TexDelete on tex before re-initialising.
+    virtual const std::string &getCoverArtBytes() const {
+        static const std::string empty;
+        return empty;
+    }
+
     virtual bool
     loadCoverArt(C2D_Image &image, C3D_Tex &tex, Tex3DS_SubTexture &subtex, bool freeExisting) {
         (void) image;

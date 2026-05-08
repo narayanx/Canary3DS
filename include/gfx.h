@@ -85,12 +85,14 @@ void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx
 
 // Draw the playlist view: name header, Play/Shuffle buttons, and song list.
 // inHeader: cursor is on the button row; headerBtnSel: 0=Play 1=Shuffle.
+// coverImage: optional pointer to a loaded cover art image (nullptr = no cover).
 void printPlaylistView(const std::string &playlistName,
                        const std::vector<std::string> &songNames,
                        size_t selSong,
                        size_t viewScroll,
                        bool inHeader,
-                       int headerBtnSel);
+                       int headerBtnSel,
+                       C2D_Image *coverImage = nullptr);
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).

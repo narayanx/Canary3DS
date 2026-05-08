@@ -88,6 +88,9 @@ class OpusDecoder final : public IAudioDecoder {
                                      subtex,
                                      freeExisting);
     }
+    const std::string &getCoverArtBytes() const override {
+        return coverArtBytes_;
+    }
 
     std::string getArtist() const override {
         return artist_;

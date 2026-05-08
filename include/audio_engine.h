@@ -78,4 +78,11 @@ bool loadCoverArtForCurrentSong(C2D_Image &image,
                                 C3D_Tex &tex,
                                 Tex3DS_SubTexture &subtex,
                                 bool &loadedImage);
+
+// Load cover art from an arbitrary song file (main thread, not during active playback).
+bool loadCoverArtFromFile(const std::string &songPath,
+                          C2D_Image &image,
+                          C3D_Tex &tex,
+                          Tex3DS_SubTexture &subtex,
+                          bool freeExisting);
 void waitForInput();

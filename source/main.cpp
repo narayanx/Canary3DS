@@ -7,6 +7,7 @@
 #include <deque>
 #include <dirent.h>
 #include <string>
+#include <sys/stat.h>
 #include <vector>
 
 #include "audio_decoder.h"
@@ -50,6 +51,12 @@ struct PlaylistState {
     bool dirty = true;
     bool inHeader = false;  // cursor is on the Play/Shuffle buttons row
     int headerBtnSel = 0;   // 0=Play, 1=Shuffle
+    // Cover art for currently viewed playlist
+    C2D_Image coverImage{};
+    C3D_Tex coverTex{};
+    Tex3DS_SubTexture coverSubtex{};
+    bool hasCover = false;
+    std::string coverLoadedFrom;  // song path used to load coverImage; "" = not loaded
 };
 
 struct InfoState {
@@ -485,6 +492,7 @@ int main(int argc, char *argv[]) {
                     pl.selSong = 0;
                     pl.viewScroll = 0;
                     pl.inHeader = false;
+                    pl.coverLoadedFrom = "";
                     screenState = TopScreenState::PLAYLIST_VIEW;
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
@@ -659,6 +667,17 @@ int main(int argc, char *argv[]) {
                                 logToDebugScreen("Removed song from playlist");
                             } else {
                                 logToDebugScreen("Failed to remove song");
+                            }
+                        }
+                        s_ctx.close();
+                    });
+                    s_ctx.add("Set as playlist cover", [&, songPath]() {
+                        if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+                            if (cachePlaylistCoverArt(pl.playlists[pl.sel].name, songPath)) {
+                                pl.coverLoadedFrom = "";
+                                logToDebugScreen("Cover art updated");
+                            } else {
+                                logToDebugScreen("Failed to set cover art");
                             }
                         }
                         s_ctx.close();
@@ -1012,9 +1031,33 @@ int main(int argc, char *argv[]) {
                          screenState == TopScreenState::PLAYLIST_VIEW)) {
             pl.playlists = loadPlaylists();
             pl.dirty = false;
+            pl.coverLoadedFrom = "";
             if (!pl.playlists.empty() && pl.sel > pl.playlists.size()) {
                 pl.sel = pl.playlists.size();
                 pl.browserScroll = (pl.sel + 1 > (size_t) MAX_FILES) ? pl.sel + 1 - MAX_FILES : 0;
+            }
+        }
+
+        // Load cover art for the currently viewed playlist
+        if (screenState == TopScreenState::PLAYLIST_VIEW && !pl.playlists.empty() &&
+            pl.sel < pl.playlists.size()) {
+            const Playlist &curPl = pl.playlists[pl.sel];
+            std::string coverPath = playlistCoverPath(curPl.name);
+            if (coverPath != pl.coverLoadedFrom) {
+                pl.coverLoadedFrom = coverPath;
+                struct stat st;
+                if (stat(coverPath.c_str(), &st) == 0) {
+                    if (pl.hasCover) {
+                        C3D_TexDelete(&pl.coverTex);
+                    }
+                    pl.hasCover =
+                        loadC2DImage(coverPath.c_str(), pl.coverImage, pl.coverTex, pl.coverSubtex);
+                } else {
+                    if (pl.hasCover) {
+                        C3D_TexDelete(&pl.coverTex);
+                        pl.hasCover = false;
+                    }
+                }
             }
         }
 
@@ -1081,7 +1124,8 @@ int main(int argc, char *argv[]) {
                                       pl.selSong,
                                       pl.viewScroll,
                                       pl.inHeader,
-                                      pl.headerBtnSel);
+                                      pl.headerBtnSel,
+                                      pl.hasCover ? &pl.coverImage : nullptr);
                 }
             } else if (screenState == TopScreenState::SETTINGS) {
                 printSettingsMenu(SettingsState::buildRows(), st.sel);

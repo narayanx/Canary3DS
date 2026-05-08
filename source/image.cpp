@@ -7,9 +7,11 @@
 #include <RIP/C3D.h>
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <stb_image.h>
+#include <vector>
 
 #include "gfx.h"
 
@@ -161,4 +163,57 @@ bool loadCoverArtFromBytes(const unsigned char *data,
         return false;
     }
     return loadC2DImageMemory(data, len, image, tex, subtex, freeExisting);
+}
+
+bool saveAsBmp128(const std::string &path, const unsigned char *data, int len) {
+    int srcW, srcH;
+    stbi_uc *rgba = stbi_load_from_memory(data, len, &srcW, &srcH, nullptr, 4);
+    if (!rgba) {
+        return false;
+    }
+
+    static const int OUT = 128;
+    // 128*3 = 384, divisible by 4, no row padding needed, allocate on heap to avoid stack overflow
+    std::vector<unsigned char> rgb((size_t) OUT * OUT * 3);
+
+    for (int dy = 0; dy < OUT; ++dy) {
+        int sy = dy * srcH / OUT;
+        for (int dx = 0; dx < OUT; ++dx) {
+            int sx = dx * srcW / OUT;
+            const stbi_uc *px = rgba + (sy * srcW + sx) * 4;
+            // BMP rows are bottom-up, write BGR
+            int bmpRow = OUT - 1 - dy;
+            unsigned char *dst = rgb.data() + (bmpRow * OUT + dx) * 3;
+            dst[0] = px[2];
+            dst[1] = px[1];
+            dst[2] = px[0];
+        }
+    }
+    stbi_image_free(rgba);
+
+    const int pixelDataSize = OUT * OUT * 3;
+    const int fileSize = 14 + 40 + pixelDataSize;
+
+    unsigned char hdr[54] = {};
+    hdr[0] = 'B';
+    hdr[1] = 'M';
+    hdr[2] = (unsigned char) (fileSize);
+    hdr[3] = (unsigned char) (fileSize >> 8);
+    hdr[4] = (unsigned char) (fileSize >> 16);
+    hdr[5] = (unsigned char) (fileSize >> 24);
+    hdr[10] = 54;   // pixel data offset
+    hdr[14] = 40;   // BITMAPINFOHEADER size
+    hdr[18] = OUT;  // width
+    hdr[22] = OUT;  // height (positive = bottom-up)
+    hdr[26] = 1;    // planes
+    hdr[28] = 24;   // bits per pixel
+
+    FILE *f = fopen(path.c_str(), "wb");
+    if (!f) {
+        return false;
+    }
+    bool ok = fwrite(hdr, 1, sizeof(hdr), f) == sizeof(hdr) &&
+              fwrite(rgb.data(), 1, (size_t) pixelDataSize, f) == (size_t) pixelDataSize;
+    fclose(f);
+    return ok;
 }

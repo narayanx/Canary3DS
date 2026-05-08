@@ -4,6 +4,8 @@
 #include <vector>
 
 inline constexpr std::string_view PLAYLIST_DIR = "sdmc:/3ds/Canary3DS/Playlists/";
+inline constexpr std::string_view PLAYLIST_COVER_DIR =
+    "sdmc:/3ds/Canary3DS/Playlists/.playlist_covers/";
 
 struct Playlist {
     std::string name;                // display name (without .m3u extension)
@@ -28,3 +30,10 @@ bool removeSongFromPlaylist(const std::string &playlistPath, size_t songIdx);
 
 // Parse song paths from a .m3u file (skips comment lines starting with #)
 std::vector<std::string> readPlaylistSongs(const std::string &playlistPath);
+
+// Returns the path to the cached cover art BMP for a playlist name.
+std::string playlistCoverPath(const std::string &name);
+
+// Extract cover art from songPath, scale to 128x128, and save as a BMP cache
+// file for the given playlist name. Returns false if no cover art is found.
+bool cachePlaylistCoverArt(const std::string &playlistName, const std::string &songPath);
