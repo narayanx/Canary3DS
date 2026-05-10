@@ -618,19 +618,19 @@ void printPlaylistView(const std::string &playlistName,
                        int headerBtnSel,
                        C2D_Image *coverImage) {
     const float LINE_H = 16.0f;
-    const float BTN_Y = LINE_H;
     const float BTN_H = 14.0f;
-    const float BTN1_X = 8.0f;
+    const float BTN1_X = 120.0f;
     const float BTN1_W = 68.0f;
-    const float BTN2_X = 84.0f;
+    const float BTN2_X = 196.0f;
     const float BTN2_W = 80.0f;
-    // songs start at line 2
-    const size_t SONG_ROWS = (size_t) (MAX_FILES - 1);
-
-    // Cover art drawn in the top-right corner (132x132), songs are left-aligned so no text overlap
     const float COVER_TARGET = 132.0f;
-    const float COVER_X = 264.0f;
-    const float COVER_Y = 4.0f;
+    const float COVER_X = (400.0f - COVER_TARGET) * 0.5f;
+    const float COVER_Y = 8.0f;
+    const float TITLE_Y = COVER_Y + COVER_TARGET + 10.0f;
+    const float BTN_Y = TITLE_Y + 18.0f;
+    const float SONGS_Y = BTN_Y + BTN_H + 12.0f;
+    const float HEADER_SCROLL = std::min((float) viewScroll * LINE_H, SONGS_Y);
+    const size_t SONG_ROWS = (size_t) ((240.0f - SONGS_Y) / LINE_H);
 
     C2D_TextBufClear(g_dynamicBuf);
 
@@ -638,26 +638,33 @@ void printPlaylistView(const std::string &playlistName,
         float sx = COVER_TARGET / (float) coverImage->tex->width;
         float sy = COVER_TARGET / (float) coverImage->tex->height;
         float s = std::min(sx, sy);
-        C2D_DrawImageAt(*coverImage, COVER_X, COVER_Y, 0.3f, nullptr, s, s);
+        C2D_DrawImageAt(*coverImage, COVER_X, COVER_Y - HEADER_SCROLL, 0.3f, nullptr, s, s);
     }
 
     // Playlist name
-    drawStr(playlistName.c_str(), 10.0f, 0.0f, 0.5f, 0.5f, 0.5f, C2D_Color32f(1, 1, 1, 1));
+    drawStr(playlistName.c_str(),
+            200.0f,
+            TITLE_Y - HEADER_SCROLL,
+            0.5f,
+            0.5f,
+            0.5f,
+            C2D_Color32f(1, 1, 1, 1),
+            C2D_AlignCenter | C2D_WithColor);
 
     // Helper to draw one button
     auto drawBtn = [&](float bx, float bw, const char *label, bool sel) {
         u32 bgCol = sel ? C2D_Color32(0x1A, 0x3A, 0x55, 0xFF) : C2D_Color32(0x18, 0x18, 0x18, 0xFF);
         u32 bdCol = sel ? C2D_Color32(0x30, 0x7A, 0xB8, 0xFF) : C2D_Color32(0x33, 0x33, 0x33, 0xFF);
-        C2D_DrawRectSolid(bx, BTN_Y, 0.4f, bw, BTN_H, bgCol);
-        C2D_DrawRectSolid(bx, BTN_Y, 0.45f, bw, 1, bdCol);
-        C2D_DrawRectSolid(bx, BTN_Y + BTN_H - 1, 0.45f, bw, 1, bdCol);
-        C2D_DrawRectSolid(bx, BTN_Y, 0.45f, 1, BTN_H, bdCol);
-        C2D_DrawRectSolid(bx + bw - 1, BTN_Y, 0.45f, 1, BTN_H, bdCol);
+        C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL, 0.4f, bw, BTN_H, bgCol);
+        C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL, 0.45f, bw, 1, bdCol);
+        C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL + BTN_H - 1, 0.45f, bw, 1, bdCol);
+        C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL, 0.45f, 1, BTN_H, bdCol);
+        C2D_DrawRectSolid(bx + bw - 1, BTN_Y - HEADER_SCROLL, 0.45f, 1, BTN_H, bdCol);
         u32 txtCol =
             sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.55f, 0.55f, 0.55f, 1.0f);
         drawStr(label,
                 bx + bw * 0.5f,
-                BTN_Y + 2.0f,
+                BTN_Y - HEADER_SCROLL + 2.0f,
                 0.5f,
                 0.44f,
                 0.44f,
@@ -671,7 +678,7 @@ void printPlaylistView(const std::string &playlistName,
     // hint text to the right of buttons
     drawStr("X=Menu",
             BTN2_X + BTN2_W + 8.0f,
-            BTN_Y + 2.0f,
+            BTN_Y - HEADER_SCROLL + 2.0f,
             0.5f,
             0.38f,
             0.38f,
@@ -679,14 +686,19 @@ void printPlaylistView(const std::string &playlistName,
 
     // Song list
     if (songNames.empty()) {
-        drawStr(
-            "(empty)", 10.0f, LINE_H * 2.0f, 0.5f, 0.5f, 0.5f, C2D_Color32f(0.5f, 0.5f, 0.5f, 1));
+        drawStr("(empty)",
+                10.0f,
+                SONGS_Y - HEADER_SCROLL,
+                0.5f,
+                0.5f,
+                0.5f,
+                C2D_Color32f(0.5f, 0.5f, 0.5f, 1));
         return;
     }
 
     size_t iter = 0;
     for (size_t i = viewScroll; i < std::min(songNames.size(), viewScroll + SONG_ROWS); ++i) {
-        float y = LINE_H * (float) (iter + 2);
+        float y = SONGS_Y + LINE_H * (float) iter - HEADER_SCROLL;
         bool sel = !inHeader && i == selSong;
         if (sel) {
             C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
