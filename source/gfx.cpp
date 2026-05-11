@@ -669,7 +669,7 @@ void printPlaylistView(const std::string &playlistName,
             sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.55f, 0.55f, 0.55f, 1.0f);
         drawStr(label,
                 bx + bw * 0.5f,
-                BTN_Y - HEADER_SCROLL + 2.0f,
+                BTN_Y - HEADER_SCROLL,
                 0.5f,
                 0.44f,
                 0.44f,
