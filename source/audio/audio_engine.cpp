@@ -218,7 +218,14 @@ void audioThread(void *) {
 
         // Prioritize queue first
         if (!playNextFromQueue()) {
-            const size_t next = fileController.playingFile + 1;
+            size_t next = fileController.playingFile + 1;
+            while (next < fileController.files.size()) {
+                if (fileController.files[next].d_type == DT_REG &&
+                    isSupportedAudioFile(fileController.cwd + fileController.files[next].d_name)) {
+                    break;
+                }
+                ++next;
+            }
             if (next < fileController.files.size()) {
                 const std::string path = fileController.cwd + fileController.files[next].d_name;
                 if (playSong(path)) {
@@ -319,14 +326,13 @@ void enqueueSong(const std::string &path) {
 // Pop the front of the play queue and start it. Returns false if queue empty
 // or the song fails to open (the failed entry is discarded in that case).
 bool playNextFromQueue() {
-    if (fileController.playQueue.empty()) {
-        return false;
-    }
-    const std::string next = fileController.playQueue.front();
-    fileController.playQueue.pop_front();
-    if (playSong(next)) {
-        logToDebugScreen("Playing from queue: " + next);
-        return true;
+    while (!fileController.playQueue.empty()) {
+        const std::string next = fileController.playQueue.front();
+        fileController.playQueue.pop_front();
+        if (playSong(next)) {
+            logToDebugScreen("Playing from queue: " + next);
+            return true;
+        }
     }
     return false;
 }
