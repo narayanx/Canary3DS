@@ -628,7 +628,7 @@ void printPlaylistView(const std::string &playlistName,
     const float COVER_Y = 8.0f;
     const float TITLE_Y = COVER_Y + COVER_TARGET + 10.0f;
     const float BTN_Y = TITLE_Y + 18.0f;
-    const float SONGS_Y = BTN_Y + BTN_H + 12.0f;
+    const float SONGS_Y = BTN_Y + BTN_H + 10.0f;
     // Header scrolls off for the first (SONGS_Y/LINE_H) steps; song list offset starts after that.
     const size_t MAX_HEADER_STEPS = (size_t) (SONGS_Y / LINE_H);
     const size_t headerSteps = std::min(viewScroll, MAX_HEADER_STEPS);

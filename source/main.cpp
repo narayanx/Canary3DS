@@ -635,7 +635,7 @@ int main(int argc, char *argv[]) {
                     size_t snapIdx = pl.selSong;
                     const size_t pv_header_steps = std::min(pl.viewScroll, (size_t) 12);
                     const size_t pv_song_offset = pl.viewScroll - pv_header_steps;
-                    float menu_y = 194.0f - (float) pv_header_steps * 16.0f +
+                    float menu_y = 192.0f - (float) pv_header_steps * 16.0f +
                                    16.0f * (float) (pl.selSong - pv_song_offset);
                     s_ctx.close();
                     s_ctx.add("Play next", [&, songPath]() {
@@ -661,8 +661,8 @@ int main(int argc, char *argv[]) {
                                     --pl.selSong;
                                 }
                                 const auto &songs = pl.playlists[pl.sel].songs;
-                                if (songs.empty() || pl.viewScroll + 1 >= songs.size()) {
-                                    pl.viewScroll = songs.size() > 1 ? songs.size() - 2 : 0;
+                                if (songs.empty() || pl.viewScroll + 2 >= songs.size()) {
+                                    pl.viewScroll = songs.size() > 2 ? songs.size() - 3 : 0;
                                 }
                                 logToDebugScreen("Removed song from playlist");
                             } else {
@@ -933,7 +933,7 @@ int main(int argc, char *argv[]) {
                     const auto &s = pl.playlists[pl.sel].songs;
                     pl.inHeader = false;
                     pl.selSong = s.empty() ? 0 : s.size() - 1;
-                    pl.viewScroll = (s.size() >= 2) ? s.size() - 2 : 0;
+                    pl.viewScroll = (s.size() >= 3) ? s.size() - 3 : 0;
                 }
             }
         }
@@ -1005,7 +1005,7 @@ int main(int argc, char *argv[]) {
                 } else if (!pl.playlists.empty() &&
                            pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
                     ++pl.selSong;
-                    if (pl.selSong > pl.viewScroll + 1) {
+                    if (pl.selSong > pl.viewScroll + 2) {
                         ++pl.viewScroll;
                     }
                 } else if (!downRepeat && !pl.playlists.empty()) {
