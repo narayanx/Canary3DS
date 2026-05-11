@@ -629,8 +629,13 @@ void printPlaylistView(const std::string &playlistName,
     const float TITLE_Y = COVER_Y + COVER_TARGET + 10.0f;
     const float BTN_Y = TITLE_Y + 18.0f;
     const float SONGS_Y = BTN_Y + BTN_H + 12.0f;
-    const float HEADER_SCROLL = std::min((float) viewScroll * LINE_H, SONGS_Y);
-    const size_t SONG_ROWS = (size_t) ((240.0f - SONGS_Y) / LINE_H);
+    // Header scrolls off for the first (SONGS_Y/LINE_H) steps; song list offset starts after that.
+    const size_t MAX_HEADER_STEPS = (size_t) (SONGS_Y / LINE_H);
+    const size_t headerSteps = std::min(viewScroll, MAX_HEADER_STEPS);
+    const float HEADER_SCROLL = (float) headerSteps * LINE_H;
+    const size_t songOffset = viewScroll - headerSteps;
+    const size_t SONG_ROWS =
+        std::max((size_t) 1, (size_t) ((240.0f - (SONGS_Y - HEADER_SCROLL)) / LINE_H));
 
     C2D_TextBufClear(g_dynamicBuf);
 
@@ -697,7 +702,7 @@ void printPlaylistView(const std::string &playlistName,
     }
 
     size_t iter = 0;
-    for (size_t i = viewScroll; i < std::min(songNames.size(), viewScroll + SONG_ROWS); ++i) {
+    for (size_t i = songOffset; i < std::min(songNames.size(), songOffset + SONG_ROWS); ++i) {
         float y = SONGS_Y + LINE_H * (float) iter - HEADER_SCROLL;
         bool sel = !inHeader && i == selSong;
         if (sel) {

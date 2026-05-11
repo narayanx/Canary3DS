@@ -633,7 +633,10 @@ int main(int argc, char *argv[]) {
                     !pl.playlists[pl.sel].songs.empty() && !pl.inHeader) {
                     std::string songPath = pl.playlists[pl.sel].songs[pl.selSong];
                     size_t snapIdx = pl.selSong;
-                    float row = (float) (pl.selSong - pl.viewScroll) + 2.0f;
+                    const size_t pv_header_steps = std::min(pl.viewScroll, (size_t) 12);
+                    const size_t pv_song_offset = pl.viewScroll - pv_header_steps;
+                    float menu_y = 194.0f - (float) pv_header_steps * 16.0f +
+                                   16.0f * (float) (pl.selSong - pv_song_offset);
                     s_ctx.close();
                     s_ctx.add("Play next", [&, songPath]() {
                         if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
@@ -658,11 +661,8 @@ int main(int argc, char *argv[]) {
                                     --pl.selSong;
                                 }
                                 const auto &songs = pl.playlists[pl.sel].songs;
-                                const size_t PVIEW_ROWS = (size_t) (MAX_FILES - 1);
-                                if (pl.viewScroll > 0 &&
-                                    pl.viewScroll + PVIEW_ROWS > songs.size()) {
-                                    pl.viewScroll =
-                                        songs.size() > PVIEW_ROWS ? songs.size() - PVIEW_ROWS : 0;
+                                if (songs.empty() || pl.viewScroll + 1 >= songs.size()) {
+                                    pl.viewScroll = songs.size() > 1 ? songs.size() - 2 : 0;
                                 }
                                 logToDebugScreen("Removed song from playlist");
                             } else {
@@ -682,7 +682,7 @@ int main(int argc, char *argv[]) {
                         }
                         s_ctx.close();
                     });
-                    s_ctx.open(50.0f, 16.0f * row);
+                    s_ctx.open(50.0f, menu_y);
                 }
             }
         }
@@ -920,19 +920,20 @@ int main(int argc, char *argv[]) {
                 if (!pl.inHeader) {
                     if (pl.selSong > 0) {
                         --pl.selSong;
-                        if (pl.selSong < pl.viewScroll) {
+                        const size_t pv_song_offset = (pl.viewScroll > 12) ? pl.viewScroll - 12 : 0;
+                        if (pl.selSong < pv_song_offset) {
                             --pl.viewScroll;
                         }
                     } else if (!upRepeat) {
                         pl.inHeader = true;
+                        pl.viewScroll = 0;
                     }
                 } else if (!upRepeat && !pl.playlists.empty()) {
                     // wrap from header to last song
                     const auto &s = pl.playlists[pl.sel].songs;
                     pl.inHeader = false;
                     pl.selSong = s.empty() ? 0 : s.size() - 1;
-                    const size_t PVIEW_ROWS = (size_t) (MAX_FILES - 1);
-                    pl.viewScroll = (s.size() > PVIEW_ROWS) ? s.size() - PVIEW_ROWS : 0;
+                    pl.viewScroll = (s.size() >= 2) ? s.size() - 2 : 0;
                 }
             }
         }
@@ -1004,13 +1005,13 @@ int main(int argc, char *argv[]) {
                 } else if (!pl.playlists.empty() &&
                            pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
                     ++pl.selSong;
-                    const size_t PVIEW_ROWS = (size_t) (MAX_FILES - 1);
-                    if (pl.selSong >= pl.viewScroll + PVIEW_ROWS) {
+                    if (pl.selSong > pl.viewScroll + 1) {
                         ++pl.viewScroll;
                     }
                 } else if (!downRepeat && !pl.playlists.empty()) {
                     // wrap to header
                     pl.inHeader = true;
+                    pl.viewScroll = 0;
                 }
             }
         }
