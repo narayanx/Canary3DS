@@ -83,6 +83,11 @@ void renderLogOverlay();
 // Draw the settings screen on the top screen.
 void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx);
 
+// Draw a fallback cover art scaled to targetW x targetH.
+// nowPlaying=true uses musical-note-square-button, false uses
+// music-note-symbol-in-a-rounded-square.
+void drawNoteCover(float x, float y, float targetW, float targetH, bool nowPlaying);
+
 // Draw the playlist view: name header, Play/Shuffle buttons, and song list.
 // inHeader: cursor is on the button row; headerBtnSel: 0=Play 1=Shuffle.
 // coverImage: optional pointer to a loaded cover art image (nullptr = no cover).

@@ -16,6 +16,9 @@ C2D_Font g_font = nullptr;
 
 C2D_TextBuf g_dynamicBuf;
 
+static C2D_SpriteSheet s_noteSheetNowPlaying = nullptr;
+static C2D_SpriteSheet s_noteSheetPlaylist = nullptr;
+
 static LightLock s_logLock;
 static bool s_logLockInited = false;
 static std::vector<std::string> s_logLines;
@@ -31,6 +34,8 @@ void sceneInit() {
     g_font = C2D_FontLoad("romfs:/font/OpenSans-Semibold.bcfnt");
     g_dynamicBuf = C2D_TextBufNew(4096);
     ensureLogLock();
+    s_noteSheetNowPlaying = C2D_SpriteSheetLoad("romfs:/musical-note-square-button.t3x");
+    s_noteSheetPlaylist = C2D_SpriteSheetLoad("romfs:/music-note-symbol-in-a-rounded-square.t3x");
 }
 
 void sceneExit() {
@@ -38,6 +43,14 @@ void sceneExit() {
     if (g_font) {
         C2D_FontFree(g_font);
         g_font = nullptr;
+    }
+    if (s_noteSheetNowPlaying) {
+        C2D_SpriteSheetFree(s_noteSheetNowPlaying);
+        s_noteSheetNowPlaying = nullptr;
+    }
+    if (s_noteSheetPlaylist) {
+        C2D_SpriteSheetFree(s_noteSheetPlaylist);
+        s_noteSheetPlaylist = nullptr;
     }
 }
 
@@ -609,6 +622,32 @@ void renderLogOverlay() {
     }
 }
 
+void drawNoteCover(float x, float y, float targetW, float targetH, bool nowPlaying) {
+    C2D_SpriteSheet sheet = nowPlaying ? s_noteSheetNowPlaying : s_noteSheetPlaylist;
+    if (!sheet) {
+        return;
+    }
+    C2D_Image img = C2D_SpriteSheetGetImage(sheet, 0);
+    if (!img.tex) {
+        return;
+    }
+    float sx = targetW / (float) img.tex->width;
+    float sy = targetH / (float) img.tex->height;
+    float s = std::min(sx, sy);
+    float drawW = (float) img.tex->width * s;
+    float drawH = (float) img.tex->height * s;
+
+    float INSET = 6.0f;  // for the rounded corners
+    // rect shows through the transparent note area
+    C2D_DrawRectSolid(x + INSET,
+                      y + INSET,
+                      0.29f,
+                      drawW - (2 * INSET),
+                      drawH - (2 * INSET),
+                      C2D_Color32(0xE8, 0xE8, 0xE0, 0xFF));
+    C2D_DrawImageAt(img, x, y, 0.3f, nullptr, s, s);
+}
+
 // Playlist view: name + Play/Shuffle buttons + song list
 void printPlaylistView(const std::string &playlistName,
                        const std::vector<std::string> &songNames,
@@ -644,6 +683,8 @@ void printPlaylistView(const std::string &playlistName,
         float sy = COVER_TARGET / (float) coverImage->tex->height;
         float s = std::min(sx, sy);
         C2D_DrawImageAt(*coverImage, COVER_X, COVER_Y - HEADER_SCROLL, 0.3f, nullptr, s, s);
+    } else {
+        drawNoteCover(COVER_X, COVER_Y - HEADER_SCROLL, COVER_TARGET, COVER_TARGET, false);
     }
 
     // Playlist name

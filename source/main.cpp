@@ -1002,7 +1002,7 @@ int main(int argc, char *argv[]) {
                     pl.inHeader = false;
                     pl.selSong = 0;
                     pl.viewScroll = 0;
-                } else if (!pl.playlists.empty() &&
+                } else if (!pl.playlists.empty() && !pl.playlists[pl.sel].songs.empty() &&
                            pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
                     ++pl.selSong;
                     if (pl.selSong > pl.viewScroll + 2) {
@@ -1080,8 +1080,12 @@ int main(int argc, char *argv[]) {
                            fileController.files.size());
 
             } else if (screenState == TopScreenState::INFO) {
-                if (info.displayCover && info.hasCover) {
-                    drawCoverScaled(info.image, info.subtex, 10.0f, 10.0f);
+                if (info.displayCover) {
+                    if (info.hasCover) {
+                        drawCoverScaled(info.image, info.subtex, 10.0f, 10.0f);
+                    } else {
+                        drawNoteCover(10.0f, 10.0f, COVER_TARGET_WIDTH, COVER_TARGET_HEIGHT, true);
+                    }
                 }
 
                 printNowPlayingList(fileController.playHistory,
