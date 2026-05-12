@@ -928,11 +928,11 @@ int main(int argc, char *argv[]) {
                         pl.inHeader = true;
                         pl.viewScroll = 0;
                     }
-                } else if (!upRepeat && !pl.playlists.empty()) {
-                    // wrap from header to last song
+                } else if (!upRepeat && !pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                           !pl.playlists[pl.sel].songs.empty()) {
                     const auto &s = pl.playlists[pl.sel].songs;
                     pl.inHeader = false;
-                    pl.selSong = s.empty() ? 0 : s.size() - 1;
+                    pl.selSong = s.size() - 1;
                     pl.viewScroll = (s.size() >= 3) ? s.size() - 3 : 0;
                 }
             }
@@ -999,9 +999,13 @@ int main(int argc, char *argv[]) {
                 }
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
                 if (pl.inHeader) {
-                    pl.inHeader = false;
-                    pl.selSong = 0;
-                    pl.viewScroll = 0;
+                    // don't scroll in empty playlist
+                    if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                        !pl.playlists[pl.sel].songs.empty()) {
+                        pl.inHeader = false;
+                        pl.selSong = 0;
+                        pl.viewScroll = 0;
+                    }
                 } else if (!pl.playlists.empty() && !pl.playlists[pl.sel].songs.empty() &&
                            pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
                     ++pl.selSong;
