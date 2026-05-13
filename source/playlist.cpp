@@ -1,6 +1,7 @@
 #include "playlist.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <dirent.h>
 #include <fstream>
 #include <string>
@@ -90,7 +91,7 @@ static void ensurePlaylistDirExists() {
     // mkdir fails if parent directory doesn't exist
     while ((pos = path.find('/', pos + 1)) != std::string::npos) {
         std::string subdir = path.substr(0, pos);
-        mkdir(subdir.c_str(), 0777);  // Ignore errors (directory may already exist)
+        mkdir(subdir.c_str(), 0777);
     }
 
     mkdir(path.c_str(), 0777);
@@ -184,6 +185,73 @@ bool deletePlaylist(const std::string &playlistPath) {
     }
     remove(playlistCoverPath(name).c_str());
     return remove(playlistPath.c_str()) == 0;
+}
+
+bool renamePlaylist(const std::string &oldPath, const std::string &newName) {
+    std::string oldName;
+    size_t sl = oldPath.rfind('/');
+    oldName = (sl != std::string::npos) ? oldPath.substr(sl + 1) : oldPath;
+    if (oldName.size() > 4 && oldName.substr(oldName.size() - 4) == ".m3u") {
+        oldName = oldName.substr(0, oldName.size() - 4);
+    }
+
+    std::string newPath = std::string(PLAYLIST_DIR) + newName + ".m3u";
+    if (rename(oldPath.c_str(), newPath.c_str()) != 0) {
+        return false;
+    }
+
+    // rename cover art if it exists (best-effort)
+    rename(playlistCoverPath(oldName).c_str(), playlistCoverPath(newName).c_str());
+    return true;
+}
+
+bool duplicatePlaylist(const std::string &sourcePath, const std::string &newName) {
+    std::vector<std::string> songs = readPlaylistSongs(sourcePath);
+    if (!createPlaylist(newName)) {
+        return false;
+    }
+    std::string newPath = std::string(PLAYLIST_DIR) + newName + ".m3u";
+    for (const auto &s : songs) {
+        addSongToPlaylist(newPath, s);
+    }
+    return true;
+}
+
+bool mergePlaylist(const std::string &targetPath, const std::string &sourcePath) {
+    std::vector<std::string> songs = readPlaylistSongs(sourcePath);
+    for (const auto &s : songs) {
+        addSongToPlaylist(targetPath, s);
+    }
+    return true;
+}
+
+bool removeDuplicateSongs(const std::string &playlistPath) {
+    std::vector<std::string> songs = readPlaylistSongs(playlistPath);
+    std::vector<std::string> unique;
+    for (const auto &s : songs) {
+        bool found = false;
+        for (const auto &u : unique) {
+            if (u == s) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            unique.push_back(s);
+        }
+    }
+    if (unique.size() == songs.size()) {
+        return true;
+    }
+    std::ofstream f(playlistPath, std::ios::trunc);
+    if (!f.is_open()) {
+        return false;
+    }
+    f << "#EXTM3U\n";
+    for (const auto &s : unique) {
+        f << toRelativePath(s) << "\n";
+    }
+    return true;
 }
 
 bool addSongToPlaylist(const std::string &playlistPath, const std::string &songPath) {

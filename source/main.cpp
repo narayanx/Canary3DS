@@ -621,12 +621,133 @@ int main(int argc, char *argv[]) {
 
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER && !pl.playlists.empty() &&
                        pl.sel < pl.playlists.size()) {
-                if (deletePlaylist(pl.playlists[pl.sel].path)) {
-                    logToDebugScreen("Deleted: " + pl.playlists[pl.sel].name);
-                    pl.dirty = true;
-                } else {
-                    logToDebugScreen("Failed to delete playlist");
-                }
+                size_t snapSel = pl.sel;
+                float menuY = 16.0f * (float) (pl.sel - pl.browserScroll) + 16.0f;
+                s_ctx.close();
+
+                s_ctx.add("Rename", [&, snapSel]() {
+                    if (snapSel >= pl.playlists.size()) {
+                        s_ctx.close();
+                        return;
+                    }
+                    SwkbdState swkbd;
+                    char buf[64] = {};
+                    strncpy(buf, pl.playlists[snapSel].name.c_str(), sizeof(buf) - 1);
+                    swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, 32);
+                    swkbdSetHintText(&swkbd, "New playlist name");
+                    swkbdSetInitialText(&swkbd, buf);
+                    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM &&
+                        buf[0]) {
+                        if (renamePlaylist(pl.playlists[snapSel].path, buf)) {
+                            logToDebugScreen("Renamed to: " + std::string(buf));
+                            pl.dirty = true;
+                        } else {
+                            logToDebugScreen("Rename failed");
+                        }
+                    }
+                    s_ctx.close();
+                });
+
+                s_ctx.add("Duplicate", [&, snapSel]() {
+                    if (snapSel >= pl.playlists.size()) {
+                        s_ctx.close();
+                        return;
+                    }
+                    SwkbdState swkbd;
+                    char buf[64] = {};
+                    std::string suggested = pl.playlists[snapSel].name + " copy";
+                    strncpy(buf, suggested.c_str(), sizeof(buf) - 1);
+                    swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, 32);
+                    swkbdSetHintText(&swkbd, "Duplicate playlist name");
+                    swkbdSetInitialText(&swkbd, buf);
+                    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM &&
+                        buf[0]) {
+                        if (duplicatePlaylist(pl.playlists[snapSel].path, buf)) {
+                            logToDebugScreen("Duplicated as: " + std::string(buf));
+                            pl.dirty = true;
+                        } else {
+                            logToDebugScreen("Duplicate failed");
+                        }
+                    }
+                    s_ctx.close();
+                });
+
+                s_ctx.add("Merge with...", [&, snapSel]() {
+                    if (snapSel >= pl.playlists.size()) {
+                        s_ctx.close();
+                        return;
+                    }
+                    s_sub.close();
+                    for (size_t i = 0; i < pl.playlists.size(); ++i) {
+                        if (i == snapSel) {
+                            continue;
+                        }
+                        s_sub.add(pl.playlists[i].name, [&, snapSel, i]() {
+                            if (snapSel < pl.playlists.size() && i < pl.playlists.size()) {
+                                if (mergePlaylist(pl.playlists[snapSel].path,
+                                                  pl.playlists[i].path)) {
+                                    logToDebugScreen("Merged \"" + pl.playlists[i].name +
+                                                     "\" into \"" + pl.playlists[snapSel].name +
+                                                     "\"");
+                                    pl.dirty = true;
+                                } else {
+                                    logToDebugScreen("Merge failed");
+                                }
+                            }
+                            s_sub.active = false;
+                            s_ctx.close();
+                        });
+                    }
+                    if (s_sub.labels.empty()) {
+                        logToDebugScreen("No other playlists to merge with");
+                    } else {
+                        s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
+                    }
+                });
+
+                s_ctx.add("Remove duplicates", [&, snapSel]() {
+                    if (snapSel < pl.playlists.size()) {
+                        size_t before = pl.playlists[snapSel].songs.size();
+                        if (removeDuplicateSongs(pl.playlists[snapSel].path)) {
+                            pl.playlists[snapSel].songs =
+                                readPlaylistSongs(pl.playlists[snapSel].path);
+                            size_t removed = before - pl.playlists[snapSel].songs.size();
+                            logToDebugScreen("Removed " + std::to_string(removed) +
+                                             " duplicate(s)");
+                        } else {
+                            logToDebugScreen("Failed to remove duplicates");
+                        }
+                    }
+                    s_ctx.close();
+                });
+
+                s_ctx.add("Delete", [&, snapSel]() {
+                    if (snapSel >= pl.playlists.size()) {
+                        s_ctx.close();
+                        return;
+                    }
+                    std::string name = pl.playlists[snapSel].name;
+                    s_sub.close();
+                    // "No" is first so the default (idx=0) is the safe choice
+                    s_sub.add("No (cancel)", [&]() {
+                        s_sub.active = false;
+                        s_ctx.close();
+                    });
+                    s_sub.add("Yes, delete \"" + name + "\"", [&, snapSel, name]() {
+                        if (snapSel < pl.playlists.size() &&
+                            deletePlaylist(pl.playlists[snapSel].path)) {
+                            logToDebugScreen("Deleted: " + name);
+                            pl.dirty = true;
+                        } else {
+                            logToDebugScreen("Failed to delete playlist");
+                        }
+                        s_sub.active = false;
+                        s_ctx.close();
+                    });
+                    s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 64.0f);
+                });
+
+                s_ctx.open(50.0f, menuY);
 
             } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
                 if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
@@ -1112,7 +1233,7 @@ int main(int argc, char *argv[]) {
                 }
 
             } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-                printC2DText("Playlists  A=Open  X=Delete", 0);
+                printC2DText("Playlists  A=Open  X=Menu", 0);
                 std::vector<std::string> names;
                 for (const auto &p : pl.playlists) {
                     names.push_back(p.name);

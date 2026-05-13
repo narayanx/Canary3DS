@@ -22,6 +22,14 @@ bool createPlaylist(const std::string &name);
 // Delete a playlist by its full path
 bool deletePlaylist(const std::string &playlistPath);
 
+bool renamePlaylist(const std::string &oldPath, const std::string &newName);
+
+bool duplicatePlaylist(const std::string &sourcePath, const std::string &newName);
+
+bool mergePlaylist(const std::string &targetPath, const std::string &sourcePath);
+
+bool removeDuplicateSongs(const std::string &playlistPath);
+
 // Append a song (absolute path) to a playlist file
 bool addSongToPlaylist(const std::string &playlistPath, const std::string &songPath);
 
