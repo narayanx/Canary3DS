@@ -55,18 +55,11 @@ void handleBButton(u32 kDown, TopScreenState &screenState, FileBrowserState &fb,
 
 void handleYButton(u32 kDown, TopScreenState &screenState, PlaylistState &pl, InfoState &info);
 
-void handleSettingsInput(u32 kDown,
-                         TopScreenState screenState,
-                         SettingsState &st,
-                         InfoState &info,
-                         PlaylistState &pl);
+void handleSettingsInput(
+    u32 kDown, TopScreenState screenState, SettingsState &st, InfoState &info, PlaylistState &pl);
 
-void handleShoulderTaps(u32 kDown,
-                        u64 now,
-                        u64 &lTapTime,
-                        int &lTapCount,
-                        u64 &rTapTime,
-                        int &rTapCount);
+void handleShoulderTaps(
+    u32 kDown, u64 now, u64 &lTapTime, int &lTapCount, u64 &rTapTime, int &rTapCount);
 
 void handleUpNav(u32 kDown,
                  bool upRepeat,

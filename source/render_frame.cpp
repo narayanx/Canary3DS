@@ -115,17 +115,17 @@ void renderFrame(TopScreenState screenState,
     } else if (screenState == TopScreenState::SETTINGS) {
         activeTab = 3;
     }
-    renderBottomScreen(
-        audioController.songReady,
-        audioController.songPositionSeconds,
-        audioController.songDurationSeconds,
-        audioController.songPath,
-        audioController.songArtist,
-        seekBarX,
-        seekBarY,
-        seekBarW,
-        seekBarH,
-        (info.seekDragging || audioController.seekPending) ? info.seekDragProgress : -1.0f,
-        activeTab);
+    renderBottomScreen(audioController.songReady,
+                       audioController.songPositionSeconds,
+                       audioController.songDurationSeconds,
+                       audioController.songPath,
+                       audioController.songArtist,
+                       seekBarX,
+                       seekBarY,
+                       seekBarW,
+                       seekBarH,
+                       (info.seekDragging || audioController.seekPending) ? info.seekDragProgress
+                                                                          : -1.0f,
+                       activeTab);
     C3D_FrameEnd(0);
 }

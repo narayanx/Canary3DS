@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <random>
 #include <string>
 
 #include "audio_engine.h"
@@ -31,13 +32,8 @@ static void triggerPlaylistPlay(PlaylistState &pl,
 
     std::vector<std::string> songs = lst.songs;
     if (shuffle) {
-        srand((unsigned) svcGetSystemTick());
-        for (size_t i = songs.size() - 1; i > 0; --i) {
-            size_t j = (size_t) rand() % (i + 1);
-            std::string tmp = songs[i];
-            songs[i] = songs[j];
-            songs[j] = tmp;
-        }
+        std::mt19937 g(std::random_device{}());
+        std::shuffle(songs.begin(), songs.end(), g);
     }
 
     auto doPlay = [&pl, &s_ctx, &screenState, songs]() {
@@ -89,6 +85,23 @@ static void openAddToPlaylistSub(PlaylistState &pl,
     }
     s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
 }
+
+static std::vector<std::string> getFolderSongs(const std::string &folderPath) {
+    std::vector<std::string> songs;
+    DIR *d = opendir(folderPath.c_str());
+    if (!d) return songs;
+    struct dirent *ent;
+    while ((ent = readdir(d)) != nullptr) {
+        if (ent->d_type == DT_REG) {
+            std::string p = folderPath + ent->d_name;
+            if (isSupportedAudioFile(p)) songs.push_back(p);
+        }
+    }
+    closedir(d);
+    std::sort(songs.begin(), songs.end());
+    return songs;
+}
+
 
 void handleNavTouch(touchPosition touchPos,
                     bool newTouch,
@@ -322,6 +335,83 @@ void handleXButton(u32 kDown,
                           [&pl, &s_ctx, &s_sub, songPath]() {
                               openAddToPlaylistSub(pl, s_ctx, s_sub, songPath);
                           });
+                s_ctx.open(50.0f, 16.0f * row);
+            } else if (f.d_type == DT_DIR && strcmp(f.d_name, ".") != 0 &&
+                       strcmp(f.d_name, "..") != 0) {
+                std::string folderPath = fileController.cwd + f.d_name + "/";
+                float row = (float)(fileController.selectedFile - fb.scroll) + 1.0f;
+                s_ctx.close();
+                s_ctx.add("Play folder next", [&s_ctx, folderPath]() {
+                    auto songs = getFolderSongs(folderPath);
+                    for (int i = (int)songs.size() - 1; i >= 0; --i) {
+                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE)
+                            fileController.playQueue.push_front(songs[i]);
+                    }
+                    logToDebugScreen("Queued folder next: " + folderPath);
+                    s_ctx.close();
+                });
+                s_ctx.add("Add folder to queue", [&s_ctx, folderPath]() {
+                    auto songs = getFolderSongs(folderPath);
+                    for (const auto &s : songs) {
+                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE)
+                            fileController.playQueue.push_back(s);
+                    }
+                    logToDebugScreen("Added folder to queue: " + folderPath);
+                    s_ctx.close();
+                });
+                s_ctx.add("Play shuffled next", [&s_ctx, folderPath]() {
+                    auto songs = getFolderSongs(folderPath);
+                    std::mt19937 g(std::random_device{}());
+                    std::shuffle(songs.begin(), songs.end(), g);
+                    for (int i = (int)songs.size() - 1; i >= 0; --i) {
+                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE)
+                            fileController.playQueue.push_front(songs[i]);
+                    }
+                    logToDebugScreen("Queued shuffled folder next: " + folderPath);
+                    s_ctx.close();
+                });
+                s_ctx.add("Add shuffled to queue", [&s_ctx, folderPath]() {
+                    auto songs = getFolderSongs(folderPath);
+                    std::mt19937 g(std::random_device{}());
+                    std::shuffle(songs.begin(), songs.end(), g);
+                    for (const auto &s : songs) {
+                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE)
+                            fileController.playQueue.push_back(s);
+                    }
+                    logToDebugScreen("Added shuffled folder to queue: " + folderPath);
+                    s_ctx.close();
+                });
+                s_ctx.add("Add folder to playlist >", [&pl, &s_ctx, &s_sub, folderPath]() {
+                    auto songs = getFolderSongs(folderPath);
+                    if (songs.empty()) {
+                        logToDebugScreen("No supported audio files in folder");
+                        s_ctx.close();
+                        return;
+                    }
+                    pl.playlists = loadPlaylists();
+                    if (pl.playlists.empty()) {
+                        logToDebugScreen("No playlists. Create one first.");
+                        s_ctx.close();
+                        return;
+                    }
+                    s_sub.close();
+                    for (size_t i = 0; i < pl.playlists.size(); ++i) {
+                        s_sub.add(pl.playlists[i].name, [&pl, &s_sub, &s_ctx, songs, i]() {
+                            int added = 0;
+                            for (const auto &song : songs) {
+                                if (addSongToPlaylist(pl.playlists[i].path, song)) {
+                                    pl.playlists[i].songs.push_back(song);
+                                    ++added;
+                                }
+                            }
+                            logToDebugScreen("Added " + std::to_string(added) + " song(s) to \"" +
+                                             pl.playlists[i].name + "\"");
+                            s_sub.active = false;
+                            s_ctx.close();
+                        });
+                    }
+                    s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
+                });
                 s_ctx.open(50.0f, 16.0f * row);
             }
         }
