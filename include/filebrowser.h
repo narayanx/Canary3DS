@@ -24,12 +24,18 @@ struct FileController {
     // Equals files.size() for small dirs, grows in FILE_PAGE_SIZE steps for large ones
     size_t filesShown;
     std::deque<std::string> playQueue;
-    // Playback history: most recent song first.
+    // Playback history: most recent song first
     std::deque<std::string> playHistory;
     // use int so it can go negative (negative = scrolled into history)
     int selectedQueueItem;
 };
 
+// stop saving depth after this many directories (conserve memory, TODO allow changing in settings)
+inline constexpr size_t MAX_DEPTH = 20;
+
 extern FileController fileController;
 
 std::vector<dirent> getFiles(const char *path);
+
+// walk start path and push history entries so going up restores the correct selection
+void initFileHistory(const std::string &startPath);

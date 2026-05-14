@@ -23,6 +23,9 @@ add_executable(${PROJECT_NAME}
   source/audio/aac_decoder.cpp
 
   source/main.cpp
+  source/app_lifecycle.cpp
+  source/input_handlers.cpp
+  source/render_frame.cpp
   source/filebrowser.cpp
   source/gfx.cpp
   source/image.cpp
