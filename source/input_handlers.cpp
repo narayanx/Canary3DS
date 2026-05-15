@@ -519,6 +519,22 @@ void handleXButton(u32 kDown,
             s_ctx.add("Add to playlist >", [&pl, &s_ctx, &s_sub, path]() {
                 openAddToPlaylistSub(pl, s_ctx, s_sub, path);
             });
+            if (!fileController.playQueue.empty()) {
+                s_ctx.add("Clear queue", [&s_ctx, &s_sub]() {
+                    s_sub.close();
+                    s_sub.add("No (cancel)", [&s_sub, &s_ctx]() {
+                        s_sub.active = false;
+                        s_ctx.close();
+                    });
+                    s_sub.add("Yes, clear queue", [&s_sub, &s_ctx]() {
+                        fileController.playQueue.clear();
+                        logToDebugScreen("Queue cleared");
+                        s_sub.active = false;
+                        s_ctx.close();
+                    });
+                    s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
+                });
+            }
             s_ctx.open(212.0f, 10.0f + 24.0f + 16.0f * row);
         }
 
