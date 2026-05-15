@@ -33,6 +33,7 @@ struct AudioController {
     volatile bool stopPlayback;    // audio thread exits the fill loop when this is set
     volatile bool interrupted;     // suppresses autoplay; set when user explicitly stops
     volatile bool newSongStarted;  // pulsed once per song; main thread resets to false
+    volatile bool loopOne;         // replay the current song when it finishes
 
     // Set by the main thread before stopping playback during history navigation,
     // the audio thread resets it to false after each stop.

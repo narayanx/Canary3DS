@@ -22,6 +22,7 @@ AudioController audioController = {
     .stopPlayback = false,
     .interrupted = false,
     .newSongStarted = false,
+    .loopOne = false,
     .skipNextHistoryEntry = false,
     .seekPending = false,
     .seekTargetSeconds = 0.0,
@@ -213,6 +214,11 @@ void audioThread(void *) {
         // playback of a song.
         if (audioController.interrupted) {
             audioController.interrupted = false;
+            continue;
+        }
+
+        if (audioController.loopOne && !finishedPath.empty()) {
+            playSong(finishedPath);
             continue;
         }
 

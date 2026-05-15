@@ -19,6 +19,12 @@ inline constexpr float NAV_BTN_W = 32.0f;
 inline constexpr float NAV_BTN_X[4] = {3.0f, 37.0f, 71.0f, 105.0f};
 inline constexpr int NAV_BTN_COUNT = 4;
 
+inline constexpr float LOOP_BTN_X = 75.0f;
+inline constexpr float LOOP_BTN_Y = 100.0f;
+inline constexpr float LOOP_BTN_W = 80.0f;
+inline constexpr float LOOP_BTN_H = 22.0f;
+inline constexpr float SHUFFLE_BTN_X = 165.0f;  // LOOP_BTN_X + LOOP_BTN_W + 10
+
 // Maximum number of rows visible at once before scrolling kicks in
 inline constexpr int MAX_CTX_VISIBLE = 8;
 inline constexpr int MAX_FILES = 14;
@@ -117,4 +123,5 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarW,
                         float seekBarH,
                         float seekProgressOverride = -1.0f,
-                        int activeTab = 0);
+                        int activeTab = 0,
+                        bool loopActive = false);

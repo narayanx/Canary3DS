@@ -126,6 +126,7 @@ void renderFrame(TopScreenState screenState,
                        seekBarH,
                        (info.seekDragging || audioController.seekPending) ? info.seekDragProgress
                                                                           : -1.0f,
-                       activeTab);
+                       activeTab,
+                       audioController.loopOne);
     C3D_FrameEnd(0);
 }

@@ -805,7 +805,8 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarW,
                         float seekBarH,
                         float seekProgressOverride,
-                        int activeTab) {
+                        int activeTab,
+                        bool loopActive) {
     C2D_TextBufClear(g_dynamicBuf);
 
     // Nav buttons - always drawn regardless of playback state
@@ -837,6 +838,51 @@ void renderBottomScreen(bool songPlaying,
                 0.42f,
                 sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
                     : C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f),
+                C2D_AlignCenter | C2D_WithColor);
+    }
+
+    // Loop button
+    {
+        C2D_DrawRectSolid(LOOP_BTN_X,
+                          LOOP_BTN_Y,
+                          0.40f,
+                          LOOP_BTN_W,
+                          LOOP_BTN_H,
+                          loopActive ? C2D_Color32(0x28, 0x28, 0x28, 0xFF)
+                                     : C2D_Color32(0x18, 0x18, 0x18, 0xFF));
+        if (loopActive) {
+            C2D_DrawRectSolid(LOOP_BTN_X,
+                              LOOP_BTN_Y + LOOP_BTN_H - 2.0f,
+                              0.45f,
+                              LOOP_BTN_W,
+                              2.0f,
+                              C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+        }
+        drawStr("Loop",
+                LOOP_BTN_X + LOOP_BTN_W * 0.5f,
+                LOOP_BTN_Y + 5.0f,
+                0.5f,
+                0.44f,
+                0.44f,
+                loopActive ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
+                           : C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f),
+                C2D_AlignCenter | C2D_WithColor);
+    }
+    // Shuffle button
+    {
+        C2D_DrawRectSolid(SHUFFLE_BTN_X,
+                          LOOP_BTN_Y,
+                          0.40f,
+                          LOOP_BTN_W,
+                          LOOP_BTN_H,
+                          C2D_Color32(0x18, 0x18, 0x18, 0xFF));
+        drawStr("Shuffle",
+                SHUFFLE_BTN_X + LOOP_BTN_W * 0.5f,
+                LOOP_BTN_Y + 5.0f,
+                0.5f,
+                0.44f,
+                0.44f,
+                C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f),
                 C2D_AlignCenter | C2D_WithColor);
     }
 
