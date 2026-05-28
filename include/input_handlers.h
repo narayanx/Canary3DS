@@ -53,7 +53,7 @@ void handleXButton(u32 kDown,
 
 void handleBButton(u32 kDown, TopScreenState &screenState, FileBrowserState &fb, PlaylistState &pl);
 
-void handleYButton(u32 kDown, TopScreenState &screenState, PlaylistState &pl, InfoState &info);
+void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info);
 
 void handleSettingsInput(
     u32 kDown, TopScreenState screenState, SettingsState &st, InfoState &info, PlaylistState &pl);

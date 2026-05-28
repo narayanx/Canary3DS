@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
                 handleBButton(kDown, screenState, fb, pl);
             }
             if (kDown & KEY_Y) {
-                handleYButton(kDown, screenState, pl, info);
+                handleYButton(kDown, screenState, info);
             }
             if (kDown & KEY_SELECT) {
                 showLog = !showLog;

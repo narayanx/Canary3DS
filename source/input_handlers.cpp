@@ -758,17 +758,12 @@ void handleBButton(u32 kDown,
     }
 }
 
-void handleYButton(u32 kDown, TopScreenState &screenState, PlaylistState &pl, InfoState &info) {
-    if (screenState == TopScreenState::SETTINGS) {
-        screenState = TopScreenState::FILEBROWSER;
-    } else if (screenState == TopScreenState::FILEBROWSER) {
+void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info) {
+    if (screenState == TopScreenState::FILEBROWSER) {
         screenState = TopScreenState::INFO;
         fileController.selectedQueueItem = 0;
         info.scrollTop = 0;
     } else if (screenState == TopScreenState::INFO) {
-        pl.dirty = true;
-        screenState = TopScreenState::PLAYLIST_BROWSER;
-    } else {
         screenState = TopScreenState::FILEBROWSER;
     }
 }
