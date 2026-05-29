@@ -780,6 +780,25 @@ void handleSettingsInput(
         }
     }
 
+    if (screenState != TopScreenState::SETTINGS && screenState != TopScreenState::PLAYLIST_VIEW &&
+        screenState != TopScreenState::PLAYLIST_BROWSER && audioController.songReady) {
+        const double SEEK_SECONDS = 10.0;
+        bool seekLeft = kDown & KEY_DLEFT;
+        bool seekRight = kDown & KEY_DRIGHT;
+        if (seekLeft || seekRight) {
+            double toSeek = seekRight ? SEEK_SECONDS : -SEEK_SECONDS;
+            double target = audioController.songPositionSeconds + toSeek;
+            double dur = audioController.songDurationSeconds;
+            target = std::max(0.0, dur > 0 ? std::min(target, dur) : target);
+            if (dur > 0) {
+                info.seekDragProgress = (float) (target / dur);
+            }
+            audioController.seekTargetSeconds = target;
+            audioController.seekPending = true;
+            LightEvent_Signal(&audioController.fillBufferEvent);
+        }
+    }
+
     if (screenState != TopScreenState::SETTINGS) {
         return;
     }
