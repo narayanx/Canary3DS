@@ -793,6 +793,7 @@ void handleSettingsInput(
             if (dur > 0) {
                 info.seekDragProgress = (float) (target / dur);
             }
+            audioController.seekRestorePaused = ndspChnIsPaused(0);
             audioController.seekTargetSeconds = target;
             audioController.seekPending = true;
             LightEvent_Signal(&audioController.fillBufferEvent);
