@@ -24,7 +24,7 @@ inline constexpr float SEEK_BAR_Y = 220.0f;
 inline constexpr float SEEK_BAR_W = 304.0f;
 inline constexpr float SEEK_BAR_H = 10.0f;
 
-inline constexpr size_t AUTOPLAY_PEEK = 5;
+inline constexpr size_t AUTOPLAY_PEEK = 20;
 
 int main(int argc, char *argv[]) {
     if (!appInit()) {

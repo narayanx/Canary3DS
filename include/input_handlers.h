@@ -10,7 +10,8 @@ inline constexpr double REPEAT_INITIAL_DELAY_MS = 400.0;
 // interval between each repeated scroll step once repeating (ms)
 inline constexpr double REPEAT_INTERVAL_MS = 30.0;
 
-inline constexpr int INFO_MAX_VIS = 9;
+inline constexpr int INFO_MAX_VIS_CARD = 10;
+inline constexpr int INFO_MAX_VIS = 13;
 
 void handleNavTouch(touchPosition touchPos,
                     bool newTouch,

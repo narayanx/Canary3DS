@@ -991,7 +991,8 @@ void handleDownNav(u32 kDown,
     } else if (screenState == TopScreenState::INFO) {
         if (fileController.selectedQueueItem < maxInfoIdx) {
             ++fileController.selectedQueueItem;
-            if (fileController.selectedQueueItem >= info.scrollTop + INFO_MAX_VIS) {
+            const int infoMaxVis = (info.scrollTop <= 0) ? INFO_MAX_VIS_CARD : INFO_MAX_VIS;
+            if (fileController.selectedQueueItem >= info.scrollTop + infoMaxVis) {
                 ++info.scrollTop;
             }
         } else if (!downRepeat) {
