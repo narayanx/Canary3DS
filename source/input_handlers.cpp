@@ -768,8 +768,13 @@ void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info) {
     }
 }
 
-void handleSettingsInput(
-    u32 kDown, TopScreenState screenState, SettingsState &st, InfoState &info, PlaylistState &pl) {
+void handleSettingsInput(u32 kDown,
+                         TopScreenState screenState,
+                         SettingsState &st,
+                         InfoState &info,
+                         PlaylistState &pl,
+                         bool seekLeftRepeat,
+                         bool seekRightRepeat) {
     // Left/right to switch between Play/Shuffle when cursor is on header
     if (screenState == TopScreenState::PLAYLIST_VIEW && pl.inHeader) {
         if ((kDown & KEY_DLEFT) || (kDown & KEY_LEFT)) {
@@ -783,8 +788,8 @@ void handleSettingsInput(
     if (screenState != TopScreenState::SETTINGS && screenState != TopScreenState::PLAYLIST_VIEW &&
         screenState != TopScreenState::PLAYLIST_BROWSER && audioController.songReady) {
         const double SEEK_SECONDS = 10.0;
-        bool seekLeft = kDown & KEY_DLEFT;
-        bool seekRight = kDown & KEY_DRIGHT;
+        bool seekLeft = (kDown & KEY_DLEFT) || seekLeftRepeat;
+        bool seekRight = (kDown & KEY_DRIGHT) || seekRightRepeat;
         if (seekLeft || seekRight) {
             double toSeek = seekRight ? SEEK_SECONDS : -SEEK_SECONDS;
             double target = audioController.songPositionSeconds + toSeek;

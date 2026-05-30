@@ -41,6 +41,7 @@ int main(int argc, char *argv[]) {
     initFileHistory(g_settings.startPath);
 
     u64 upPressMs = 0, upRepeatMs = 0, downPressMs = 0, downRepeatMs = 0;
+    u64 leftPressMs = 0, leftRepeatMs = 0, rightPressMs = 0, rightRepeatMs = 0;
     u64 lTapTime = 0, rTapTime = 0;
     int lTapCount = 0, rTapCount = 0;
 
@@ -115,6 +116,16 @@ int main(int argc, char *argv[]) {
                         SEEK_BAR_W,
                         SEEK_BAR_H);
 
+        u64 now = osGetTime();
+        if (kDown & KEY_DLEFT) {
+            leftPressMs = now;
+            leftRepeatMs = now;
+        }
+        if (kDown & KEY_DRIGHT) {
+            rightPressMs = now;
+            rightRepeatMs = now;
+        }
+
         bool ctxHandled = handleContextMenu(kDown, s_ctx, s_sub);
         if (!ctxHandled) {
             if (kDown & KEY_A) {
@@ -132,10 +143,21 @@ int main(int argc, char *argv[]) {
             if (kDown & KEY_SELECT) {
                 showLog = !showLog;
             }
-            handleSettingsInput(kDown, screenState, st, info, pl);
+            bool seekLeftRepeat = (kHeld & KEY_DLEFT) && leftPressMs != 0 &&
+                                  (double) (now - leftPressMs) > REPEAT_INITIAL_DELAY_MS &&
+                                  (double) (now - leftRepeatMs) > SEEK_REPEAT_INTERVAL_MS;
+            bool seekRightRepeat = (kHeld & KEY_DRIGHT) && rightPressMs != 0 &&
+                                   (double) (now - rightPressMs) > REPEAT_INITIAL_DELAY_MS &&
+                                   (double) (now - rightRepeatMs) > SEEK_REPEAT_INTERVAL_MS;
+            handleSettingsInput(kDown, screenState, st, info, pl, seekLeftRepeat, seekRightRepeat);
+            if (seekLeftRepeat) {
+                leftRepeatMs = now;
+            }
+            if (seekRightRepeat) {
+                rightRepeatMs = now;
+            }
         }
 
-        u64 now = osGetTime();
         handleShoulderTaps(kDown, now, lTapTime, lTapCount, rTapTime, rTapCount);
 
         // D-pad auto-repeat timing

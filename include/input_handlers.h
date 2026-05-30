@@ -10,6 +10,9 @@ inline constexpr double REPEAT_INITIAL_DELAY_MS = 400.0;
 // interval between each repeated scroll step once repeating (ms)
 inline constexpr double REPEAT_INTERVAL_MS = 30.0;
 
+// interval between repeated seek steps (ms)
+inline constexpr double SEEK_REPEAT_INTERVAL_MS = 300.0;
+
 inline constexpr int INFO_MAX_VIS_CARD = 10;
 inline constexpr int INFO_MAX_VIS = 13;
 
@@ -56,8 +59,13 @@ void handleBButton(u32 kDown, TopScreenState &screenState, FileBrowserState &fb,
 
 void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info);
 
-void handleSettingsInput(
-    u32 kDown, TopScreenState screenState, SettingsState &st, InfoState &info, PlaylistState &pl);
+void handleSettingsInput(u32 kDown,
+                         TopScreenState screenState,
+                         SettingsState &st,
+                         InfoState &info,
+                         PlaylistState &pl,
+                         bool seekLeftRepeat,
+                         bool seekRightRepeat);
 
 void handleShoulderTaps(
     u32 kDown, u64 now, u64 &lTapTime, int &lTapCount, u64 &rTapTime, int &rTapCount);
