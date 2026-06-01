@@ -118,24 +118,26 @@ add_custom_command(
 
 # Build CIA
 add_custom_command(
-  OUTPUT ${CIA_FILE}
+  OUTPUT ${CMAKE_BINARY_DIR}/${CIA_FILE}
   COMMAND makerom
     -f cia
-    -o ${CIA_FILE}
-    -elf ${ELF_FILE}
+    -o ${CMAKE_BINARY_DIR}/${CIA_FILE}
+    -elf ${CMAKE_BINARY_DIR}/${ELF_FILE}
     -rsf ${CMAKE_SOURCE_DIR}/assets/canary3ds.rsf
-    -icon ${PROJECT_NAME}.smdh
-    -banner ${BANNER_BIN}
+    -icon ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.smdh
+    -banner ${CMAKE_BINARY_DIR}/${BANNER_BIN}
     -target t
     -exefslogo
+    -DROMFS_DIR="${CMAKE_SOURCE_DIR}/romfs"
     -DAPP_TITLE="${PROJECT_NAME}"
     -DAPP_PRODUCT_CODE=CTR-H-CANR
     -DAPP_UNIQUE_ID=${APP_UNIQUE_ID}
   DEPENDS ${PROJECT_NAME} ${BANNER_BIN}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Building CIA"
 )
 
 # Add target (builds automatically with ALL)
 add_custom_target(${PROJECT_NAME}_cia ALL
-  DEPENDS ${CIA_FILE}
+  DEPENDS ${CMAKE_BINARY_DIR}/${CIA_FILE}
 )
