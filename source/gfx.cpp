@@ -18,6 +18,10 @@ C2D_TextBuf g_dynamicBuf;
 
 static C2D_SpriteSheet s_noteSheetNowPlaying = nullptr;
 static C2D_SpriteSheet s_noteSheetPlaylist = nullptr;
+static C2D_SpriteSheet s_filebrowserIcon = nullptr;
+static C2D_SpriteSheet s_playerIcon = nullptr;
+static C2D_SpriteSheet s_playlistIcon = nullptr;
+static C2D_SpriteSheet s_settingsIcon = nullptr;
 
 u32 g_accentColor = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
 u32 g_secondaryColor = C2D_Color32(0x33, 0xCC, 0x55, 0xFF);
@@ -39,6 +43,11 @@ void sceneInit() {
     ensureLogLock();
     s_noteSheetNowPlaying = C2D_SpriteSheetLoad("romfs:/musical-note-square-button.t3x");
     s_noteSheetPlaylist = C2D_SpriteSheetLoad("romfs:/music-note-symbol-in-a-rounded-square.t3x");
+
+    s_filebrowserIcon = C2D_SpriteSheetLoad("romfs:/icons/folder-white-24size-1.5weight.t3x");
+    s_playerIcon = C2D_SpriteSheetLoad("romfs:/icons/music-note-solid-white-24size-1.5weight.t3x");
+    s_playlistIcon = C2D_SpriteSheetLoad("romfs:/icons/playlist-white-24size-1.5weight.t3x");
+    s_settingsIcon = C2D_SpriteSheetLoad("romfs:/icons/settings-white-24size-1.5weight.t3x");
 }
 
 void sceneExit() {
@@ -54,6 +63,23 @@ void sceneExit() {
     if (s_noteSheetPlaylist) {
         C2D_SpriteSheetFree(s_noteSheetPlaylist);
         s_noteSheetPlaylist = nullptr;
+    }
+
+    if (s_filebrowserIcon) {
+        C2D_SpriteSheetFree(s_filebrowserIcon);
+        s_filebrowserIcon = nullptr;
+    }
+    if (s_playerIcon) {
+        C2D_SpriteSheetFree(s_playerIcon);
+        s_playerIcon = nullptr;
+    }
+    if (s_playlistIcon) {
+        C2D_SpriteSheetFree(s_playlistIcon);
+        s_playlistIcon = nullptr;
+    }
+    if (s_settingsIcon) {
+        C2D_SpriteSheetFree(s_settingsIcon);
+        s_settingsIcon = nullptr;
     }
 }
 
@@ -850,8 +876,11 @@ void renderBottomScreen(bool songPlaying,
                         bool loopActive) {
     C2D_TextBufClear(g_dynamicBuf);
 
-    // Nav buttons - always drawn regardless of playback state
-    static const char *const TAB_LABELS[4] = {"Fl", "NP", "Pl", "St"};
+    // Nav buttons always drawn regardless of playback state
+    static const C2D_Image TAB_ICONS[4] = {C2D_SpriteSheetGetImage(s_filebrowserIcon, 0),
+                                           C2D_SpriteSheetGetImage(s_playerIcon, 0),
+                                           C2D_SpriteSheetGetImage(s_playlistIcon, 0),
+                                           C2D_SpriteSheetGetImage(s_settingsIcon, 0)};
     for (int i = 0; i < NAV_BTN_COUNT; ++i) {
         const float bx = NAV_BTN_X[i];
         const bool sel = (i == activeTab);
@@ -867,15 +896,14 @@ void renderBottomScreen(bool songPlaying,
             C2D_DrawRectSolid(
                 bx, NAV_BTN_Y + NAV_BTN_H - 2.0f, 0.45f, NAV_BTN_W, 2.0f, g_accentColor);
         }
-        drawStr(TAB_LABELS[i],
-                bx + NAV_BTN_W * 0.5f,
-                NAV_BTN_Y + 7.0f,
-                0.5f,
-                0.42f,
-                0.42f,
-                sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
-                    : C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f),
-                C2D_AlignCenter | C2D_WithColor);
+        const int ICON_PIXELS = 24;  // icons are 24x24px
+        C2D_DrawImageAt(TAB_ICONS[i],
+                        bx + NAV_BTN_W * 0.5f - (ICON_PIXELS / 2),
+                        NAV_BTN_Y + 3.0f,
+                        0.5f,
+                        nullptr,
+                        1.0f,
+                        1.0f);
     }
 
     // Loop button
