@@ -105,9 +105,70 @@ static std::vector<std::string> getFolderSongs(const std::string &folderPath) {
     return songs;
 }
 
+static void openSeekKeyboard() {
+    SwkbdState swkbd;
+    char buf[16] = {};
+    snprintf(buf, sizeof(buf), "%d", g_settings.seekSeconds);
+    swkbdInit(&swkbd, SWKBD_TYPE_NUMPAD, 2, 4);
+    swkbdSetHintText(&swkbd, "Seek seconds (1-999)");
+    swkbdSetInitialText(&swkbd, buf);
+    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
+        try {
+            int v = std::stoi(buf);
+            if (v >= 1 && v <= 999) {
+                g_settings.seekSeconds = v;
+            }
+        } catch (...) {
+        }
+    }
+}
+
+void enterFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb) {
+    fb.pickerSavedCwd = fileController.cwd;
+    fb.pickerSavedSel = fileController.selectedFile;
+    fb.pickerSavedScroll = fb.scroll;
+    fb.pickerSavedHistory = fileController.fileHistory;
+
+    fileController.cwd = g_settings.startPath;
+    fileController.fileHistory.clear();
+    fileController.selectedFile = 0;
+    fb.scroll = 0;
+    fileController.files = getFiles(fileController.cwd.c_str());
+    fileController.filesShown = fileController.files.size();
+
+    fb.folderPickerMode = true;
+    screenState = TopScreenState::FILEBROWSER;
+}
+
+void exitFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb, bool confirmPath) {
+    if (confirmPath) {
+        g_settings.startPath = fileController.cwd;
+        saveSettings();
+        fb.reinitPending = true;
+        logToDebugScreen("Start path: " + g_settings.startPath);
+    }
+
+    fileController.cwd = fb.pickerSavedCwd;
+    fileController.fileHistory = fb.pickerSavedHistory;
+    fileController.selectedFile = fb.pickerSavedSel;
+    fb.scroll = fb.pickerSavedScroll;
+    fileController.files = getFiles(fileController.cwd.c_str());
+    fileController.filesShown = (fileController.files.size() > FILE_LAZY_THRESHOLD)
+                                    ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
+                                    : fileController.files.size();
+    if (!fileController.files.empty() && fileController.selectedFile >= fileController.filesShown) {
+        fileController.filesShown =
+            std::min(fileController.files.size(), fileController.selectedFile + 1);
+    }
+
+    fb.folderPickerMode = false;
+    screenState = TopScreenState::SETTINGS;
+}
+
 void handleNavTouch(touchPosition touchPos,
                     bool newTouch,
                     TopScreenState &screenState,
+                    FileBrowserState &fb,
                     PlaylistState &pl,
                     InfoState &info,
                     SettingsState &st,
@@ -122,6 +183,11 @@ void handleNavTouch(touchPosition touchPos,
             if (px >= NAV_BTN_X[i] && px <= NAV_BTN_X[i] + NAV_BTN_W) {
                 s_sub.active = false;
                 s_ctx.close();
+                // If a nav tab other than "Files" is tapped while the folder
+                // picker is open, cancel the picker first.
+                if (fb.folderPickerMode && i != 0) {
+                    exitFolderPickerMode(screenState, fb, false);
+                }
                 if (i == 0) {
                     screenState = TopScreenState::FILEBROWSER;
                 } else if (i == 1) {
@@ -134,6 +200,7 @@ void handleNavTouch(touchPosition touchPos,
                 } else if (i == 3) {
                     screenState = TopScreenState::SETTINGS;
                     st.sel = 0;
+                    st.scrollOffset = 0;
                 }
                 break;
             }
@@ -201,13 +268,14 @@ bool handleContextMenu(u32 kDown, CtxMenu &s_ctx, CtxMenu &s_sub) {
 
     CtxMenu &active = s_sub.active ? s_sub : s_ctx;
     const size_t n = active.labels.size();
+    auto actions = active.actions;  // cache to avoid use after free
     if (kDown & KEY_A && n > 0) {
-        active.actions[active.idx]();
+        actions[active.idx]();
     } else if (kDown & KEY_X && n >= 2) {
-        active.actions[1]();
+        actions[1]();
     } else if (kDown & KEY_Y) {
         if (n >= 3) {
-            active.actions[2]();
+            actions[2]();
         } else {
             // No third item: close menu and let the Y view-switch run below
             s_sub.active = false;
@@ -246,26 +314,101 @@ void handleAButton(u32 &kDown,
                    CtxMenu &s_sub) {
     if (screenState == TopScreenState::SETTINGS) {
         if (st.sel == SettingsState::ROW_START_PATH) {
-            SwkbdState swkbd;
-            char buf[256] = {};
-            strncpy(buf, g_settings.startPath.c_str(), sizeof(buf) - 1);
-            swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, sizeof(buf) - 1);
-            swkbdSetHintText(&swkbd, "Start path (e.g. sdmc:/Music/)");
-            swkbdSetInitialText(&swkbd, buf);
-            if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
-                std::string p(buf);
-                if (p.back() != '/') {
-                    p += '/';
+            s_ctx.close();
+            s_ctx.add("Type path (keyboard)", [&s_ctx, &fb]() {
+                SwkbdState swkbd;
+                char buf[256] = {};
+                strncpy(buf, g_settings.startPath.c_str(), sizeof(buf) - 1);
+                swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, (int) (sizeof(buf) - 1));
+                swkbdSetHintText(&swkbd, "Start path (e.g. sdmc:/Music/)");
+                swkbdSetInitialText(&swkbd, buf);
+                if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
+                    std::string p(buf);
+                    if (p.back() != '/') {
+                        p += '/';
+                    }
+                    g_settings.startPath = p;
+                    saveSettings();
+                    fb.reinitPending = true;
+                    logToDebugScreen("Start path: " + p);
                 }
-                g_settings.startPath = p;
-                saveSettings();
-                logToDebugScreen("Start path: " + p);
+                s_ctx.close();
+            });
+            s_ctx.add("Browse folders", [&screenState, &fb, &s_ctx]() {
+                s_ctx.close();
+                enterFolderPickerMode(screenState, fb);
+            });
+            s_ctx.open(60.0f, 60.0f);
+        } else if (st.sel == SettingsState::ROW_SEEK) {
+            bool isPreset = false;
+            for (int p : SEEK_PRESETS) {
+                if (g_settings.seekSeconds == p) {
+                    isPreset = true;
+                    break;
+                }
             }
+            if (!isPreset) {
+                openSeekKeyboard();
+                saveSettings();
+            }
+        } else if (st.sel == SettingsState::ROW_ACCENT || st.sel == SettingsState::ROW_SECONDARY) {
+            bool isAccent = (st.sel == SettingsState::ROW_ACCENT);
+            u32 cur = isAccent ? g_accentColor : g_secondaryColor;
+            char buf[8] = {};
+            snprintf(buf,
+                     sizeof(buf),
+                     "%02X%02X%02X",
+                     (unsigned) (cur & 0xFF),
+                     (unsigned) ((cur >> 8) & 0xFF),
+                     (unsigned) ((cur >> 16) & 0xFF));
+            SwkbdState swkbd;
+            swkbdInit(&swkbd, SWKBD_TYPE_NORMAL, 2, 7);
+            swkbdSetHintText(&swkbd, "Hex color RRGGBB");
+            swkbdSetInitialText(&swkbd, buf);
+            char result[8] = {};
+            if (swkbdInputText(&swkbd, result, sizeof(result)) == SWKBD_BUTTON_CONFIRM &&
+                result[0]) {
+                const char *hex = (result[0] == '#') ? result + 1 : result;
+                if (strlen(hex) == 6) {
+                    try {
+                        unsigned int rgb = (unsigned int) std::stoul(hex, nullptr, 16);
+                        if (isAccent) {
+                            g_settings.accentColor = "custom";
+                            g_settings.accentColorHex = rgb;
+                            applyAccentColor();
+                        } else {
+                            g_settings.accentColor2 = "custom";
+                            g_settings.secondaryColorHex = rgb;
+                            applySecondaryColor();
+                        }
+                        saveSettings();
+                    } catch (...) {
+                    }
+                }
+            }
+        } else if (st.sel == SettingsState::ROW_RESET) {
+            s_ctx.close();
+            s_ctx.add("Yes, reset", [&s_ctx, &st]() {
+                g_settings = Settings{};
+                applyVolume();
+                applyBrightness();
+                applyAccentColor();
+                applySecondaryColor();
+                aptSetSleepAllowed(false);
+                saveSettings();
+                st.sel = 0;
+                st.scrollOffset = 0;
+                s_ctx.close();
+            });
+            s_ctx.add("Cancel", [&s_ctx]() { s_ctx.close(); });
+            s_ctx.open(60.0f, 60.0f);
         } else {
-            // A cycles the same as RIGHT for non-path rows
             kDown |= KEY_DRIGHT;
         }
     } else if (screenState == TopScreenState::FILEBROWSER) {
+        if (fileController.files.empty()) {
+            return;
+        }
         auto ft = fileController.files[fileController.selectedFile].d_type;
         if (ft == DT_DIR) {
             fileController.cwd += fileController.files[fileController.selectedFile].d_name;
@@ -273,7 +416,7 @@ void handleAButton(u32 &kDown,
             fileController.fileHistory.push_back({fileController.selectedFile, fb.scroll});
             fileController.selectedFile = 0;
             fb.scroll = 0;
-            if (fileController.fileHistory.size() > MAX_DEPTH) {
+            if (fileController.fileHistory.size() > (size_t) g_settings.maxDepth) {
                 fileController.fileHistory.pop_front();
             }
             fileController.files = getFiles(fileController.cwd.c_str());
@@ -281,6 +424,9 @@ void handleAButton(u32 &kDown,
                                             ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
                                             : fileController.files.size();
         } else if (ft == DT_REG) {
+            if (fb.folderPickerMode) {
+                return;
+            }
             stopPlaybackIfPlaying();
             char *nm = fileController.files[fileController.selectedFile].d_name;
             if (playSong(fileController.cwd + nm)) {
@@ -344,7 +490,7 @@ void handleXButton(u32 kDown,
                 float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
                 s_ctx.close();
                 s_ctx.add("Play next", [&s_ctx, songPath]() {
-                    if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                    if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                         fileController.playQueue.push_front(songPath);
                         logToDebugScreen("Play next: " + songPath);
                     } else {
@@ -368,7 +514,7 @@ void handleXButton(u32 kDown,
                 s_ctx.add("Play folder next", [&s_ctx, folderPath]() {
                     auto songs = getFolderSongs(folderPath);
                     for (int i = (int) songs.size() - 1; i >= 0; --i) {
-                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                             fileController.playQueue.push_front(songs[i]);
                         }
                     }
@@ -378,7 +524,7 @@ void handleXButton(u32 kDown,
                 s_ctx.add("Add folder to queue", [&s_ctx, folderPath]() {
                     auto songs = getFolderSongs(folderPath);
                     for (const auto &s : songs) {
-                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                             fileController.playQueue.push_back(s);
                         }
                     }
@@ -390,7 +536,7 @@ void handleXButton(u32 kDown,
                     std::mt19937 g(std::random_device{}());
                     std::shuffle(songs.begin(), songs.end(), g);
                     for (int i = (int) songs.size() - 1; i >= 0; --i) {
-                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                             fileController.playQueue.push_front(songs[i]);
                         }
                     }
@@ -402,7 +548,7 @@ void handleXButton(u32 kDown,
                     std::mt19937 g(std::random_device{}());
                     std::shuffle(songs.begin(), songs.end(), g);
                     for (const auto &s : songs) {
-                        if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                             fileController.playQueue.push_back(s);
                         }
                     }
@@ -471,7 +617,7 @@ void handleXButton(u32 kDown,
             float row = (float) (sel - info.scrollTop) + 1.0f;
             s_ctx.close();
             s_ctx.add("Play next", [&s_ctx, path]() {
-                if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                     fileController.playQueue.push_front(path);
                     logToDebugScreen("Play next: " + path);
                 } else {
@@ -672,7 +818,7 @@ void handleXButton(u32 kDown,
                            16.0f * (float) (pl.selSong - pv_song_offset);
             s_ctx.close();
             s_ctx.add("Play next", [&s_ctx, songPath]() {
-                if (fileController.playQueue.size() < MAX_QUEUE_SIZE) {
+                if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
                     fileController.playQueue.push_front(songPath);
                     logToDebugScreen("Play next: " + songPath);
                 } else {
@@ -731,7 +877,37 @@ void handleBButton(u32 kDown,
         logToDebugScreen("Pausing and going to filebrowser");
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
         screenState = TopScreenState::PLAYLIST_BROWSER;
-    } else {
+    } else {  // FILEBROWSER
+        // Folder-picker mode: B goes up or cancels
+        if (fb.folderPickerMode) {
+            size_t ls = fileController.cwd.rfind('/', fileController.cwd.size() - 2);
+            if (ls == std::string::npos || fileController.cwd == "sdmc:/") {
+                exitFolderPickerMode(screenState, fb, false);
+            } else {
+                fileController.cwd = fileController.cwd.substr(0, ls + 1);
+                if (!fileController.fileHistory.empty()) {
+                    auto [rf, rs] = fileController.fileHistory.back();
+                    fileController.fileHistory.pop_back();
+                    fileController.selectedFile = rf;
+                    fb.scroll = rs;
+                } else {
+                    fileController.selectedFile = 0;
+                    fb.scroll = 0;
+                }
+                fileController.files = getFiles(fileController.cwd.c_str());
+                fileController.filesShown =
+                    (fileController.files.size() > FILE_LAZY_THRESHOLD)
+                        ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
+                        : fileController.files.size();
+            }
+            return;
+        }
+
+        // Normal mode: respect lockToStartPath
+        if (g_settings.lockToStartPath && fileController.cwd == g_settings.startPath) {
+            return;
+        }
+
         size_t ls = fileController.cwd.rfind('/', fileController.cwd.size() - 2);
         if (ls != fileController.cwd.npos) {
             fileController.cwd = fileController.cwd.substr(0, ls + 1);
@@ -787,7 +963,7 @@ void handleSettingsInput(u32 kDown,
 
     if (screenState != TopScreenState::SETTINGS && screenState != TopScreenState::PLAYLIST_VIEW &&
         screenState != TopScreenState::PLAYLIST_BROWSER && audioController.songReady) {
-        const double SEEK_SECONDS = 10.0;
+        double SEEK_SECONDS = (double) g_settings.seekSeconds;
         bool seekLeft = (kDown & KEY_DLEFT) || seekLeftRepeat;
         bool seekRight = (kDown & KEY_DRIGHT) || seekRightRepeat;
         if (seekLeft || seekRight) {
@@ -812,8 +988,10 @@ void handleSettingsInput(u32 kDown,
     bool changed = false;
     bool right = (kDown & KEY_DRIGHT) || (kDown & KEY_RIGHT);
     bool left = (kDown & KEY_DLEFT) || (kDown & KEY_LEFT);
+
     if (right || left) {
         switch (st.sel) {
+
             case SettingsState::ROW_VOLUME:
                 if (right && g_settings.volume < 10) {
                     ++g_settings.volume;
@@ -827,21 +1005,168 @@ void handleSettingsInput(u32 kDown,
                     applyVolume();
                 }
                 break;
+
+            case SettingsState::ROW_BRIGHTNESS:
+                if (right && g_settings.brightness < 5) {
+                    ++g_settings.brightness;
+                    changed = true;
+                }
+                if (left && g_settings.brightness > 1) {
+                    --g_settings.brightness;
+                    changed = true;
+                }
+                if (changed) {
+                    applyBrightness();
+                }
+                break;
+
+            case SettingsState::ROW_SEEK:
+                {
+                    int n = 4;
+                    int curIdx = -1;
+                    for (int i = 0; i < n; i++) {
+                        if (g_settings.seekSeconds == SEEK_PRESETS[i]) {
+                            curIdx = i;
+                            break;
+                        }
+                    }
+                    int oldVal = g_settings.seekSeconds;
+                    if (right) {
+                        g_settings.seekSeconds = SEEK_PRESETS[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                    }
+                    if (left) {
+                        g_settings.seekSeconds =
+                            SEEK_PRESETS[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                    }
+                    changed = (g_settings.seekSeconds != oldVal);
+                    break;
+                }
+
+            case SettingsState::ROW_START_PATH:
+                break;
+
+            case SettingsState::ROW_LOCK_START:
+                g_settings.lockToStartPath = !g_settings.lockToStartPath;
+                changed = true;
+                break;
+
             case SettingsState::ROW_REPEAT:
                 g_settings.repeat =
                     (g_settings.repeat == RepeatMode::OFF) ? RepeatMode::ALL : RepeatMode::OFF;
                 changed = true;
                 break;
+
             case SettingsState::ROW_COVER_ART:
                 g_settings.showCoverArt = !g_settings.showCoverArt;
                 info.displayCover = g_settings.showCoverArt;
                 changed = true;
                 break;
+
             case SettingsState::ROW_SLEEP:
                 g_settings.sleepAllowed = !g_settings.sleepAllowed;
                 aptSetSleepAllowed(g_settings.sleepAllowed);
                 changed = true;
                 break;
+
+            case SettingsState::ROW_ACCENT:
+                {
+                    int n = ACCENT_COLOR_COUNT;
+                    int curIdx = -1;
+                    for (int i = 0; i < n; i++) {
+                        if (g_settings.accentColor == ACCENT_COLOR_NAMES[i]) {
+                            curIdx = i;
+                            break;
+                        }
+                    }
+                    if (right) {
+                        g_settings.accentColor =
+                            ACCENT_COLOR_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                    }
+                    if (left) {
+                        g_settings.accentColor =
+                            ACCENT_COLOR_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                    }
+                    applyAccentColor();
+                    changed = true;
+                    break;
+                }
+
+            case SettingsState::ROW_SECONDARY:
+                {
+                    int n = SECONDARY_COLOR_COUNT;
+                    int curIdx = -1;
+                    for (int i = 0; i < n; i++) {
+                        if (g_settings.accentColor2 == SECONDARY_COLOR_NAMES[i]) {
+                            curIdx = i;
+                            break;
+                        }
+                    }
+                    if (right) {
+                        g_settings.accentColor2 =
+                            SECONDARY_COLOR_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                    }
+                    if (left) {
+                        g_settings.accentColor2 =
+                            SECONDARY_COLOR_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                    }
+                    applySecondaryColor();
+                    changed = true;
+                    break;
+                }
+
+            case SettingsState::ROW_QUEUE_SIZE:
+                if (right) {
+                    if (g_settings.queueSize < 20) {
+                        g_settings.queueSize += 1;
+                    } else if (g_settings.queueSize < 100) {
+                        g_settings.queueSize += 10;
+                    } else {
+                        g_settings.queueSize += 50;
+                    }
+                    if (g_settings.queueSize > 9999) {
+                        g_settings.queueSize = 9999;
+                    }
+                    changed = true;
+                }
+                if (left) {
+                    if (g_settings.queueSize > 100) {
+                        g_settings.queueSize -= 50;
+                    } else if (g_settings.queueSize > 20) {
+                        g_settings.queueSize -= 10;
+                    } else if (g_settings.queueSize > 10) {
+                        g_settings.queueSize -= 1;
+                    }
+                    changed = true;
+                }
+                break;
+
+            case SettingsState::ROW_HISTORY_SIZE:
+                if (right && g_settings.historySize < 200) {
+                    g_settings.historySize = std::min(200, g_settings.historySize + 5);
+                    changed = true;
+                }
+                if (left && g_settings.historySize > 5) {
+                    g_settings.historySize = std::max(5, g_settings.historySize - 5);
+                    changed = true;
+                }
+                break;
+
+            case SettingsState::ROW_MAX_DEPTH:
+                if (right && g_settings.maxDepth < 50) {
+                    ++g_settings.maxDepth;
+                    changed = true;
+                }
+                if (left && g_settings.maxDepth > 1) {
+                    --g_settings.maxDepth;
+                    changed = true;
+                }
+                break;
+
+            case SettingsState::ROW_DEBUG:
+                g_settings.showDebugScreen = !g_settings.showDebugScreen;
+                changed = true;
+                break;
+
             default:
                 break;
         }
@@ -850,15 +1175,33 @@ void handleSettingsInput(u32 kDown,
         }
     }
 
-    // UP / DOWN navigation inside settings
+    // UP / DOWN navigation with section-header skipping
     if (kDown & KEY_UP) {
         if (st.sel > 0) {
-            --st.sel;
+            size_t next = st.sel - 1;
+            while (next > 0 && SettingsState::isHeaderRow(next)) {
+                --next;
+            }
+            if (!SettingsState::isHeaderRow(next)) {
+                st.sel = next;
+            }
+            if (st.sel < st.scrollOffset) {
+                st.scrollOffset = st.sel;
+            }
         }
     }
     if (kDown & KEY_DOWN) {
         if (st.sel + 1 < SettingsState::ROW_COUNT) {
-            ++st.sel;
+            size_t next = st.sel + 1;
+            while (next < SettingsState::ROW_COUNT - 1 && SettingsState::isHeaderRow(next)) {
+                ++next;
+            }
+            if (!SettingsState::isHeaderRow(next)) {
+                st.sel = next;
+            }
+            if (st.sel >= st.scrollOffset + SettingsState::VISIBLE_ROWS) {
+                st.scrollOffset = st.sel - SettingsState::VISIBLE_ROWS + 1;
+            }
         }
     }
 }

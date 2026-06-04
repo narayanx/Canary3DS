@@ -38,6 +38,9 @@ bool appInit() {
         return false;
     }
     applyVolume();  // push saved volume to NDSP
+    applyBrightness();
+    applyAccentColor();
+    applySecondaryColor();
 
     int32_t mainPrio = 0x30;
     svcGetThreadPriority(&mainPrio, CUR_THREAD_HANDLE);

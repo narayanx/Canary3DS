@@ -19,6 +19,9 @@ C2D_TextBuf g_dynamicBuf;
 static C2D_SpriteSheet s_noteSheetNowPlaying = nullptr;
 static C2D_SpriteSheet s_noteSheetPlaylist = nullptr;
 
+u32 g_accentColor = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
+u32 g_secondaryColor = C2D_Color32(0x33, 0xCC, 0x55, 0xFF);
+
 static LightLock s_logLock;
 static bool s_logLockInited = false;
 static std::vector<std::string> s_logLines;
@@ -215,16 +218,16 @@ void printNowPlayingList(const std::deque<std::string> &history,
         u32 hdrCol;
         if (topVirtualIdx < 0) {
             hdr = "History";
-            hdrCol = C2D_Color32f(0.45f, 0.45f, 0.72f, 1.0f);
+            hdrCol = C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
         } else if (topVirtualIdx == 0) {
             hdr = "Now Playing";
-            hdrCol = C2D_Color32f(0.38f, 0.72f, 0.45f, 1.0f);
+            hdrCol = g_secondaryColor;
         } else if (qSz > 0 && topVirtualIdx <= qSz) {
             hdr = "Queue";
             hdrCol = C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
         } else {
             hdr = "Autoplay";
-            hdrCol = C2D_Color32f(0.58f, 0.52f, 0.26f, 1.0f);
+            hdrCol = C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
         }
         drawStr(hdr, START_X + 4.0f, BASE_Y, 0.5f, 0.44f, 0.44f, hdrCol);
     }
@@ -244,7 +247,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                               0.52f,
                               400.0f - START_X - 8.0f,
                               1.0f,
-                              C2D_Color32(0x33, 0x55, 0x33, 0xFF));
+                              C2D_Color32(0x44, 0x44, 0x44, 0xFF));
             drawnHistNowSep = true;
             y += LINE_H * 0.65f;
             continue;
@@ -268,7 +271,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                               0.52f,
                               400.0f - START_X - 8.0f,
                               1.0f,
-                              C2D_Color32(0x55, 0x4A, 0x20, 0xFF));
+                              C2D_Color32(0x44, 0x44, 0x44, 0xFF));
             drawnAutoplaySep = true;
             y += LINE_H * 0.45f;
             continue;
@@ -285,24 +288,29 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 break;
             }
 
+            u8 sR = (u8) (g_secondaryColor & 0xFF);
+            u8 sG = (u8) ((g_secondaryColor >> 8) & 0xFF);
+            u8 sB = (u8) ((g_secondaryColor >> 16) & 0xFF);
+            // get lighter version of color for highlight
+            auto lw = [](u8 c, unsigned t) -> u8 { return (u8) (c + ((255u - c) * t >> 8u)); };
+
             if (isSelected) {
                 C2D_DrawRectSolid(START_X,
                                   y - 1.0f,
                                   0.4f,
                                   400.0f - START_X,
                                   CARD_H + 1.0f,
-                                  C2D_Color32(0x1A, 0x2E, 0x1A, 0xFF));
+                                  C2D_Color32((u8) (sR / 4), (u8) (sG / 4), (u8) (sB / 4), 0xFF));
             } else {
                 C2D_DrawRectSolid(START_X,
                                   y - 1.0f,
                                   0.38f,
                                   400.0f - START_X,
                                   CARD_H + 1.0f,
-                                  C2D_Color32(0x16, 0x22, 0x16, 0xFF));
+                                  C2D_Color32((u8) (sR / 5), (u8) (sG / 5), (u8) (sB / 5), 0xFF));
             }
 
-            C2D_DrawRectSolid(
-                START_X, y - 1.0f, 0.45f, 2.0f, CARD_H + 1.0f, C2D_Color32(0x33, 0xCC, 0x55, 0xFF));
+            C2D_DrawRectSolid(START_X, y - 1.0f, 0.45f, 2.0f, CARD_H + 1.0f, g_secondaryColor);
 
             const float cardTextX = START_X + 7.0f;
             {
@@ -318,8 +326,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (utf8Len(name) > 19) {
                     name = utf8Truncate(name, 16) + "...";
                 }
-                u32 col = isSelected ? C2D_Color32f(0.75f, 1.00f, 0.80f, 1.0f)
-                                     : C2D_Color32f(0.55f, 0.85f, 0.62f, 1.0f);
+                u32 col = isSelected ? C2D_Color32(lw(sR, 166), lw(sG, 166), lw(sB, 166), 0xFF)
+                                     : C2D_Color32(lw(sR, 102), lw(sG, 102), lw(sB, 102), 0xFF);
                 drawStr(name.c_str(), cardTextX, y + 2.0f, 0.5f, 0.46f, 0.46f, col);
             }
             {
@@ -334,8 +342,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                     sub = utf8Truncate(sub, 19) + "...";
                 }
                 if (!sub.empty()) {
-                    u32 col = isSelected ? C2D_Color32f(0.55f, 0.80f, 0.62f, 1.0f)
-                                         : C2D_Color32f(0.38f, 0.58f, 0.44f, 1.0f);
+                    u32 col = isSelected ? C2D_Color32(lw(sR, 115), lw(sG, 115), lw(sB, 115), 0xFF)
+                                         : C2D_Color32(lw(sR, 51), lw(sG, 51), lw(sB, 51), 0xFF);
                     drawStr(sub.c_str(), cardTextX, y + 17.0f, 0.5f, 0.40f, 0.40f, col);
                 }
             }
@@ -390,17 +398,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                               C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
         }
 
-        u32 col;
-        if (inHistory) {
-            col = isSelected ? C2D_Color32f(0.80f, 0.80f, 1.00f, 1.0f)
-                             : C2D_Color32f(0.40f, 0.40f, 0.60f, 1.0f);
-        } else if (inAutoplay) {
-            col = isSelected ? C2D_Color32f(1.00f, 0.95f, 0.60f, 1.0f)
-                             : C2D_Color32f(0.52f, 0.47f, 0.24f, 1.0f);
-        } else {
-            col = isSelected ? C2D_Color32f(1.00f, 1.00f, 1.00f, 1.0f)
+        u32 col = isSelected ? C2D_Color32f(1.00f, 1.00f, 1.00f, 1.0f)
                              : C2D_Color32f(0.70f, 0.70f, 0.70f, 1.0f);
-        }
 
         drawStr(name.c_str(), START_X + 4.0f, y, 0.5f, 0.45f, 0.45f, col);
         ++virtIdx;
@@ -464,7 +463,7 @@ void printContextMenu(const std::vector<std::string> &options,
     C2D_DrawRectSolid(BOX_X, BOX_Y, 0.60f, BOX_W, BOX_H, C2D_Color32(0x1E, 0x1E, 0x1E, 0xF8));
 
     // Border
-    u32 border = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
+    u32 border = g_accentColor;
     C2D_DrawRectSolid(BOX_X, BOX_Y, 0.65f, BOX_W, 1, border);
     C2D_DrawRectSolid(BOX_X, BOX_Y + BOX_H - 1, 0.65f, BOX_W, 1, border);
     C2D_DrawRectSolid(BOX_X, BOX_Y, 0.65f, 1, BOX_H, border);
@@ -531,7 +530,7 @@ void drawProgressBar(float x, float y, float w, float h, float progress) {
 
     C2D_DrawRectSolid(x, y, 0.5f, w, h, C2D_Color32(0x33, 0x33, 0x33, 0xFF));
     if (progress > 0.0f) {
-        C2D_DrawRectSolid(x, y, 0.55f, w * progress, h, C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+        C2D_DrawRectSolid(x, y, 0.55f, w * progress, h, g_accentColor);
     }
     u32 border = C2D_Color32(0x55, 0x55, 0x55, 0xFF);
     C2D_DrawRectSolid(x, y, 0.6f, w, 1, border);
@@ -569,7 +568,7 @@ void renderLogOverlay() {
     std::vector<std::string> lines = s_logLines;
     LightLock_Unlock(&s_logLock);
 
-    // Background rect — leaves a small margin on all sides
+    // Background rect leaves a small margin on all sides
     const float PAD = 12.0f;
     const float W = 400.0f - PAD * 2.0f;
     const float H = 240.0f - PAD * 2.0f;
@@ -699,8 +698,12 @@ void printPlaylistView(const std::string &playlistName,
 
     // Helper to draw one button
     auto drawBtn = [&](float bx, float bw, const char *label, bool sel) {
-        u32 bgCol = sel ? C2D_Color32(0x1A, 0x3A, 0x55, 0xFF) : C2D_Color32(0x18, 0x18, 0x18, 0xFF);
-        u32 bdCol = sel ? C2D_Color32(0x30, 0x7A, 0xB8, 0xFF) : C2D_Color32(0x33, 0x33, 0x33, 0xFF);
+        u32 bgCol = sel ? C2D_Color32((u8) ((g_accentColor & 0xFF) / 3),
+                                      (u8) (((g_accentColor >> 8) & 0xFF) / 3),
+                                      (u8) (((g_accentColor >> 16) & 0xFF) / 3),
+                                      0xFF)
+                        : C2D_Color32(0x18, 0x18, 0x18, 0xFF);
+        u32 bdCol = sel ? g_accentColor : C2D_Color32(0x33, 0x33, 0x33, 0xFF);
         C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL, 0.4f, bw, BTN_H, bgCol);
         C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL, 0.45f, bw, 1, bdCol);
         C2D_DrawRectSolid(bx, BTN_Y - HEADER_SCROLL + BTN_H - 1, 0.45f, bw, 1, bdCol);
@@ -756,12 +759,15 @@ void printPlaylistView(const std::string &playlistName,
 }
 
 // Settings screen
-void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx) {
+void printSettingsMenu(const std::vector<std::string> &items,
+                       size_t selectedIdx,
+                       size_t scrollOffset) {
     C2D_TextBufClear(g_dynamicBuf);
 
     const float LINE_H = 20.0f;
     const float X_LABEL = 14.0f;
     const float Y_START = 16.0f;
+    const size_t VISIBLE = 11;
 
     // Header
     drawStr("Settings  </>=Change  A=Edit  B=Back",
@@ -775,22 +781,57 @@ void printSettingsMenu(const std::vector<std::string> &items, size_t selectedIdx
     // Separator line
     C2D_DrawRectSolid(X_LABEL, 14.0f, 0.5f, 372.0f, 1.0f, C2D_Color32(0x2A, 0x2A, 0x2A, 0xFF));
 
-    for (size_t i = 0; i < items.size(); ++i) {
-        float y = Y_START + LINE_H * (float) i;
+    size_t safeScroll = (scrollOffset < items.size()) ? scrollOffset : 0;
+    size_t end = std::min(items.size(), safeScroll + VISIBLE);
+
+    for (size_t i = safeScroll; i < end; ++i) {
+        float y = Y_START + LINE_H * (float) (i - safeScroll);
         bool sel = (i == selectedIdx);
 
+        bool isHeader = (items[i].size() >= 3 && items[i].substr(0, 3) == "---");
+        if (isHeader) {
+            drawStr(items[i].c_str() + 3,
+                    X_LABEL + 4.0f,
+                    y + 2.0f,
+                    0.55f,
+                    0.40f,
+                    0.40f,
+                    C2D_Color32(0x50, 0x50, 0x50, 0xFF));
+            C2D_DrawRectSolid(X_LABEL,
+                              y + LINE_H - 1.0f,
+                              0.5f,
+                              372.0f,
+                              1.0f,
+                              C2D_Color32(0x28, 0x28, 0x28, 0xFF));
+            continue;
+        }
+
         if (sel) {
-            // Highlight bar
-            C2D_DrawRectSolid(
-                4.0f, y - 1.0f, 0.45f, 392.0f, LINE_H, C2D_Color32(0x1E, 0x3A, 0x55, 0xFF));
-            // Left accent
-            C2D_DrawRectSolid(
-                4.0f, y - 1.0f, 0.50f, 3.0f, LINE_H, C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+            u32 hlBg = C2D_Color32((u8) ((g_accentColor & 0xFF) / 3),
+                                   (u8) (((g_accentColor >> 8) & 0xFF) / 3),
+                                   (u8) (((g_accentColor >> 16) & 0xFF) / 3),
+                                   0xFF);
+            C2D_DrawRectSolid(4.0f, y - 1.0f, 0.45f, 392.0f, LINE_H, hlBg);
+            C2D_DrawRectSolid(4.0f, y - 1.0f, 0.50f, 3.0f, LINE_H, g_accentColor);
         }
 
         u32 col =
             sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.65f, 0.65f, 0.65f, 1.0f);
         drawStr(items[i].c_str(), X_LABEL + 4.0f, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+    }
+
+    // Scroll nub on the right edge when there are more rows than fit.
+    if (items.size() > VISIBLE) {
+        const float TRACK_X = 396.0f;
+        const float TRACK_Y = Y_START;
+        const float TRACK_H = LINE_H * (float) VISIBLE;
+        const float NUB_H = std::max(8.0f, TRACK_H * (float) VISIBLE / (float) items.size());
+        float nubFrac =
+            (items.size() > VISIBLE) ? (float) safeScroll / (float) (items.size() - VISIBLE) : 0.0f;
+        float NUB_Y = TRACK_Y + (TRACK_H - NUB_H) * nubFrac;
+        C2D_DrawRectSolid(
+            TRACK_X, TRACK_Y, 0.5f, 3.0f, TRACK_H, C2D_Color32(0x22, 0x22, 0x22, 0xFF));
+        C2D_DrawRectSolid(TRACK_X, NUB_Y, 0.5f, 3.0f, NUB_H, C2D_Color32(0x55, 0x55, 0x55, 0xFF));
     }
 }
 
@@ -823,12 +864,8 @@ void renderBottomScreen(bool songPlaying,
                               : C2D_Color32(0x18, 0x18, 0x18, 0xFF));
         // active indicator bar along the bottom edge
         if (sel) {
-            C2D_DrawRectSolid(bx,
-                              NAV_BTN_Y + NAV_BTN_H - 2.0f,
-                              0.45f,
-                              NAV_BTN_W,
-                              2.0f,
-                              C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+            C2D_DrawRectSolid(
+                bx, NAV_BTN_Y + NAV_BTN_H - 2.0f, 0.45f, NAV_BTN_W, 2.0f, g_accentColor);
         }
         drawStr(TAB_LABELS[i],
                 bx + NAV_BTN_W * 0.5f,
@@ -851,12 +888,8 @@ void renderBottomScreen(bool songPlaying,
                           loopActive ? C2D_Color32(0x28, 0x28, 0x28, 0xFF)
                                      : C2D_Color32(0x18, 0x18, 0x18, 0xFF));
         if (loopActive) {
-            C2D_DrawRectSolid(LOOP_BTN_X,
-                              LOOP_BTN_Y + LOOP_BTN_H - 2.0f,
-                              0.45f,
-                              LOOP_BTN_W,
-                              2.0f,
-                              C2D_Color32(0x30, 0x7A, 0xB8, 0xFF));
+            C2D_DrawRectSolid(
+                LOOP_BTN_X, LOOP_BTN_Y + LOOP_BTN_H - 2.0f, 0.45f, LOOP_BTN_W, 2.0f, g_accentColor);
         }
         drawStr("Loop",
                 LOOP_BTN_X + LOOP_BTN_W * 0.5f,

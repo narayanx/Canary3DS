@@ -19,6 +19,7 @@ inline constexpr int INFO_MAX_VIS = 13;
 void handleNavTouch(touchPosition touchPos,
                     bool newTouch,
                     TopScreenState &screenState,
+                    FileBrowserState &fb,
                     PlaylistState &pl,
                     InfoState &info,
                     SettingsState &st,
@@ -58,6 +59,9 @@ void handleXButton(u32 kDown,
 void handleBButton(u32 kDown, TopScreenState &screenState, FileBrowserState &fb, PlaylistState &pl);
 
 void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info);
+
+void enterFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb);
+void exitFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb, bool confirmPath);
 
 void handleSettingsInput(u32 kDown,
                          TopScreenState screenState,

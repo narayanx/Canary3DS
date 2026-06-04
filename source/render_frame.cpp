@@ -27,7 +27,11 @@ void renderFrame(TopScreenState screenState,
     C2D_SceneBegin(top);
 
     if (screenState == TopScreenState::FILEBROWSER) {
-        printC2DText(fileController.cwd, 0);
+        if (fb.folderPickerMode) {
+            printC2DText("Pick folder   Y=Confirm   B=Up/Cancel", 0);
+        } else {
+            printC2DText(fileController.cwd, 0);
+        }
         printFiles(fileController.files,
                    fileController.selectedFile,
                    fb.scroll,
@@ -88,7 +92,7 @@ void renderFrame(TopScreenState screenState,
                               pl.hasCover ? &pl.coverImage : nullptr);
         }
     } else if (screenState == TopScreenState::SETTINGS) {
-        printSettingsMenu(SettingsState::buildRows(), st.sel);
+        printSettingsMenu(SettingsState::buildRows(), st.sel, st.scrollOffset);
     }
 
     // Context menu overlay

@@ -194,7 +194,7 @@ void audioThread(void *) {
         // For going back in history navigation "slide" through history
         if (!finishedPath.empty() && !audioController.skipNextHistoryEntry) {
             fileController.playHistory.push_front(finishedPath);
-            while (fileController.playHistory.size() > MAX_HISTORY) {
+            while (fileController.playHistory.size() > (size_t) g_settings.historySize) {
                 fileController.playHistory.pop_back();
             }
         }
@@ -321,8 +321,9 @@ bool goToNextSong() {
 }
 
 void enqueueSong(const std::string &path) {
-    if (fileController.playQueue.size() >= MAX_QUEUE_SIZE) {
-        logToDebugScreen("Queue full (" + std::to_string(MAX_QUEUE_SIZE) + "), skipping: " + path);
+    if (fileController.playQueue.size() >= (size_t) g_settings.queueSize) {
+        logToDebugScreen("Queue full (" + std::to_string(g_settings.queueSize) +
+                         "), skipping: " + path);
         return;
     }
     fileController.playQueue.push_back(path);

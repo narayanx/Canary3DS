@@ -76,6 +76,13 @@ int main(int argc, char *argv[]) {
         needsRender = kDown || kHeld || screenTouched || audioController.newSongStarted ||
                       audioController.songReady || needsRender;
 
+        // Re-initialise the file browser if startPath was changed in settings.
+        if (fb.reinitPending && screenState != TopScreenState::FILEBROWSER) {
+            initFileHistory(g_settings.startPath);
+            fb.reinitPending = false;
+            updateFiles = true;
+        }
+
         if (updateFiles) {
             fileController.files = getFiles(fileController.cwd.c_str());
             fileController.filesShown = (fileController.files.size() > FILE_LAZY_THRESHOLD)
@@ -105,7 +112,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        handleNavTouch(touchPos, newTouch, screenState, pl, info, st, s_ctx, s_sub);
+        handleNavTouch(touchPos, newTouch, screenState, fb, pl, info, st, s_ctx, s_sub);
         handleSeekTouch(touchPos,
                         newTouch,
                         screenTouched,
@@ -138,9 +145,14 @@ int main(int argc, char *argv[]) {
                 handleBButton(kDown, screenState, fb, pl);
             }
             if (kDown & KEY_Y) {
-                handleYButton(kDown, screenState, info);
+                // In folder-picker mode Y confirms the selected directory.
+                if (fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER) {
+                    exitFolderPickerMode(screenState, fb, true);
+                } else {
+                    handleYButton(kDown, screenState, info);
+                }
             }
-            if (kDown & KEY_SELECT) {
+            if (kDown & KEY_SELECT && g_settings.showDebugScreen) {
                 showLog = !showLog;
             }
             bool seekLeftRepeat = (kHeld & KEY_DLEFT) && leftPressMs != 0 &&
@@ -268,7 +280,7 @@ int main(int argc, char *argv[]) {
                         st,
                         s_ctx,
                         s_sub,
-                        showLog,
+                        showLog && g_settings.showDebugScreen,
                         SEEK_BAR_X,
                         SEEK_BAR_Y,
                         SEEK_BAR_W,
