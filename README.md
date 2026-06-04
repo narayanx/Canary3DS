@@ -20,6 +20,8 @@ A 3DS music player with modern features.
 - double tap `R`: toggle play/pause
 - triple tap `L`: go to previous song
 - triple tap `R`: go to next song
+- `START`: exit program
+- `SELECT`: toggle displaying debug console (if enabled in settings)
 
 ###### Filebrowser Screen
 - `A`: Song selected: Play selected song and switch to Player Screen. Folder selected: Open selected folder
