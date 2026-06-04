@@ -91,6 +91,8 @@ ctr_generate_smdh(${PROJECT_NAME}.smdh
   NAME "${PROJECT_NAME}"
   DESCRIPTION "v${PROJECT_VERSION}"
   AUTHOR "Canary3DS Team"
+  ICON "${CMAKE_SOURCE_DIR}/assets/icon.png"
+  SMALL_ICON "${CMAKE_SOURCE_DIR}/assets/icon_small.png"
 )
 
 ctr_create_3dsx(${PROJECT_NAME}
