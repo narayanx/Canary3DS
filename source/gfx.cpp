@@ -919,6 +919,43 @@ void renderBottomScreen(bool songPlaying,
                 C2D_AlignCenter | C2D_WithColor);
     }
 
+    // Prev / Play-Pause / Next buttons
+    {
+        bool isPlaying = songPlaying && !ndspChnIsPaused(0);
+        const char *playPauseLabel = isPlaying ? "Pause" : "Play";
+        auto drawCtrlBtn = [&](float bx, float bw, const char *label, bool active) {
+            C2D_DrawRectSolid(bx,
+                              PLAY_BTN_Y,
+                              0.40f,
+                              bw,
+                              PLAY_BTN_H,
+                              active ? C2D_Color32(0x28, 0x28, 0x28, 0xFF)
+                                     : C2D_Color32(0x18, 0x18, 0x18, 0xFF));
+            if (active) {
+                C2D_DrawRectSolid(
+                    bx, PLAY_BTN_Y + PLAY_BTN_H - 2.0f, 0.45f, bw, 2.0f, g_accentColor);
+            }
+            u32 bd = C2D_Color32(0x33, 0x33, 0x33, 0xFF);
+            C2D_DrawRectSolid(bx, PLAY_BTN_Y, 0.45f, bw, 1, bd);
+            C2D_DrawRectSolid(bx, PLAY_BTN_Y + PLAY_BTN_H - 1, 0.45f, bw, 1, bd);
+            C2D_DrawRectSolid(bx, PLAY_BTN_Y, 0.45f, 1, PLAY_BTN_H, bd);
+            C2D_DrawRectSolid(bx + bw - 1, PLAY_BTN_Y, 0.45f, 1, PLAY_BTN_H, bd);
+            u32 tc = active ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f)
+                            : C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
+            drawStr(label,
+                    bx + bw * 0.5f,
+                    PLAY_BTN_Y + 5.0f,
+                    0.5f,
+                    0.44f,
+                    0.44f,
+                    tc,
+                    C2D_AlignCenter | C2D_WithColor);
+        };
+        drawCtrlBtn(PREV_BTN_X, PREV_BTN_W, "<<", false);
+        drawCtrlBtn(PLAY_PAUSE_X, PLAY_PAUSE_W, playPauseLabel, isPlaying);
+        drawCtrlBtn(NEXT_BTN_X, NEXT_BTN_W, ">>", false);
+    }
+
     // Content area begins below the nav bar
     const float TITLE_Y = seekBarY - 28.0f;
     const float META_Y = seekBarY - 14.0f;

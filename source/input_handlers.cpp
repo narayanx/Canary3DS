@@ -223,6 +223,26 @@ void handleNavTouch(touchPosition touchPos,
             }
         }
     }
+    if (py >= PLAY_BTN_Y && py <= PLAY_BTN_Y + PLAY_BTN_H) {
+        if (px >= PREV_BTN_X && px <= PREV_BTN_X + PREV_BTN_W) {
+            if (audioController.songReady && !fileController.playHistory.empty()) {
+                std::string prevSong = fileController.playHistory.front();
+                fileController.playHistory.pop_front();
+                fileController.playQueue.push_front(audioController.songPath);
+                audioController.skipNextHistoryEntry = true;
+                stopPlaybackIfPlaying();
+                playSong(prevSong);
+            }
+        } else if (px >= PLAY_PAUSE_X && px <= PLAY_PAUSE_X + PLAY_PAUSE_W) {
+            if (audioController.songReady) {
+                ndspChnSetPaused(0, !ndspChnIsPaused(0));
+            }
+        } else if (px >= NEXT_BTN_X && px <= NEXT_BTN_X + NEXT_BTN_W) {
+            if (audioController.songReady) {
+                goToNextSong();
+            }
+        }
+    }
 }
 
 void handleSeekTouch(touchPosition touchPos,

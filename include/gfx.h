@@ -25,6 +25,16 @@ inline constexpr float LOOP_BTN_W = 80.0f;
 inline constexpr float LOOP_BTN_H = 22.0f;
 inline constexpr float SHUFFLE_BTN_X = 165.0f;  // LOOP_BTN_X + LOOP_BTN_W + 10
 
+inline constexpr float PLAY_BTN_Y = 130.0f;
+inline constexpr float PLAY_BTN_H = 22.0f;
+inline constexpr float PLAY_BTN_GAP = 6.0f;
+inline constexpr float PREV_BTN_W = 48.0f;
+inline constexpr float PLAY_PAUSE_W = 56.0f;
+inline constexpr float NEXT_BTN_W = 48.0f;
+inline constexpr float PREV_BTN_X = 78.0f;  // (320 - (48+6+56+6+48)) / 2
+inline constexpr float PLAY_PAUSE_X = PREV_BTN_X + PREV_BTN_W + PLAY_BTN_GAP;
+inline constexpr float NEXT_BTN_X = PLAY_PAUSE_X + PLAY_PAUSE_W + PLAY_BTN_GAP;
+
 // Maximum number of rows visible at once before scrolling kicks in
 inline constexpr int MAX_CTX_VISIBLE = 8;
 inline constexpr int MAX_FILES = 14;
