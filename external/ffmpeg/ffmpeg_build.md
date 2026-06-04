@@ -76,9 +76,23 @@ mkdir -p /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libavcodec
 mkdir -p /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libswresample
 mkdir -p /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libavutil
 
-# copy header files in root of folders (avoid copying nested header files, which are definitely private and unnecessary)
+# copy header files in root of folders
 cp libavformat/*.h /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libavformat
 cp libavcodec/*.h /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libavcodec
 cp libswresample/*.h /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libswresample
 cp libavutil/*.h /{FILE_PATH_TO_PROJECT}/external/ffmpeg/libavutil
+```
+
+## Remove unneeded headers (optional)
+```
+# dry run to see which are public headers
+make -n install | grep install
+```
+Use to figure out which files to delete (installed.txt is line by line of installed headers, ls_result is result of ls -1) (repeat for libavcodec, libavformat, libavutil, libswresample folders). 
+```
+grep -vxFf installed.txt  ls_result.txt > to_delete.txt
+```
+Delete files
+```
+xargs rm < to_delete.txt
 ```
