@@ -124,17 +124,19 @@ struct SettingsState {
             slp, sizeof(slp), "Sleep (lid):  %s", g_settings.sleepAllowed ? "Allowed" : "Blocked");
 
         if (g_settings.accentColor == "custom") {
-            snprintf(acc, sizeof(acc), "Accent:  #%06X", g_settings.accentColorHex & 0xFFFFFFu);
+            snprintf(
+                acc, sizeof(acc), "Accent Color:  #%06X", g_settings.accentColorHex & 0xFFFFFFu);
         } else {
-            snprintf(acc, sizeof(acc), "Accent:  %s", g_settings.accentColor.c_str());
+            snprintf(acc, sizeof(acc), "Accent Color:  %s", g_settings.accentColor.c_str());
         }
         if (g_settings.accentColor2 == "custom") {
             snprintf(sec,
                      sizeof(sec),
-                     "Secondary Color:  #%06X (custom)",
+                     "Secondary Accent Color:  #%06X (custom)",
                      g_settings.secondaryColorHex & 0xFFFFFFu);
         } else {
-            snprintf(sec, sizeof(sec), "Secondary Color:  %s", g_settings.accentColor2.c_str());
+            snprintf(
+                sec, sizeof(sec), "Secondary Accent Color:  %s", g_settings.accentColor2.c_str());
         }
 
         const std::string advHeader = "--- Advanced";
