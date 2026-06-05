@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-inline constexpr std::string_view PLAYLIST_DIR = "sdmc:/3ds/Canary3DS/Playlists/";
+inline constexpr std::string_view PLAYLIST_DIR = "sdmc:/3ds/Canary/Playlists/";
 inline constexpr std::string_view PLAYLIST_COVER_DIR =
-    "sdmc:/3ds/Canary3DS/Playlists/.playlist_covers/";
+    "sdmc:/3ds/Canary/Playlists/.playlist_covers/";
 
 struct Playlist {
     std::string name;                // display name (without .m3u extension)

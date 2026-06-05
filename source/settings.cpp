@@ -21,7 +21,7 @@ static void trim(std::string &s) {
 // Ensure the directory that holds the settings file exists.
 static void ensureDir() {
     mkdir("sdmc:/3ds", 0777);
-    mkdir("sdmc:/3ds/Canary3DS", 0777);
+    mkdir("sdmc:/3ds/Canary", 0777);
 }
 
 bool loadSettings() {
@@ -169,7 +169,7 @@ bool saveSettings() {
         return false;
     }
 
-    fprintf(f, "# Canary3DS Settings\n");
+    fprintf(f, "# Canary Settings\n");
     fprintf(f, "volume=%d\n", g_settings.volume);
     fprintf(f, "loop_folder=%d\n", g_settings.repeat == RepeatMode::ALL ? 1 : 0);
     fprintf(f, "show_cover_art=%d\n", g_settings.showCoverArt ? 1 : 0);

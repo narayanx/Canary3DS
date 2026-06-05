@@ -2,7 +2,7 @@
 
 #include <string>
 
-inline constexpr std::string_view SETTINGS_PATH = "sdmc:/3ds/Canary3DS/settings.ini";
+inline constexpr std::string_view SETTINGS_PATH = "sdmc:/3ds/Canary/settings.ini";
 
 enum class RepeatMode { OFF, ALL };
 

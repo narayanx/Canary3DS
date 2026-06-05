@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-project(Canary3DS LANGUAGES CXX VERSION 1.0.0)
+project(Canary LANGUAGES CXX VERSION 1.0.0)
 
 include(cmake/CPM.cmake)
 
@@ -90,7 +90,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 ctr_generate_smdh(${PROJECT_NAME}.smdh
   NAME "${PROJECT_NAME}"
   DESCRIPTION "v${PROJECT_VERSION}"
-  AUTHOR "Canary3DS Team"
+  AUTHOR "Canary Team"
   ICON "${CMAKE_SOURCE_DIR}/assets/icon.png"
   SMALL_ICON "${CMAKE_SOURCE_DIR}/assets/icon_small.png"
 )
@@ -125,7 +125,7 @@ add_custom_command(
     -f cia
     -o ${CMAKE_BINARY_DIR}/${CIA_FILE}
     -elf ${CMAKE_BINARY_DIR}/${ELF_FILE}
-    -rsf ${CMAKE_SOURCE_DIR}/assets/canary3ds.rsf
+    -rsf ${CMAKE_SOURCE_DIR}/assets/canary.rsf
     -icon ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.smdh
     -banner ${CMAKE_BINARY_DIR}/${BANNER_BIN}
     -target t
