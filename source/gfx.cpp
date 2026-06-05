@@ -244,16 +244,16 @@ void printNowPlayingList(const std::deque<std::string> &history,
         u32 hdrCol;
         if (topVirtualIdx < 0) {
             hdr = "History";
-            hdrCol = C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
+            hdrCol = g_secondaryColor;
         } else if (topVirtualIdx == 0) {
             hdr = "Now Playing";
             hdrCol = g_secondaryColor;
         } else if (qSz > 0 && topVirtualIdx <= qSz) {
             hdr = "Queue";
-            hdrCol = C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
+            hdrCol = g_secondaryColor;
         } else {
             hdr = "Autoplay";
-            hdrCol = C2D_Color32f(0.50f, 0.50f, 0.50f, 1.0f);
+            hdrCol = g_secondaryColor;
         }
         drawStr(hdr, START_X + 4.0f, BASE_Y, 0.5f, 0.44f, 0.44f, hdrCol);
     }
@@ -664,12 +664,8 @@ void drawNoteCover(float x, float y, float targetW, float targetH, bool nowPlayi
 
     float INSET = 6.0f;  // for the rounded corners
     // rect shows through the transparent note area
-    C2D_DrawRectSolid(x + INSET,
-                      y + INSET,
-                      0.29f,
-                      drawW - (2 * INSET),
-                      drawH - (2 * INSET),
-                      C2D_Color32(0xE8, 0xE8, 0xE0, 0xFF));
+    C2D_DrawRectSolid(
+        x + INSET, y + INSET, 0.29f, drawW - (2 * INSET), drawH - (2 * INSET), g_secondaryColor);
     C2D_DrawImageAt(img, x, y, 0.3f, nullptr, s, s);
 }
 
