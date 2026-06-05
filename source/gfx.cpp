@@ -378,7 +378,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
             continue;
         }
 
-        if (y + LINE_H > MAX_Y) {
+        if (y >= MAX_Y) {
             break;
         }
 
