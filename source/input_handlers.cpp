@@ -447,13 +447,18 @@ void handleAButton(u32 &kDown,
             if (fb.folderPickerMode) {
                 return;
             }
-            stopPlaybackIfPlaying();
             char *nm = fileController.files[fileController.selectedFile].d_name;
-            if (playSong(fileController.cwd + nm)) {
+            const std::string path = fileController.cwd + nm;
+            if (!isSupportedAudioFile(path)) {
+                logToDebugScreen("Unsupported file: " + std::string(nm));
+                return;
+            }
+            stopPlaybackIfPlaying();
+            if (playSong(path)) {
                 logToDebugScreen("Playing: " + (std::string) nm);
                 screenState = TopScreenState::INFO;
+                fileController.playingFile = fileController.selectedFile;
             }
-            fileController.playingFile = fileController.selectedFile;
         }
     } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
         if (pl.sel == pl.playlists.size()) {
