@@ -834,8 +834,8 @@ void printSettingsMenu(const std::vector<std::string> &items,
     const float Y_START = 16.0f;
     const size_t VISIBLE = 11;
 
-    // Header
-    drawStr("Settings  </>=Change  A=Edit  B=Back",
+    // U+E000: A button, U+E001: B button, U+E07B: dpad left, U+E07C: dpad right
+    drawStr("Settings  \uE07B/\uE07C=Change  \uE000=Edit  \uE001=Back",
             X_LABEL,
             2.0f,
             0.5f,

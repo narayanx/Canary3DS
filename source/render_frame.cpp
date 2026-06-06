@@ -67,7 +67,8 @@ void renderFrame(TopScreenState screenState,
         }
 
     } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
-        printC2DText("Playlists  A=Open  X=Menu", 0);
+        // \uE000: A, \uE002: X
+        printC2DText("Playlists  \uE000=Open  \uE002=Menu", 0);
         std::vector<std::string> names;
         for (const auto &p : pl.playlists) {
             names.push_back(p.name);
