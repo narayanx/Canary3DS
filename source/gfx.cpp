@@ -122,7 +122,56 @@ static std::string utf8Truncate(const std::string &s, size_t maxChars) {
     return s;
 }
 
-// Split a line into wrapped segments of at most maxChars code points.
+static float textWidth(const std::string &s, float sx) {
+    C2D_Text t;
+    if (g_font) {
+        C2D_TextFontParse(&t, g_font, g_dynamicBuf, s.c_str());
+    } else {
+        C2D_TextParse(&t, g_dynamicBuf, s.c_str());
+    }
+    C2D_TextOptimize(&t);
+
+    float w, h;
+    C2D_TextGetDimensions(&t, sx, sx, &w, &h);
+    return w;
+}
+
+// Return a string which fits within a certain width
+static std::string fitTextWidth(const std::string &s, float maxWidth, float sx) {
+    if (textWidth(s, sx) <= maxWidth) {
+        return s;
+    }
+
+    float ellipsisWidth = textWidth("...", sx);
+
+    // If even "..." is too wide, just return it
+    if (ellipsisWidth > maxWidth) {
+        return "...";
+    }
+
+    float targetWidth = maxWidth - ellipsisWidth;
+
+    // Binary search on code point count (linear scan causes lag)
+    size_t totalChars = utf8Len(s);
+    size_t lo = 0, hi = totalChars;
+
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo + 1) / 2;  // Bias toward upper half
+        std::string candidate = utf8Truncate(s, mid);
+
+        if (textWidth(candidate, sx) <= targetWidth) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    // lo holds the maximum chars that fit
+    std::string result = utf8Truncate(s, lo);
+    return result.empty() ? "..." : result + "...";
+}
+
+// Split a line into wrapped segments of at most maxChars code points
 static std::vector<std::string> wrapLine(const std::string &line, size_t maxChars) {
     std::vector<std::string> result;
     std::string rem = line;
@@ -349,9 +398,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (dot != std::string::npos) {
                     name = name.substr(0, dot);
                 }
-                if (utf8Len(name) > 19) {
-                    name = utf8Truncate(name, 16) + "...";
-                }
+                name = fitTextWidth(name, 250.0f, 0.46f);
                 u32 col = isSelected ? C2D_Color32(lw(sR, 166), lw(sG, 166), lw(sB, 166), 0xFF)
                                      : C2D_Color32(lw(sR, 102), lw(sG, 102), lw(sB, 102), 0xFF);
                 drawStr(name.c_str(), cardTextX, y + 2.0f, 0.5f, 0.46f, 0.46f, col);
@@ -364,9 +411,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (!nowPlayingArtist.empty()) {
                     sub += nowPlayingArtist;
                 }
-                if (utf8Len(sub) > 22) {
-                    sub = utf8Truncate(sub, 19) + "...";
-                }
+                sub = fitTextWidth(sub, 150.0f, 0.40f);
                 if (!sub.empty()) {
                     u32 col = isSelected ? C2D_Color32(lw(sR, 115), lw(sG, 115), lw(sB, 115), 0xFF)
                                          : C2D_Color32(lw(sR, 51), lw(sG, 51), lw(sB, 51), 0xFF);
@@ -411,9 +456,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
         if (sl != std::string::npos) {
             name = name.substr(sl + 1);
         }
-        if (utf8Len(name) > 20) {
-            name = utf8Truncate(name, 17) + "...";
-        }
+        name = fitTextWidth(name, 170.0f, 0.45f);
 
         if (isSelected) {
             C2D_DrawRectSolid(START_X,
@@ -1008,9 +1051,7 @@ void renderBottomScreen(bool songPlaying,
         if (dot != std::string::npos) {
             name = name.substr(0, dot);
         }
-        if (utf8Len(name) > 38) {
-            name = utf8Truncate(name, 35) + "...";
-        }
+        name = fitTextWidth(name, seekBarW, 0.44f);
         drawStr(name.c_str(), 4, TITLE_Y, 0.5f, 0.44f, 0.44f, C2D_Color32f(0.90f, 0.90f, 0.90f, 1));
     }
 
@@ -1025,9 +1066,8 @@ void renderBottomScreen(bool songPlaying,
         std::string meta;
         if (!songArtist.empty()) {
             std::string artist = songArtist;
-            if (utf8Len(artist) > 22) {
-                artist = utf8Truncate(artist, 19) + "...";
-            }
+            float timeW = textWidth("  " + t, 0.40f);
+            artist = fitTextWidth(artist, seekBarW - timeW, 0.40f);
             meta = artist + "  " + t;
         } else {
             meta = t;
