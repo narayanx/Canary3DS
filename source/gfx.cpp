@@ -398,7 +398,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (dot != std::string::npos) {
                     name = name.substr(0, dot);
                 }
-                name = fitTextWidth(name, 250.0f, 0.46f);
+                name = fitTextWidth(name, 180.0f, 0.46f);
                 u32 col = isSelected ? C2D_Color32(lw(sR, 166), lw(sG, 166), lw(sB, 166), 0xFF)
                                      : C2D_Color32(lw(sR, 102), lw(sG, 102), lw(sB, 102), 0xFF);
                 drawStr(name.c_str(), cardTextX, y + 2.0f, 0.5f, 0.46f, 0.46f, col);
@@ -411,7 +411,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 if (!nowPlayingArtist.empty()) {
                     sub += nowPlayingArtist;
                 }
-                sub = fitTextWidth(sub, 150.0f, 0.40f);
+                sub = fitTextWidth(sub, 180.0f, 0.40f);
                 if (!sub.empty()) {
                     u32 col = isSelected ? C2D_Color32(lw(sR, 115), lw(sG, 115), lw(sB, 115), 0xFF)
                                          : C2D_Color32(lw(sR, 51), lw(sG, 51), lw(sB, 51), 0xFF);
@@ -456,7 +456,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
         if (sl != std::string::npos) {
             name = name.substr(sl + 1);
         }
-        name = fitTextWidth(name, 170.0f, 0.45f);
+        name = fitTextWidth(name, 180.0f, 0.45f);
 
         if (isSelected) {
             C2D_DrawRectSolid(START_X,
@@ -1068,7 +1068,7 @@ void renderBottomScreen(bool songPlaying,
             std::string artist = songArtist;
             float timeW = textWidth("  " + t, 0.40f);
             artist = fitTextWidth(artist, seekBarW - timeW, 0.40f);
-            meta = artist + "  " + t;
+            meta = t + "  " + artist;
         } else {
             meta = t;
         }
