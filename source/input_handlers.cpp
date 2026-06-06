@@ -664,6 +664,10 @@ void handleXButton(u32 kDown,
                             fileController.selectedQueueItem =
                                 -((int) fileController.playHistory.size());
                         }
+                        int minScroll = -((int) fileController.playHistory.size());
+                        if (info.scrollTop < minScroll) {
+                            info.scrollTop = minScroll;
+                        }
                         if (info.scrollTop > fileController.selectedQueueItem) {
                             info.scrollTop = fileController.selectedQueueItem;
                         }
