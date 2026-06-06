@@ -694,7 +694,25 @@ void handleXButton(u32 kDown,
             s_ctx.add("Add to playlist >", [&pl, &s_ctx, &s_sub, path]() {
                 openAddToPlaylistSub(pl, s_ctx, s_sub, path);
             });
-            if (!fileController.playQueue.empty()) {
+
+            if (sel < 0 && !fileController.playHistory.empty()) {
+                s_ctx.add("Clear history", [&s_ctx, &s_sub, &info]() {
+                    s_sub.close();
+                    s_sub.add("No (cancel)", [&s_sub, &s_ctx]() {
+                        s_sub.active = false;
+                        s_ctx.close();
+                    });
+                    s_sub.add("Yes, clear history", [&s_sub, &s_ctx, &info]() {
+                        fileController.playHistory.clear();
+                        fileController.selectedQueueItem = 0;
+                        info.scrollTop = 0;
+                        logToDebugScreen("History cleared");
+                        s_sub.active = false;
+                        s_ctx.close();
+                    });
+                    s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
+                });
+            } else if (sel >= 0 && !fileController.playQueue.empty()) {
                 s_ctx.add("Clear queue", [&s_ctx, &s_sub]() {
                     s_sub.close();
                     s_sub.add("No (cancel)", [&s_sub, &s_ctx]() {
