@@ -360,17 +360,8 @@ void handleAButton(u32 &kDown,
             });
             s_ctx.open(60.0f, 60.0f);
         } else if (st.sel == SettingsState::ROW_SEEK) {
-            bool isPreset = false;
-            for (int p : SEEK_PRESETS) {
-                if (g_settings.seekSeconds == p) {
-                    isPreset = true;
-                    break;
-                }
-            }
-            if (!isPreset) {
-                openSeekKeyboard();
-                saveSettings();
-            }
+            openSeekKeyboard();
+            saveSettings();
         } else if (st.sel == SettingsState::ROW_ACCENT || st.sel == SettingsState::ROW_SECONDARY) {
             bool isAccent = (st.sel == SettingsState::ROW_ACCENT);
             u32 cur = isAccent ? g_accentColor : g_secondaryColor;
