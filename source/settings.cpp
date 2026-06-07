@@ -2,10 +2,14 @@
 
 #include <3ds.h>
 
+#include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
+#include <fstream>
 #include <string>
+#include <vector>
 
 #include "gfx.h"
 
@@ -164,35 +168,137 @@ bool loadSettings() {
 
 bool saveSettings() {
     ensureDir();
-    FILE *f = fopen(std::string(SETTINGS_PATH).c_str(), "w");
-    if (!f) {
+
+    // In default write order
+    static constexpr std::array<std::string_view, 16> KEYS = {{
+        "volume",
+        "loop_folder",
+        "show_cover_art",
+        "sleep_allowed",
+        "music_folder",
+        "brightness",
+        "seek_seconds",
+        "lock_to_music_folder",
+        "accent_color",
+        "accent_custom",
+        "accent_color2",
+        "accent2_custom",
+        "queue_size",
+        "history_size",
+        "max_folder_history_depth",
+        "show_debug",
+    }};
+
+    // Returns the current formatted value for a known key
+    auto valFor = [](std::string_view key) -> std::string {
+        auto hex6 = [](unsigned int v) -> std::string {
+            char buf[7];
+            snprintf(buf, sizeof(buf), "%06X", v & 0xFFFFFFu);
+            return buf;
+        };
+
+        if (key == "volume") {
+            return std::to_string(g_settings.volume);
+        }
+        if (key == "loop_folder") {
+            return g_settings.repeat == RepeatMode::ALL ? "1" : "0";
+        }
+        if (key == "show_cover_art") {
+            return g_settings.showCoverArt ? "1" : "0";
+        }
+        if (key == "sleep_allowed") {
+            return g_settings.sleepAllowed ? "1" : "0";
+        }
+        if (key == "music_folder") {
+            return g_settings.startPath;
+        }
+        if (key == "brightness") {
+            return std::to_string(g_settings.brightness);
+        }
+        if (key == "seek_seconds") {
+            return std::to_string(g_settings.seekSeconds);
+        }
+        if (key == "lock_to_music_folder") {
+            return g_settings.lockToStartPath ? "1" : "0";
+        }
+        if (key == "accent_color") {
+            return g_settings.accentColor;
+        }
+        if (key == "accent_custom") {
+            return hex6(g_settings.accentColorHex);
+        }
+        if (key == "accent_color2") {
+            return g_settings.accentColor2;
+        }
+        if (key == "accent2_custom") {
+            return hex6(g_settings.secondaryColorHex);
+        }
+        if (key == "queue_size") {
+            return std::to_string(g_settings.queueSize);
+        }
+        if (key == "history_size") {
+            return std::to_string(g_settings.historySize);
+        }
+        if (key == "max_folder_history_depth") {
+            return std::to_string(g_settings.maxDepth);
+        }
+        if (key == "show_debug") {
+            return g_settings.showDebugScreen ? "1" : "0";
+        }
+        return {};
+    };
+
+    std::vector<std::string> lines;
+    std::array<bool, KEYS.size()> written = {};
+
+    std::ifstream rf(std::string{SETTINGS_PATH});
+    if (rf.is_open()) {
+        std::string raw;
+        while (std::getline(rf, raw)) {
+            // Strip trailing CR for files with CRLF line endings
+            if (!raw.empty() && raw.back() == '\r') {
+                raw.pop_back();
+            }
+            std::string trimmed = raw;
+            trim(trimmed);
+            logToDebugScreen("parsing " + trimmed);
+            if (!trimmed.empty() && trimmed[0] != '#' && trimmed[0] != ';') {
+                const auto eq = trimmed.find('=');
+                if (eq != std::string::npos) {
+                    std::string key = trimmed.substr(0, eq);
+                    trim(key);
+                    const auto it = std::find(KEYS.begin(), KEYS.end(), key);
+                    if (it != KEYS.end()) {
+                        const auto idx = static_cast<std::size_t>(it - KEYS.begin());
+                        written[idx] = true;
+                        raw = key + "=" + valFor(key);
+                    }
+                }
+            }
+            lines.push_back(std::move(raw));
+        }
+    } else {
+        lines.emplace_back("# Canary Settings");
+    }
+
+    for (std::size_t i = 0; i < KEYS.size(); ++i) {
+        if (written[i]) {
+            continue;
+        }
+        const auto key = KEYS[i];
+
+        lines.push_back(std::string{key} + "=" + valFor(key));
+    }
+
+    std::ofstream wf(std::string{SETTINGS_PATH});
+    if (!wf.is_open()) {
         return false;
     }
-
-    fprintf(f, "# Canary Settings\n");
-    fprintf(f, "volume=%d\n", g_settings.volume);
-    fprintf(f, "loop_folder=%d\n", g_settings.repeat == RepeatMode::ALL ? 1 : 0);
-    fprintf(f, "show_cover_art=%d\n", g_settings.showCoverArt ? 1 : 0);
-    fprintf(f, "sleep_allowed=%d\n", g_settings.sleepAllowed ? 1 : 0);
-    fprintf(f, "music_folder=%s\n", g_settings.startPath.c_str());
-    fprintf(f, "brightness=%d\n", g_settings.brightness);
-    fprintf(f, "seek_seconds=%d\n", g_settings.seekSeconds);
-    fprintf(f, "lock_to_music_folder=%d\n", g_settings.lockToStartPath ? 1 : 0);
-    fprintf(f, "accent_color=%s\n", g_settings.accentColor.c_str());
-    if (g_settings.accentColor == "custom") {
-        fprintf(f, "accent_custom=%06X\n", g_settings.accentColorHex & 0xFFFFFFu);
+    for (const auto &line : lines) {
+        wf << line << '\n';
     }
-    fprintf(f, "accent_color2=%s\n", g_settings.accentColor2.c_str());
-    if (g_settings.accentColor2 == "custom") {
-        fprintf(f, "accent2_custom=%06X\n", g_settings.secondaryColorHex & 0xFFFFFFu);
-    }
-    fprintf(f, "queue_size=%d\n", g_settings.queueSize);
-    fprintf(f, "history_size=%d\n", g_settings.historySize);
-    fprintf(f, "max_folder_history_depth=%d\n", g_settings.maxDepth);
-    fprintf(f, "show_debug=%d\n", g_settings.showDebugScreen ? 1 : 0);
-
-    fclose(f);
-    return true;
+    wf.flush();
+    return wf.good();
 }
 
 void applyVolume() {

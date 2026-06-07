@@ -132,7 +132,7 @@ struct SettingsState {
         if (g_settings.accentColor2 == "custom") {
             snprintf(sec,
                      sizeof(sec),
-                     "Secondary Accent Color:  #%06X (custom)",
+                     "Secondary Accent Color:  #%06X",
                      g_settings.secondaryColorHex & 0xFFFFFFu);
         } else {
             snprintf(
