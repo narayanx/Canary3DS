@@ -785,9 +785,13 @@ void handleXButton(u32 kDown,
                 }
                 s_sub.add(pl.playlists[i].name, [&pl, &s_sub, &s_ctx, snapSel, i]() {
                     if (snapSel < pl.playlists.size() && i < pl.playlists.size()) {
-                        if (mergePlaylist(pl.playlists[snapSel].path, pl.playlists[i].path)) {
-                            logToDebugScreen("Merged \"" + pl.playlists[i].name + "\" into \"" +
-                                             pl.playlists[snapSel].name + "\"");
+                        std::string srcName = pl.playlists[snapSel].name;
+                        std::string srcPath = pl.playlists[snapSel].path;
+                        std::string dstName = pl.playlists[i].name;
+                        if (mergePlaylist(pl.playlists[i].path, srcPath)) {
+                            deletePlaylist(srcPath);
+                            logToDebugScreen("Merged \"" + srcName + "\" into \"" + dstName +
+                                             "\" and deleted \"" + srcName + "\"");
                             pl.dirty = true;
                         } else {
                             logToDebugScreen("Merge failed");
