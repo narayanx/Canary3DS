@@ -168,3 +168,5 @@ void renderBottomScreen(bool songPlaying,
                         float seekProgressOverride = -1.0f,
                         int activeTab = 0,
                         bool loopActive = false);
+
+void clearTextWidthCache();
