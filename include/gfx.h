@@ -10,7 +10,7 @@
 
 inline constexpr u32 CLEAR_COLOR = C2D_Color32(0x12, 0x12, 0x12, 0xFF);
 inline constexpr u32 BOTTOM_CLEAR_COLOR = C2D_Color32(0x0E, 0x0E, 0x0E, 0xFF);
-inline constexpr int MAX_LOG_LINES = 16;  // max lines kept in the log buffer
+inline constexpr int MAX_LOG_LINES = 14;  // max lines kept in the log buffer
 
 // Bottom screen nav buttons
 inline constexpr float NAV_BTN_Y = 3.0f;

@@ -676,7 +676,7 @@ void renderLogOverlay() {
     const float TEXT_Y = PAD + 18.0f;  // below header
     const float MAX_Y = PAD + H - 4.0f;
 
-    const size_t CHARS_PER_LINE = 50;
+    const size_t CHARS_PER_LINE = 80;
     float y = TEXT_Y;
     for (size_t i = 0; i < lines.size() && y < MAX_Y; ++i) {
         for (const auto &seg : wrapLine(lines[i], CHARS_PER_LINE)) {
