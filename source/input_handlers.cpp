@@ -434,8 +434,6 @@ void handleAButton(u32 &kDown,
             fileController.filesShown = (fileController.files.size() > FILE_LAZY_THRESHOLD)
                                             ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
                                             : fileController.files.size();
-            // Avoid unbounded memory growth
-            clearTextWidthCache();
         } else if (ft == DT_REG) {
             if (fb.folderPickerMode) {
                 return;
@@ -975,8 +973,6 @@ void handleBButton(u32 kDown,
                     std::min(fileController.files.size(), fileController.selectedFile + 1);
             }
         }
-        // Avoid unbounded memory growth
-        clearTextWidthCache();
     }
 }
 

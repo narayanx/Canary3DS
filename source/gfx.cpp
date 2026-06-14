@@ -8,7 +8,6 @@
 #include <cstring>
 #include <dirent.h>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
@@ -30,7 +29,6 @@ u32 g_secondaryColor = C2D_Color32(0x33, 0xCC, 0x55, 0xFF);
 static LightLock s_logLock;
 static bool s_logLockInited = false;
 static std::vector<std::string> s_logLines;
-static std::unordered_map<std::string, std::string> s_fitCache;
 
 static void ensureLogLock() {
     if (!s_logLockInited) {
@@ -227,20 +225,6 @@ void printC2DText(std::string msg, size_t lineOffset) {
         msg.c_str(), 10.0f, 16.0f * (float) lineOffset, 0.5f, 0.5f, 0.5f, C2D_Color32f(1, 1, 1, 1));
 }
 
-static const std::string &fitTextWidthCached(const std::string &text) {
-    auto it = s_fitCache.find(text);
-    if (it != s_fitCache.end()) {
-        return it->second;
-    }
-
-    auto inserted = s_fitCache.emplace(text, fitTextWidth(text, 380.0f, 0.5f));
-    return inserted.first->second;
-}
-
-void clearTextWidthCache() {
-    s_fitCache.clear();
-}
-
 void printFiles(std::vector<dirent> files,
                 size_t selectedFile,
                 size_t scrollOffset,
@@ -266,8 +250,7 @@ void printFiles(std::vector<dirent> files,
 
         u32 col =
             (i == selectedFile) ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
-        const std::string &fittedName = fitTextWidthCached(name);
-        drawStr(fittedName.c_str(), 10, y, 0.5f, 0.5f, 0.5f, col);
+        drawStr(name.c_str(), 10, y, 0.5f, 0.5f, 0.5f, col);
         ++iter;
     }
 
