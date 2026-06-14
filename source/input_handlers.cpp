@@ -487,6 +487,39 @@ void handleAButton(u32 &kDown,
                 screenState = TopScreenState::INFO;
             }
         }
+    } else if (screenState == TopScreenState::INFO) {
+        const int sel = fileController.selectedQueueItem;
+        const int qSz = (int) fileController.playQueue.size();
+        const int aSz = (int) info.autoplayItems.size();
+
+        if (sel < 0) {
+            int hi = -(sel + 1);
+            if (hi < (int) fileController.playHistory.size()) {
+                std::string path = fileController.playHistory[(size_t) hi];
+                stopPlaybackIfPlaying();
+                playSong(path);
+            }
+        } else if (sel >= 1 && sel <= qSz) {
+            int qi = sel - 1;
+            fileController.playQueue.erase(fileController.playQueue.begin(),
+                                           fileController.playQueue.begin() + qi);
+            std::string path = fileController.playQueue.front();
+            fileController.playQueue.pop_front();
+            stopPlaybackIfPlaying();
+            playSong(path);
+        } else if (sel > qSz && sel - qSz - 1 < aSz) {
+            int ai = sel - qSz - 1;
+            const std::string path = info.autoplayItems[(size_t) ai];
+            fileController.playQueue.clear();
+            for (size_t i = fileController.playingFile + 1; i < fileController.files.size(); ++i) {
+                if (fileController.cwd + fileController.files[i].d_name == path) {
+                    fileController.playingFile = i;
+                    break;
+                }
+            }
+            stopPlaybackIfPlaying();
+            playSong(path);
+        }
     }
 }
 
