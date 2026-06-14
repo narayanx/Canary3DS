@@ -241,6 +241,11 @@ void printFiles(std::vector<dirent> files,
         float y = LINE_H * (iter + lineOffset);
         if (i == selectedFile) {
             C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
+            const float MARGIN = 10.0f;
+            // show selected bar across screen (covering up right margin to avoid text overflow in
+            // render_frame.cpp)
+            C2D_DrawRectSolid(
+                400 - MARGIN, y - 1, 0.8f, MARGIN, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
         }
 
         std::string name = files[i].d_name;

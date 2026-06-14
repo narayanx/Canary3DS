@@ -38,7 +38,9 @@ void renderFrame(TopScreenState screenState,
                    fileController.filesShown,
                    1,
                    fileController.files.size());
-
+        // hack to cover up lines that go off screen
+        const float MARGIN = 10.0f;
+        C2D_DrawRectSolid(400 - MARGIN, 0.0f, 0.6f, MARGIN, 240.0f, CLEAR_COLOR);
     } else if (screenState == TopScreenState::INFO) {
         if (info.displayCover) {
             if (info.hasCover) {
