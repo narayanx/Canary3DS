@@ -276,9 +276,7 @@ void handleNavTouch(touchPosition touchPos,
                 ndspChnSetPaused(0, !ndspChnIsPaused(0));
             }
         } else if (px >= NEXT_BTN_X && px <= NEXT_BTN_X + NEXT_BTN_W) {
-            if (audioController.songReady) {
-                goToNextSong();
-            }
+            goToNextSong();
         }
     }
 }
@@ -1384,8 +1382,7 @@ void handleShoulderTaps(
     if (rTapCount > 0 && (now - rTapTime) > MULTI_TAP_WINDOW_MS) {
         if (rTapCount == 2 && audioController.songReady) {
             ndspChnSetPaused(0, !ndspChnIsPaused(0));
-        } else if (rTapCount >= 3 && audioController.songReady &&
-                   fileController.playingFile < fileController.files.size() - 1) {
+        } else if (rTapCount >= 3) {
             goToNextSong();
         }
         rTapCount = 0;

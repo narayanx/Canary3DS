@@ -309,10 +309,37 @@ void stopPlaybackIfPlaying() {
     LightEvent_Signal(&audioController.fillBufferEvent);
 }
 
+// Returns true if there is another song to play (the queue is non empty, autoplay can advance)
+static bool hasNextSong() {
+    if (!fileController.playQueue.empty()) {
+        return true;
+    }
+    if (!audioController.songReady) {
+        return false;
+    }
+    for (size_t i = fileController.playingFile + 1; i < fileController.files.size(); ++i) {
+        if (fileController.files[i].d_type == DT_REG &&
+            isSupportedAudioFile(fileController.cwd + fileController.files[i].d_name)) {
+            return true;
+        }
+    }
+    if (g_settings.repeat == RepeatMode::ALL) {
+        for (const auto &f : fileController.files) {
+            if (f.d_type == DT_REG && isSupportedAudioFile(fileController.cwd + f.d_name)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 // Stop the current song and let autoplay advance to the next one.
 // Does not set interrupted, so the audio thread will try the queue / next file.
 bool goToNextSong() {
     if (!audioController.songReady) {
+        return playNextFromQueue();
+    }
+    if (!hasNextSong()) {
         return false;
     }
     audioController.stopPlayback = true;
