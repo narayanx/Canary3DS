@@ -281,6 +281,19 @@ bool removeSongFromPlaylist(const std::string &playlistPath, size_t songIdx) {
     return true;
 }
 
+bool writePlaylistSongOrder(const std::string &playlistPath,
+                            const std::vector<std::string> &songs) {
+    std::ofstream f(playlistPath, std::ios::trunc);
+    if (!f.is_open()) {
+        return false;
+    }
+    f << "#EXTM3U\n";
+    for (const auto &s : songs) {
+        f << toRelativePath(s) << "\n";
+    }
+    return true;
+}
+
 bool cachePlaylistCoverArt(const std::string &playlistName, const std::string &songPath) {
     auto dec = createDecoder(songPath);
     if (!dec) {

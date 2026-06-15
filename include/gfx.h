@@ -123,8 +123,8 @@ void drawTimeText(double positionSeconds,
 void logToDebugScreen(const char *message);
 void logToDebugScreen(const std::string &message);
 
-// Semi-transparent log overlay drawn on the top screen.
-// Call after all other top-screen rendering within the same C3D frame.
+// Semi-transparent log overlay drawn on the top screen
+// Call after all other top-screen rendering within the same C3D frame
 void renderLogOverlay();
 
 // Draw the settings screen on the top screen.
@@ -137,15 +137,19 @@ void printSettingsMenu(const std::vector<std::string> &items,
 // music-note-symbol-in-a-rounded-square.
 void drawNoteCover(float x, float y, float targetW, float targetH, bool nowPlaying);
 
-// Draw the playlist view: name header, Play/Shuffle buttons, and song list.
-// inHeader: cursor is on the button row; headerBtnSel: 0=Play 1=Shuffle.
-// coverImage: optional pointer to a loaded cover art image (nullptr = no cover).
+// Draw the playlist view: name header, Play/Shuffle (or Save) buttons, and song list
+// inHeader: cursor is on the button row; headerBtnSel: 0=Play 1=Shuffle (ignored when reorderMode)
+// reorderMode: shows a Save button instead of Play/Shuffle and changes the X hint
+// reorderPicked: highlights the selected song as "picked up" for moving
+// coverImage: optional pointer to a loaded cover art image (nullptr = no cover)
 void printPlaylistView(const std::string &playlistName,
                        const std::vector<std::string> &songNames,
                        size_t selSong,
                        size_t viewScroll,
                        bool inHeader,
                        int headerBtnSel,
+                       bool reorderMode,
+                       bool reorderPicked,
                        C2D_Image *coverImage = nullptr);
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after

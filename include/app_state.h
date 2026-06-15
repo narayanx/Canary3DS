@@ -39,6 +39,9 @@ struct PlaylistState {
     bool dirty = true;
     bool inHeader = false;
     int headerBtnSel = 0;
+    bool reorderMode = false;
+    bool reorderPicked = false;
+    bool reorderDirty = false;
     C2D_Image coverImage{};
     C3D_Tex coverTex{};
     Tex3DS_SubTexture coverSubtex{};

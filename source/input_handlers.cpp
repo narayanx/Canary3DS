@@ -17,6 +17,32 @@
 
 static constexpr u64 MULTI_TAP_WINDOW_MS = 350;
 
+// Switch to the screen for bottom-screen nav tab
+static void performNavSwitch(int i,
+                             TopScreenState &screenState,
+                             FileBrowserState &fb,
+                             PlaylistState &pl,
+                             InfoState &info,
+                             SettingsState &st) {
+    if (fb.folderPickerMode && i != 0) {
+        exitFolderPickerMode(screenState, fb, false);
+    }
+    if (i == 0) {
+        screenState = TopScreenState::FILEBROWSER;
+    } else if (i == 1) {
+        screenState = TopScreenState::INFO;
+        fileController.selectedQueueItem = 0;
+        info.scrollTop = 0;
+    } else if (i == 2) {
+        pl.dirty = true;
+        screenState = TopScreenState::PLAYLIST_BROWSER;
+    } else if (i == 3) {
+        screenState = TopScreenState::SETTINGS;
+        st.sel = 0;
+        st.scrollOffset = 0;
+    }
+}
+
 // Play or shuffle-play all songs in the currently viewed playlist
 // Shows a confirmation popup if the queue is non-empty
 static void
@@ -181,27 +207,39 @@ void handleNavTouch(touchPosition touchPos,
     if (py >= NAV_BTN_Y && py <= NAV_BTN_Y + NAV_BTN_H) {
         for (int i = 0; i < NAV_BTN_COUNT; ++i) {
             if (px >= NAV_BTN_X[i] && px <= NAV_BTN_X[i] + NAV_BTN_W) {
+                if (screenState == TopScreenState::PLAYLIST_VIEW && pl.reorderMode &&
+                    pl.reorderDirty) {
+                    s_sub.active = false;
+                    s_ctx.close();
+                    s_ctx.add("Save changes", [&pl, &s_ctx, &screenState, &fb, &info, &st, i]() {
+                        if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                            writePlaylistSongOrder(pl.playlists[pl.sel].path,
+                                                   pl.playlists[pl.sel].songs)) {
+                            logToDebugScreen("Playlist order saved");
+                        } else {
+                            logToDebugScreen("Failed to save playlist order");
+                        }
+                        pl.reorderMode = false;
+                        pl.reorderPicked = false;
+                        pl.reorderDirty = false;
+                        s_ctx.close();
+                        performNavSwitch(i, screenState, fb, pl, info, st);
+                    });
+                    s_ctx.add("Discard changes", [&pl, &s_ctx, &screenState, &fb, &info, &st, i]() {
+                        pl.reorderMode = false;
+                        pl.reorderPicked = false;
+                        pl.reorderDirty = false;
+                        pl.dirty = true;
+                        s_ctx.close();
+                        performNavSwitch(i, screenState, fb, pl, info, st);
+                    });
+                    s_ctx.add("Cancel", [&s_ctx]() { s_ctx.close(); });
+                    s_ctx.open(60.0f, 60.0f);
+                    break;
+                }
                 s_sub.active = false;
                 s_ctx.close();
-                // If a nav tab other than "Files" is tapped while the folder
-                // picker is open, cancel the picker first.
-                if (fb.folderPickerMode && i != 0) {
-                    exitFolderPickerMode(screenState, fb, false);
-                }
-                if (i == 0) {
-                    screenState = TopScreenState::FILEBROWSER;
-                } else if (i == 1) {
-                    screenState = TopScreenState::INFO;
-                    fileController.selectedQueueItem = 0;
-                    info.scrollTop = 0;
-                } else if (i == 2) {
-                    pl.dirty = true;
-                    screenState = TopScreenState::PLAYLIST_BROWSER;
-                } else if (i == 3) {
-                    screenState = TopScreenState::SETTINGS;
-                    st.sel = 0;
-                    st.scrollOffset = 0;
-                }
+                performNavSwitch(i, screenState, fb, pl, info, st);
                 break;
             }
         }
@@ -470,11 +508,29 @@ void handleAButton(u32 &kDown,
             pl.selSong = 0;
             pl.viewScroll = 0;
             pl.inHeader = false;
+            pl.reorderMode = false;
+            pl.reorderPicked = false;
+            pl.reorderDirty = false;
             pl.coverLoadedFrom = "";
             screenState = TopScreenState::PLAYLIST_VIEW;
         }
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-        if (pl.inHeader) {
+        if (pl.reorderMode) {
+            if (pl.inHeader) {
+                if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+                    if (writePlaylistSongOrder(pl.playlists[pl.sel].path,
+                                               pl.playlists[pl.sel].songs)) {
+                        pl.reorderDirty = false;
+                        logToDebugScreen("Playlist order saved");
+                    } else {
+                        logToDebugScreen("Failed to save playlist order");
+                    }
+                }
+            } else if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                       !pl.playlists[pl.sel].songs.empty()) {
+                pl.reorderPicked = !pl.reorderPicked;
+            }
+        } else if (pl.inHeader) {
             triggerPlaylistPlay(pl, s_ctx, screenState, pl.headerBtnSel == 1);
         } else if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
                    !pl.playlists[pl.sel].songs.empty()) {
@@ -883,8 +939,17 @@ void handleXButton(u32 kDown,
         s_ctx.open(50.0f, menuY);
 
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-        if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
-            !pl.playlists[pl.sel].songs.empty() && !pl.inHeader) {
+        if (pl.reorderMode) {
+            if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+                if (writePlaylistSongOrder(pl.playlists[pl.sel].path, pl.playlists[pl.sel].songs)) {
+                    pl.reorderDirty = false;
+                    logToDebugScreen("Playlist order saved");
+                } else {
+                    logToDebugScreen("Failed to save playlist order");
+                }
+            }
+        } else if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                   !pl.playlists[pl.sel].songs.empty() && !pl.inHeader) {
             std::string songPath = pl.playlists[pl.sel].songs[pl.selSong];
             size_t snapIdx = pl.selSong;
             const size_t pv_header_steps = std::min(pl.viewScroll, (size_t) 12);
@@ -935,6 +1000,12 @@ void handleXButton(u32 kDown,
                 }
                 s_ctx.close();
             });
+            s_ctx.add("Reorder songs", [&pl, &s_ctx]() {
+                pl.reorderMode = true;
+                pl.reorderPicked = false;
+                pl.reorderDirty = false;
+                s_ctx.close();
+            });
             s_ctx.open(50.0f, menu_y);
         }
     }
@@ -951,7 +1022,13 @@ void handleBButton(u32 kDown,
         ndspChnSetPaused(0, true);
         logToDebugScreen("Pausing and going to filebrowser");
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-        screenState = TopScreenState::PLAYLIST_BROWSER;
+        if (pl.reorderMode) {
+            pl.reorderMode = false;
+            pl.reorderPicked = false;
+            pl.reorderDirty = false;
+        } else {
+            screenState = TopScreenState::PLAYLIST_BROWSER;
+        }
     } else {  // FILEBROWSER
         // Folder-picker mode: B goes up or cancels
         if (fb.folderPickerMode) {
@@ -1364,7 +1441,26 @@ void handleUpNav(u32 kDown,
                                    : 0;
         }
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-        if (!pl.inHeader) {
+        if (pl.reorderMode) {
+            if (!pl.inHeader) {
+                if (pl.selSong > 0) {
+                    if (pl.reorderPicked) {
+                        std::swap(pl.playlists[pl.sel].songs[pl.selSong],
+                                  pl.playlists[pl.sel].songs[pl.selSong - 1]);
+                        pl.reorderDirty = true;
+                    }
+                    --pl.selSong;
+                    const size_t pv_song_offset = (pl.viewScroll > 12) ? pl.viewScroll - 12 : 0;
+                    if (pl.selSong < pv_song_offset) {
+                        --pl.viewScroll;
+                    }
+                } else if (!upRepeat && !pl.reorderPicked) {
+                    pl.inHeader = true;
+                    pl.viewScroll = 0;
+                }
+            }
+            // inHeader (Save button): nothing above it
+        } else if (!pl.inHeader) {
             if (pl.selSong > 0) {
                 --pl.selSong;
                 const size_t pv_song_offset = (pl.viewScroll > 12) ? pl.viewScroll - 12 : 0;
@@ -1435,7 +1531,28 @@ void handleDownNav(u32 kDown,
             pl.browserScroll = 0;
         }
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
-        if (pl.inHeader) {
+        if (pl.reorderMode) {
+            if (pl.inHeader) {
+                if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                    !pl.playlists[pl.sel].songs.empty()) {
+                    pl.inHeader = false;
+                    pl.selSong = 0;
+                    pl.viewScroll = 0;
+                }
+            } else if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
+                       pl.selSong < pl.playlists[pl.sel].songs.size() - 1) {
+                if (pl.reorderPicked) {
+                    std::swap(pl.playlists[pl.sel].songs[pl.selSong],
+                              pl.playlists[pl.sel].songs[pl.selSong + 1]);
+                    pl.reorderDirty = true;
+                }
+                ++pl.selSong;
+                if (pl.selSong > pl.viewScroll + 2) {
+                    ++pl.viewScroll;
+                }
+            }
+            // last song: no wrap to header while reordering
+        } else if (pl.inHeader) {
             // don't scroll in empty playlist
             if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
                 !pl.playlists[pl.sel].songs.empty()) {

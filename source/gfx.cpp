@@ -724,6 +724,8 @@ void printPlaylistView(const std::string &playlistName,
                        size_t viewScroll,
                        bool inHeader,
                        int headerBtnSel,
+                       bool reorderMode,
+                       bool reorderPicked,
                        C2D_Image *coverImage) {
     const float LINE_H = 16.0f;
     const float BTN_H = 14.0f;
@@ -791,11 +793,15 @@ void printPlaylistView(const std::string &playlistName,
                 C2D_AlignCenter | C2D_WithColor);
     };
 
-    drawBtn(BTN1_X, BTN1_W, "Play", inHeader && headerBtnSel == 0);
-    drawBtn(BTN2_X, BTN2_W, "Shuffle", inHeader && headerBtnSel == 1);
+    if (reorderMode) {
+        drawBtn(BTN1_X, BTN2_X + BTN2_W - BTN1_X, "Save", inHeader);
+    } else {
+        drawBtn(BTN1_X, BTN1_W, "Play", inHeader && headerBtnSel == 0);
+        drawBtn(BTN2_X, BTN2_W, "Shuffle", inHeader && headerBtnSel == 1);
+    }
 
     // hint text to the right of buttons
-    drawStr("X=Menu",
+    drawStr(reorderMode ? "X=Save" : "X=Menu",
             BTN2_X + BTN2_W + 8.0f,
             BTN_Y - HEADER_SCROLL + 2.0f,
             0.5f,
@@ -819,7 +825,17 @@ void printPlaylistView(const std::string &playlistName,
     for (size_t i = songOffset; i < std::min(songNames.size(), songOffset + SONG_ROWS); ++i) {
         float y = SONGS_Y + LINE_H * (float) iter - HEADER_SCROLL;
         bool sel = !inHeader && i == selSong;
-        if (sel) {
+        if (sel && reorderMode && reorderPicked) {
+            C2D_DrawRectSolid(0,
+                              y - 1,
+                              0.4f,
+                              400,
+                              LINE_H,
+                              C2D_Color32((u8) ((g_accentColor & 0xFF) / 3),
+                                          (u8) (((g_accentColor >> 8) & 0xFF) / 3),
+                                          (u8) (((g_accentColor >> 16) & 0xFF) / 3),
+                                          0xFF));
+        } else if (sel) {
             C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
         }
         u32 col = sel ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);

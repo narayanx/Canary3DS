@@ -92,6 +92,8 @@ void renderFrame(TopScreenState screenState,
                               pl.viewScroll,
                               pl.inHeader,
                               pl.headerBtnSel,
+                              pl.reorderMode,
+                              pl.reorderPicked,
                               pl.hasCover ? &pl.coverImage : nullptr);
         }
     } else if (screenState == TopScreenState::SETTINGS) {
