@@ -24,9 +24,9 @@ struct AudioController {
     std::string songTrackNumber;
 
     // Decoder (owned exclusively by audioThread during playback)
-    // Main thread only touches this in loadCoverArtForCurrentSong() and audioExit(),
-    // both of which are safe because songReady is false at those call sites.
+    // Main thread touches this in loadCoverArtForCurrentSong() and audioExit().
     IAudioDecoder *decoder;
+    LightLock decoderLock;  // guards against concurrent delete/replace during a song transition
 
     // Playback-control flags (written by main thread, read by audio thread)
     volatile bool songReady;       // true while a decoder is loaded and filling buffers

@@ -18,6 +18,7 @@ AudioController audioController = {
     .songPath = "",
     .songArtist = "",
     .decoder = nullptr,
+    .decoderLock = 0,
     .songReady = false,
     .stopPlayback = false,
     .interrupted = false,
@@ -36,6 +37,8 @@ AudioController audioController = {
 volatile bool runThreads = true;
 
 bool audioInit() {
+    LightLock_Init(&audioController.decoderLock);
+
     ndspChnReset(0);
     ndspSetOutputMode(NDSP_OUTPUT_STEREO);
     ndspChnSetInterp(0, NDSP_INTERP_POLYPHASE);
@@ -186,7 +189,6 @@ void audioThread(void *) {
             wb.status = NDSP_WBUF_DONE;
         }
 
-        audioController.songReady = false;
         audioController.stopPlayback = false;
         audioController.seekPending = false;
         audioController.songPositionSeconds = 0.0;
@@ -200,9 +202,14 @@ void audioThread(void *) {
         }
         audioController.skipNextHistoryEntry = false;
 
+        LightLock_Lock(&audioController.decoderLock);
+        if (audioController.decoder == dec) {
+            audioController.decoder = nullptr;
+            audioController.songReady = false;
+        }
+        LightLock_Unlock(&audioController.decoderLock);
         delete dec;
         dec = nullptr;
-        audioController.decoder = nullptr;
 
         if (!runThreads) {
             break;
@@ -289,8 +296,10 @@ bool playSong(const std::string &path) {
     audioController.songPositionSeconds = 0.0;
     audioController.seekPending = false;
     audioController.stopPlayback = false;
+    LightLock_Lock(&audioController.decoderLock);
     audioController.decoder = dec.release();
     audioController.songReady = true;
+    LightLock_Unlock(&audioController.decoderLock);
     audioController.newSongStarted = true;
 
     LightEvent_Signal(&audioController.startEvent);
@@ -378,11 +387,15 @@ bool loadCoverArtForCurrentSong(C2D_Image &image,
                                 C3D_Tex &tex,
                                 Tex3DS_SubTexture &subtex,
                                 bool &loadedImage) {
-    if (!audioController.decoder) {
+    LightLock_Lock(&audioController.decoderLock);
+    IAudioDecoder *dec = audioController.decoder;
+    if (!dec) {
+        LightLock_Unlock(&audioController.decoderLock);
         loadedImage = false;
         return false;
     }
-    const bool ok = audioController.decoder->loadCoverArt(image, tex, subtex, loadedImage);
+    const bool ok = dec->loadCoverArt(image, tex, subtex, loadedImage);
+    LightLock_Unlock(&audioController.decoderLock);
     loadedImage = ok;
     return ok;
 }
