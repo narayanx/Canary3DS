@@ -19,6 +19,7 @@ AudioController audioController = {
     .songArtist = "",
     .decoder = nullptr,
     .decoderLock = 0,
+    .starting = false,
     .songReady = false,
     .stopPlayback = false,
     .interrupted = false,
@@ -279,13 +280,23 @@ void audioCallback(void *) {
 // the LightEvent_Signal is consumed immediately on the next iteration of the
 // thread's outer loop.
 bool playSong(const std::string &path) {
+    LightLock_Lock(&audioController.decoderLock);
+    if (audioController.starting) {
+        LightLock_Unlock(&audioController.decoderLock);
+        return false;
+    }
+    audioController.starting = true;
+    LightLock_Unlock(&audioController.decoderLock);
+
     auto dec = createDecoder(path);
     if (!dec) {
         logToDebugScreen("Unsupported format: " + path);
+        audioController.starting = false;
         return false;
     }
     if (!dec->open(path)) {
         logToDebugScreen("Failed to open: " + path);
+        audioController.starting = false;
         return false;
     }
 
@@ -299,6 +310,7 @@ bool playSong(const std::string &path) {
     LightLock_Lock(&audioController.decoderLock);
     audioController.decoder = dec.release();
     audioController.songReady = true;
+    audioController.starting = false;
     LightLock_Unlock(&audioController.decoderLock);
     audioController.newSongStarted = true;
 

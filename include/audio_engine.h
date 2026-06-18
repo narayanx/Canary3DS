@@ -26,7 +26,8 @@ struct AudioController {
     // Decoder (owned exclusively by audioThread during playback)
     // Main thread touches this in loadCoverArtForCurrentSong() and audioExit().
     IAudioDecoder *decoder;
-    LightLock decoderLock;  // guards against concurrent delete/replace during a song transition
+    LightLock decoderLock;   // guards against concurrent delete/replace during a song transition
+    volatile bool starting;  // true while opening song file (blocks a second concurrent transition)
 
     // Playback-control flags (written by main thread, read by audio thread)
     volatile bool songReady;       // true while a decoder is loaded and filling buffers
