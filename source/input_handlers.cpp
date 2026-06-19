@@ -111,6 +111,41 @@ static void openAddToPlaylistSub(PlaylistState &pl,
     s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
 }
 
+// Open the playlist picker submenu for a list of songs (eg: queue, folder)
+static void openAddSongsToPlaylistSub(PlaylistState &pl,
+                                      CtxMenu &s_ctx,
+                                      CtxMenu &s_sub,
+                                      const std::vector<std::string> &songs) {
+    if (songs.empty()) {
+        logToDebugScreen("No songs to add");
+        s_ctx.close();
+        return;
+    }
+    pl.playlists = loadPlaylists();
+    if (pl.playlists.empty()) {
+        logToDebugScreen("No playlists. Create one first.");
+        s_ctx.close();
+        return;
+    }
+    s_sub.close();
+    for (size_t i = 0; i < pl.playlists.size(); ++i) {
+        s_sub.add(pl.playlists[i].name, [&pl, &s_sub, &s_ctx, songs, i]() {
+            int added = 0;
+            for (const auto &song : songs) {
+                if (addSongToPlaylist(pl.playlists[i].path, song)) {
+                    pl.playlists[i].songs.push_back(song);
+                    ++added;
+                }
+            }
+            logToDebugScreen("Added " + std::to_string(added) + " song(s) to \"" +
+                             pl.playlists[i].name + "\"");
+            s_sub.active = false;
+            s_ctx.close();
+        });
+    }
+    s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
+}
+
 static std::vector<std::string> getFolderSongs(const std::string &folderPath) {
     std::vector<std::string> songs;
     DIR *d = opendir(folderPath.c_str());
@@ -772,6 +807,14 @@ void handleXButton(u32 kDown,
             s_ctx.add("Add to playlist >", [&pl, &s_ctx, &s_sub, path]() {
                 openAddToPlaylistSub(pl, s_ctx, s_sub, path);
             });
+
+            if (sel >= 0 && !fileController.playQueue.empty()) {
+                s_ctx.add("Add entire queue to playlist >", [&pl, &s_ctx, &s_sub]() {
+                    std::vector<std::string> songs(fileController.playQueue.begin(),
+                                                   fileController.playQueue.end());
+                    openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
+                });
+            }
 
             if (sel < 0 && !fileController.playHistory.empty()) {
                 s_ctx.add("Clear history", [&s_ctx, &s_sub, &info]() {
