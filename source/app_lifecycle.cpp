@@ -52,6 +52,8 @@ bool appInit() {
 }
 
 void appExit() {
+    restoreBrightness();
+
     if (audioController.songReady) {
         audioController.stopPlayback = true;
     }

@@ -46,6 +46,9 @@ void applyVolume();
 // Push brightness setting to the LCD hardware.
 void applyBrightness();
 
+// Restore whatever brightness was active before program changed.
+void restoreBrightness();
+
 // Push accent / secondary color indices to the renderer globals.
 void applyAccentColor();
 void applySecondaryColor();

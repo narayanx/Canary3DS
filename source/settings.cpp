@@ -311,6 +311,9 @@ void applyVolume() {
     ndspChnSetMix(0, mix);
 }
 
+static u32 s_originalBrightness = 0;
+static bool s_originalBrightnessSaved = false;
+
 void applyBrightness() {
     static const u32 BRIGHTNESS_RAW[5] = {16, 55, 95, 141, 182};
     int idx = g_settings.brightness - 1;
@@ -321,7 +324,22 @@ void applyBrightness() {
         idx = 4;
     }
     if (R_SUCCEEDED(gspLcdInit())) {
+        if (!s_originalBrightnessSaved) {
+            // Remember original brightness, so we can put it back on exit
+            s_originalBrightnessSaved =
+                R_SUCCEEDED(GSPLCD_GetBrightness(GSPLCD_SCREEN_TOP, &s_originalBrightness));
+        }
         GSPLCD_SetBrightnessRaw(GSPLCD_SCREEN_BOTH, BRIGHTNESS_RAW[idx]);
+        gspLcdExit();
+    }
+}
+
+void restoreBrightness() {
+    if (!s_originalBrightnessSaved) {
+        return;
+    }
+    if (R_SUCCEEDED(gspLcdInit())) {
+        GSPLCD_SetBrightnessRaw(GSPLCD_SCREEN_BOTH, s_originalBrightness);
         gspLcdExit();
     }
 }
