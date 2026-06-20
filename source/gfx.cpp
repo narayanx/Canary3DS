@@ -297,20 +297,16 @@ void printNowPlayingList(const std::deque<std::string> &history,
     // Fixed section label header
     {
         std::string hdr;
-        u32 hdrCol;
+        u32 hdrCol = g_accentColor;
         if (topVirtualIdx < 0) {
             hdr = "History";
-            hdrCol = g_secondaryColor;
         } else if (topVirtualIdx == 0) {
             hdr = "Now Playing";
-            hdrCol = g_secondaryColor;
         } else if (qSz > 0 && topVirtualIdx <= qSz) {
             hdr = reorderMode ? (reorderPicked ? "Queue  (\uE000=Drop)" : "Queue  (\uE000=Pick up)")
                               : "Queue";
-            hdrCol = g_secondaryColor;
         } else {
             hdr = "Autoplay";
-            hdrCol = g_secondaryColor;
         }
         drawStr(hdr.c_str(), START_X + 4.0f, BASE_Y, 0.5f, 0.44f, 0.44f, hdrCol);
     }
@@ -371,9 +367,9 @@ void printNowPlayingList(const std::deque<std::string> &history,
                 break;
             }
 
-            u8 sR = (u8) (g_secondaryColor & 0xFF);
-            u8 sG = (u8) ((g_secondaryColor >> 8) & 0xFF);
-            u8 sB = (u8) ((g_secondaryColor >> 16) & 0xFF);
+            u8 sR = (u8) (g_accentColor & 0xFF);
+            u8 sG = (u8) ((g_accentColor >> 8) & 0xFF);
+            u8 sB = (u8) ((g_accentColor >> 16) & 0xFF);
             // get lighter version of color for highlight
             auto lw = [](u8 c, unsigned t) -> u8 { return (u8) (c + ((255u - c) * t >> 8u)); };
 
@@ -393,7 +389,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
                                   C2D_Color32((u8) (sR / 5), (u8) (sG / 5), (u8) (sB / 5), 0xFF));
             }
 
-            C2D_DrawRectSolid(START_X, y - 1.0f, 0.45f, 2.0f, CARD_H + 1.0f, g_secondaryColor);
+            C2D_DrawRectSolid(START_X, y - 1.0f, 0.45f, 2.0f, CARD_H + 1.0f, g_accentColor);
 
             const float cardTextX = START_X + 7.0f;
             {
