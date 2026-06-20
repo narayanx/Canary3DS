@@ -1551,8 +1551,17 @@ void handleDownNav(u32 kDown,
     } else if (screenState == TopScreenState::INFO) {
         if (fileController.selectedQueueItem < maxInfoIdx) {
             ++fileController.selectedQueueItem;
-            const int infoMaxVis = (info.scrollTop <= 0) ? INFO_MAX_VIS_CARD : INFO_MAX_VIS;
+            const bool useLargeWindow =
+                fileController.selectedQueueItem < -8 && info.scrollTop < -17;
+
+            const int infoMaxVis =
+                (info.scrollTop <= 0 && !useLargeWindow) ? INFO_MAX_VIS_CARD : INFO_MAX_VIS;
             if (fileController.selectedQueueItem >= info.scrollTop + infoMaxVis) {
+                ++info.scrollTop;
+            }
+            // ensure that card fits on screen when scrolling down in history and get close
+            if ((fileController.selectedQueueItem >= -2 && fileController.selectedQueueItem < 0) &&
+                (info.scrollTop <= -12)) {
                 ++info.scrollTop;
             }
         } else if (!downRepeat) {
