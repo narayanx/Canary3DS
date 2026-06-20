@@ -93,7 +93,9 @@ void printNowPlayingList(const std::deque<std::string> &history,
                          int topVirtualIdx,
                          const std::string &nowPlayingName,
                          const std::string &nowPlayingArtist,
-                         const std::string &nowPlayingTrack);
+                         const std::string &nowPlayingTrack,
+                         bool reorderMode = false,
+                         bool reorderPicked = false);
 
 void printStringList(const std::vector<std::string> &items,
                      size_t selectedIdx,

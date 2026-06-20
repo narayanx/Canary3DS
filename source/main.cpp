@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
                 handleXButton(kDown, screenState, fb, pl, info, s_ctx, s_sub);
             }
             if (kDown & KEY_B) {
-                handleBButton(kDown, screenState, fb, pl);
+                handleBButton(kDown, screenState, fb, pl, info);
             }
             if (kDown & KEY_Y) {
                 // In folder-picker mode Y confirms the selected directory.
@@ -188,6 +188,24 @@ int main(int argc, char *argv[]) {
         const int aSzInfo = (int) info.autoplayItems.size();
         const int minInfoIdx = -histSzInfo;
         const int maxInfoIdx = qSzInfo + aSzInfo;
+
+        if (info.reorderMode) {
+            if (qSzInfo == 0) {
+                info.reorderMode = false;
+                info.reorderPicked = false;
+                info.reorderFromIdx = -1;
+            } else {
+                if (info.reorderPicked && info.reorderFromIdx >= qSzInfo) {
+                    info.reorderPicked = false;
+                    info.reorderFromIdx = -1;
+                }
+                if (fileController.selectedQueueItem > qSzInfo) {
+                    fileController.selectedQueueItem = qSzInfo;
+                } else if (fileController.selectedQueueItem < 1) {
+                    fileController.selectedQueueItem = 1;
+                }
+            }
+        }
 
         bool firstItem =
             (screenState == TopScreenState::FILEBROWSER && fileController.selectedFile == 0) ||

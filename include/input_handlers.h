@@ -56,7 +56,11 @@ void handleXButton(u32 kDown,
                    CtxMenu &s_ctx,
                    CtxMenu &s_sub);
 
-void handleBButton(u32 kDown, TopScreenState &screenState, FileBrowserState &fb, PlaylistState &pl);
+void handleBButton(u32 kDown,
+                   TopScreenState &screenState,
+                   FileBrowserState &fb,
+                   PlaylistState &pl,
+                   InfoState &info);
 
 void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info);
 

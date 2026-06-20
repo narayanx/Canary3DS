@@ -59,6 +59,10 @@ struct InfoState {
     bool displayCover = true;
     bool seekDragging = false;
     float seekDragProgress = 0.0f;
+    // Queue reorder mode
+    bool reorderMode = false;
+    bool reorderPicked = false;
+    int reorderFromIdx = -1;  // original queue index of the picked song, -1 when not picked
 };
 
 struct SettingsState {

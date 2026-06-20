@@ -279,7 +279,9 @@ void printNowPlayingList(const std::deque<std::string> &history,
                          int topVirtualIdx,
                          const std::string &nowPlayingName,
                          const std::string &nowPlayingArtist,
-                         const std::string &nowPlayingTrack) {
+                         const std::string &nowPlayingTrack,
+                         bool reorderMode,
+                         bool reorderPicked) {
     const float START_X = 210.0f;
     const float BASE_Y = 8.0f;
     const float LINE_H = 16.0f;
@@ -294,7 +296,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
 
     // Fixed section label header
     {
-        const char *hdr;
+        std::string hdr;
         u32 hdrCol;
         if (topVirtualIdx < 0) {
             hdr = "History";
@@ -303,13 +305,14 @@ void printNowPlayingList(const std::deque<std::string> &history,
             hdr = "Now Playing";
             hdrCol = g_secondaryColor;
         } else if (qSz > 0 && topVirtualIdx <= qSz) {
-            hdr = "Queue";
+            hdr = reorderMode ? (reorderPicked ? "Queue  (\uE000=Drop)" : "Queue  (\uE000=Pick up)")
+                              : "Queue";
             hdrCol = g_secondaryColor;
         } else {
             hdr = "Autoplay";
             hdrCol = g_secondaryColor;
         }
-        drawStr(hdr, START_X + 4.0f, BASE_Y, 0.5f, 0.44f, 0.44f, hdrCol);
+        drawStr(hdr.c_str(), START_X + 4.0f, BASE_Y, 0.5f, 0.44f, 0.44f, hdrCol);
     }
 
     float y = BASE_Y + LINE_H;
@@ -464,12 +467,13 @@ void printNowPlayingList(const std::deque<std::string> &history,
         name = fitTextWidth(name, 180.0f, 0.45f);
 
         if (isSelected) {
-            C2D_DrawRectSolid(START_X,
-                              y - 1.0f,
-                              0.4f,
-                              400.0f - START_X,
-                              LINE_H,
-                              C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
+            u32 hl = (reorderMode && reorderPicked)
+                         ? C2D_Color32((u8) ((g_accentColor & 0xFF) / 3),
+                                       (u8) (((g_accentColor >> 8) & 0xFF) / 3),
+                                       (u8) (((g_accentColor >> 16) & 0xFF) / 3),
+                                       0xFF)
+                         : C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF);
+            C2D_DrawRectSolid(START_X, y - 1.0f, 0.4f, 400.0f - START_X, LINE_H, hl);
         }
 
         u32 col = isSelected ? C2D_Color32f(1.00f, 1.00f, 1.00f, 1.0f)

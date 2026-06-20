@@ -1,5 +1,6 @@
 #include "render_frame.h"
 
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -50,15 +51,30 @@ void renderFrame(TopScreenState screenState,
             }
         }
 
+        // While a song is picked up, show it at its in-progress position without
+        // touching fileController.playQueue (that only happens when it's dropped).
+        std::deque<std::string> displayQueue = fileController.playQueue;
+        if (info.reorderMode && info.reorderPicked && info.reorderFromIdx >= 0 &&
+            info.reorderFromIdx < (int) displayQueue.size()) {
+            int from = info.reorderFromIdx;
+            int to = fileController.selectedQueueItem - 1;
+            if (to >= 0 && to < (int) displayQueue.size() && to != from) {
+                std::string song = displayQueue[(size_t) from];
+                displayQueue.erase(displayQueue.begin() + from);
+                displayQueue.insert(displayQueue.begin() + to, song);
+            }
+        }
+
         printNowPlayingList(fileController.playHistory,
-                            fileController.playQueue,
+                            displayQueue,
                             info.autoplayItems,
                             fileController.selectedQueueItem,
                             info.scrollTop,
                             audioController.songPath,
                             audioController.songArtist,
-                            audioController.songTrackNumber);
-
+                            audioController.songTrackNumber,
+                            info.reorderMode,
+                            info.reorderPicked);
         {
             double dur = audioController.songDurationSeconds;
             bool showDrag = info.seekDragging || audioController.seekPending;

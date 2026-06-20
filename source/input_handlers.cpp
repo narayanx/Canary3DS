@@ -27,6 +27,11 @@ static void performNavSwitch(int i,
     if (fb.folderPickerMode && i != 0) {
         exitFolderPickerMode(screenState, fb, false);
     }
+    if (info.reorderMode) {
+        info.reorderMode = false;
+        info.reorderPicked = false;
+        info.reorderFromIdx = -1;
+    }
     if (i == 0) {
         screenState = TopScreenState::FILEBROWSER;
     } else if (i == 1) {
@@ -577,6 +582,26 @@ void handleAButton(u32 &kDown,
             }
         }
     } else if (screenState == TopScreenState::INFO) {
+        if (info.reorderMode) {
+            const int qSz = (int) fileController.playQueue.size();
+            if (!info.reorderPicked) {
+                if (qSz > 0) {
+                    info.reorderPicked = true;
+                    info.reorderFromIdx = fileController.selectedQueueItem - 1;
+                }
+            } else {
+                int from = info.reorderFromIdx;
+                int to = fileController.selectedQueueItem - 1;
+                if (from >= 0 && from < qSz && to >= 0 && to < qSz && from != to) {
+                    std::string song = fileController.playQueue[(size_t) from];
+                    fileController.playQueue.erase(fileController.playQueue.begin() + from);
+                    fileController.playQueue.insert(fileController.playQueue.begin() + to, song);
+                }
+                info.reorderPicked = false;
+                info.reorderFromIdx = -1;
+            }
+            return;
+        }
         const int sel = fileController.selectedQueueItem;
         const int qSz = (int) fileController.playQueue.size();
         const int aSz = (int) info.autoplayItems.size();
@@ -803,6 +828,21 @@ void handleXButton(u32 kDown,
                     }
                     s_ctx.close();
                 });
+                if (info.reorderMode) {
+                    s_ctx.add("Exit rearranging mode", [&s_ctx, &info]() {
+                        info.reorderMode = false;
+                        info.reorderPicked = false;
+                        info.reorderFromIdx = -1;
+                        s_ctx.close();
+                    });
+                } else {
+                    s_ctx.add("Reorder songs", [&s_ctx, &info]() {
+                        info.reorderMode = true;
+                        info.reorderPicked = false;
+                        info.reorderFromIdx = -1;
+                        s_ctx.close();
+                    });
+                }
             }
             s_ctx.add("Add to playlist >", [&pl, &s_ctx, &s_sub, path]() {
                 openAddToPlaylistSub(pl, s_ctx, s_sub, path);
@@ -1055,13 +1095,20 @@ void handleXButton(u32 kDown,
 void handleBButton(u32 kDown,
                    TopScreenState &screenState,
                    FileBrowserState &fb,
-                   PlaylistState &pl) {
+                   PlaylistState &pl,
+                   InfoState &info) {
     if (screenState == TopScreenState::SETTINGS) {
         screenState = TopScreenState::FILEBROWSER;
     } else if (screenState == TopScreenState::INFO) {
-        screenState = TopScreenState::FILEBROWSER;
-        ndspChnSetPaused(0, true);
-        logToDebugScreen("Pausing and going to filebrowser");
+        if (info.reorderMode) {
+            info.reorderMode = false;
+            info.reorderPicked = false;
+            info.reorderFromIdx = -1;
+        } else {
+            screenState = TopScreenState::FILEBROWSER;
+            ndspChnSetPaused(0, true);
+            logToDebugScreen("Pausing and going to filebrowser");
+        }
     } else if (screenState == TopScreenState::PLAYLIST_VIEW) {
         if (pl.reorderMode) {
             pl.reorderMode = false;
@@ -1133,6 +1180,9 @@ void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info) {
         fileController.selectedQueueItem = 0;
         info.scrollTop = 0;
     } else if (screenState == TopScreenState::INFO) {
+        info.reorderMode = false;
+        info.reorderPicked = false;
+        info.reorderFromIdx = -1;
         screenState = TopScreenState::FILEBROWSER;
     }
 }
@@ -1549,7 +1599,16 @@ void handleDownNav(u32 kDown,
             fb.scroll = 0;
         }
     } else if (screenState == TopScreenState::INFO) {
-        if (fileController.selectedQueueItem < maxInfoIdx) {
+        if (info.reorderMode) {
+            const int qSz = (int) fileController.playQueue.size();
+            if (fileController.selectedQueueItem < qSz) {
+                ++fileController.selectedQueueItem;
+                const int infoMaxVis = (info.scrollTop <= 0) ? INFO_MAX_VIS_CARD : INFO_MAX_VIS;
+                if (fileController.selectedQueueItem >= info.scrollTop + infoMaxVis) {
+                    ++info.scrollTop;
+                }
+            }
+        } else if (fileController.selectedQueueItem < maxInfoIdx) {
             ++fileController.selectedQueueItem;
             const bool useLargeWindow =
                 fileController.selectedQueueItem < -8 && info.scrollTop < -17;
