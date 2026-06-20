@@ -99,7 +99,7 @@ int main(int argc, char *argv[]) {
 
         // Autoplay preview (cheap to rebuild each frame)
         info.autoplayItems.clear();
-        if (audioController.songReady) {
+        if (audioController.songReady || audioController.starting) {
             size_t nf = fileController.playingFile + 1;
             while (nf < fileController.files.size() && info.autoplayItems.size() < AUTOPLAY_PEEK) {
                 if (fileController.files[nf].d_type == DT_REG) {
