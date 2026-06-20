@@ -45,6 +45,10 @@ struct AudioController {
     volatile double seekTargetSeconds;
     volatile bool seekRestorePaused;
 
+    // Preserving play/pause state for going to previous or next song
+    volatile bool pendingStartPaused;
+    volatile bool applyPendingStartPaused;
+
     // Position/duration (audio thread writes, main thread reads for UI)
     volatile double songPositionSeconds;
     volatile double songDurationSeconds;  // -1.0 if unknown

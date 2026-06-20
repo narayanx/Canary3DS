@@ -29,6 +29,8 @@ AudioController audioController = {
     .seekPending = false,
     .seekTargetSeconds = 0.0,
     .seekRestorePaused = false,
+    .pendingStartPaused = false,
+    .applyPendingStartPaused = false,
     .songPositionSeconds = 0.0,
     .songDurationSeconds = -1.0,
     .startEvent = {0},
@@ -148,6 +150,10 @@ void audioThread(void *) {
         std::string finishedPath = audioController.songPath;
 
         resetChannel(dec->getSampleRate());
+        if (audioController.applyPendingStartPaused) {
+            ndspChnSetPaused(0, audioController.pendingStartPaused);
+            audioController.applyPendingStartPaused = false;
+        }
 
         // Fill loop
         // When NDSP finishes one it fires audioCallback → signals fillBufferEvent → we
@@ -363,6 +369,8 @@ bool goToNextSong() {
     if (!hasNextSong()) {
         return false;
     }
+    audioController.pendingStartPaused = ndspChnIsPaused(0);
+    audioController.applyPendingStartPaused = true;
     audioController.stopPlayback = true;
     LightEvent_Signal(&audioController.fillBufferEvent);
     return true;

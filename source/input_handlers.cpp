@@ -308,6 +308,8 @@ void handleNavTouch(touchPosition touchPos,
                 fileController.playHistory.pop_front();
                 fileController.playQueue.push_front(audioController.songPath);
                 audioController.skipNextHistoryEntry = true;
+                audioController.pendingStartPaused = ndspChnIsPaused(0);
+                audioController.applyPendingStartPaused = true;
                 stopPlaybackIfPlaying();
                 playSong(prevSong);
             }
@@ -1466,6 +1468,8 @@ void handleShoulderTaps(
             if (audioController.songReady) {
                 fileController.playQueue.push_front(audioController.songPath);
                 audioController.skipNextHistoryEntry = true;
+                audioController.pendingStartPaused = ndspChnIsPaused(0);
+                audioController.applyPendingStartPaused = true;
                 stopPlaybackIfPlaying();
             }
             playSong(prevSong);
