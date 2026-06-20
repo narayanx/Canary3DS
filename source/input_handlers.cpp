@@ -477,6 +477,7 @@ void handleAButton(u32 &kDown,
             }
         } else if (st.sel == SettingsState::ROW_RESET) {
             s_ctx.close();
+            s_ctx.add("Cancel", [&s_ctx]() { s_ctx.close(); });
             s_ctx.add("Yes, reset", [&s_ctx, &st]() {
                 g_settings = Settings{};
                 applyVolume();
@@ -489,7 +490,6 @@ void handleAButton(u32 &kDown,
                 st.scrollOffset = 0;
                 s_ctx.close();
             });
-            s_ctx.add("Cancel", [&s_ctx]() { s_ctx.close(); });
             s_ctx.open(60.0f, 60.0f);
         } else {
             kDown |= KEY_DRIGHT;
