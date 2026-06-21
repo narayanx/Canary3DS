@@ -844,6 +844,50 @@ void printPlaylistView(const std::string &playlistName,
     }
 }
 
+void printAudioInitError() {
+    C2D_TextBufClear(g_dynamicBuf);
+
+    const u32 warnCol = C2D_Color32(0xE0, 0xA0, 0x20, 0xFF);
+    const u32 bodyCol = C2D_Color32f(0.80f, 0.80f, 0.80f, 1.0f);
+    const u32 dimCol = C2D_Color32f(0.45f, 0.45f, 0.45f, 1.0f);
+    const u32 numCol = C2D_Color32f(0.60f, 0.62f, 0.68f, 1.0f);
+
+    const float CX = 200.0f;
+    const float listNumX = 60.0f;
+    const float listTextX = 82.0f;
+    const int centerFlags = C2D_AlignCenter | C2D_WithColor;
+    const int leftFlags = C2D_AlignLeft | C2D_WithColor;
+
+    drawStr("One final step required", CX, 24.0f, 0.5f, 0.58f, 0.58f, warnCol, centerFlags);
+    drawStr("The DSP firmware must be dumped for homebrew apps to use sound.",
+            CX,
+            56.0f,
+            0.5f,
+            0.44f,
+            0.44f,
+            bodyCol,
+            centerFlags);
+    drawStr("Steps:", listNumX, 102.0f - 18.0f, 0.5f, 0.44f, 0.44f, bodyCol, leftFlags);
+
+    std::string steps[] = {
+        "Hold L+Down+Select to open the Rosalina menu",
+        "Open \"Miscellaneous options\"",
+        "Select \"Dump DSP firmware\"",
+        "Close this app and reopen it",
+    };
+
+    float y = 102.0f;
+    for (int i = 0; i < 4; ++i) {
+        char num[4];
+        std::snprintf(num, sizeof(num), "%d.", i + 1);
+        drawStr(num, listNumX, y, 0.5f, 0.42f, 0.42f, numCol, leftFlags);
+        drawStr(steps[i].c_str(), listTextX, y, 0.5f, 0.42f, 0.42f, bodyCol, leftFlags);
+        y += 18.0f;
+    }
+
+    drawStr("Press START to exit", CX, 210.0f, 0.5f, 0.42f, 0.42f, dimCol, centerFlags);
+}
+
 // Settings screen
 void printSettingsMenu(const std::vector<std::string> &items,
                        size_t selectedIdx,

@@ -9,6 +9,25 @@
 
 static Thread g_audioTid;
 
+// Renders error page each frame until the user presses START
+static void showAudioInitErrorScreen() {
+    while (aptMainLoop()) {
+        hidScanInput();
+        if (hidKeysDown() & KEY_START) {
+            break;
+        }
+
+        C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+        C2D_TargetClear(top, CLEAR_COLOR);
+        C2D_SceneBegin(top);
+        printAudioInitError();
+
+        C2D_TargetClear(bottom, BOTTOM_CLEAR_COLOR);
+        C2D_SceneBegin(bottom);
+        C3D_FrameEnd(0);
+    }
+}
+
 bool appInit() {
     romfsInit();
     gfxInitDefault();
@@ -28,10 +47,9 @@ bool appInit() {
     loadSettings();
     aptSetSleepAllowed(g_settings.sleepAllowed);
 
-    // TODO add a msg telling ppl how to dump with luma3ds (likely bc dspfirm isn't dumped)
     if (!audioInit()) {
-        logToDebugScreen("Failed to init audio");
-        waitForInput();
+        // Most likely cause is dspfirm is not dumped
+        showAudioInitErrorScreen();
         gfxExit();
         ndspExit();
         romfsExit();

@@ -126,8 +126,11 @@ void logToDebugScreen(const char *message);
 void logToDebugScreen(const std::string &message);
 
 // Semi-transparent log overlay drawn on the top screen
-// Call after all other top-screen rendering within the same C3D frame
+// Call after all other top screen rendering within the same C3D frame
 void renderLogOverlay();
+
+// Fullscreen error page shown when audio init fails (assuming missing dspfirm dump)
+void printAudioInitError();
 
 // Draw the settings screen on the top screen.
 void printSettingsMenu(const std::vector<std::string> &items,

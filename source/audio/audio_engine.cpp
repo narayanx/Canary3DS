@@ -440,13 +440,3 @@ bool loadCoverArtFromFile(const std::string &songPath,
     dec->close();
     return ok;
 }
-
-void waitForInput() {
-    logToDebugScreen("Press any button to exit...");
-    while (aptMainLoop()) {
-        hidScanInput();
-        if (hidKeysDown()) {
-            break;
-        }
-    }
-}

@@ -91,4 +91,3 @@ bool loadCoverArtFromFile(const std::string &songPath,
                           C3D_Tex &tex,
                           Tex3DS_SubTexture &subtex,
                           bool freeExisting);
-void waitForInput();
