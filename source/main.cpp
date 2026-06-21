@@ -101,9 +101,11 @@ int main(int argc, char *argv[]) {
         info.autoplayItems.clear();
         if (audioController.songReady || audioController.starting) {
             size_t nf = fileController.playingFile + 1;
-            while (nf < fileController.files.size() && info.autoplayItems.size() < AUTOPLAY_PEEK) {
-                if (fileController.files[nf].d_type == DT_REG) {
-                    std::string p = fileController.cwd + fileController.files[nf].d_name;
+            while (nf < fileController.playingFiles.size() &&
+                   info.autoplayItems.size() < AUTOPLAY_PEEK) {
+                if (fileController.playingFiles[nf].d_type == DT_REG) {
+                    std::string p =
+                        fileController.playingCwd + fileController.playingFiles[nf].d_name;
                     if (isSupportedAudioFile(p)) {
                         info.autoplayItems.push_back(p);
                     }

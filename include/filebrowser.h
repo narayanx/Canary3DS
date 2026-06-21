@@ -21,6 +21,9 @@ struct FileController {
     std::deque<std::pair<size_t, size_t>> fileHistory;  // { selectedFile, fileBrowserScrollOffset }
     size_t selectedFile;
     size_t playingFile;
+    // Stored when playing song, so browsing elsewhere doesn't affect autoplay
+    std::string playingCwd;
+    std::vector<dirent> playingFiles;
     // Equals files.size() for small dirs, grows in FILE_PAGE_SIZE steps for large ones
     size_t filesShown;
     std::deque<std::string> playQueue;

@@ -239,30 +239,33 @@ void audioThread(void *) {
         // Prioritize queue first
         if (!playNextFromQueue()) {
             size_t next = fileController.playingFile + 1;
-            while (next < fileController.files.size()) {
-                if (fileController.files[next].d_type == DT_REG &&
-                    isSupportedAudioFile(fileController.cwd + fileController.files[next].d_name)) {
+            while (next < fileController.playingFiles.size()) {
+                if (fileController.playingFiles[next].d_type == DT_REG &&
+                    isSupportedAudioFile(fileController.playingCwd +
+                                         fileController.playingFiles[next].d_name)) {
                     break;
                 }
                 ++next;
             }
-            if (next < fileController.files.size()) {
-                const std::string path = fileController.cwd + fileController.files[next].d_name;
+            if (next < fileController.playingFiles.size()) {
+                const std::string path =
+                    fileController.playingCwd + fileController.playingFiles[next].d_name;
                 if (playSong(path)) {
                     fileController.playingFile = next;
                     logToDebugScreen("Autoplaying: " +
-                                     std::string(fileController.files[next].d_name));
+                                     std::string(fileController.playingFiles[next].d_name));
                 }
-            } else if (g_settings.repeat == RepeatMode::ALL && !fileController.files.empty()) {
+            } else if (g_settings.repeat == RepeatMode::ALL &&
+                       !fileController.playingFiles.empty()) {
                 // Wrap around to the first audio file in the directory
-                for (size_t i = 0; i < fileController.files.size(); ++i) {
-                    if (fileController.files[i].d_type == DT_REG) {
+                for (size_t i = 0; i < fileController.playingFiles.size(); ++i) {
+                    if (fileController.playingFiles[i].d_type == DT_REG) {
                         const std::string path =
-                            fileController.cwd + fileController.files[i].d_name;
+                            fileController.playingCwd + fileController.playingFiles[i].d_name;
                         if (isSupportedAudioFile(path) && playSong(path)) {
                             fileController.playingFile = i;
                             logToDebugScreen("Repeat All: " +
-                                             std::string(fileController.files[i].d_name));
+                                             std::string(fileController.playingFiles[i].d_name));
                             break;
                         }
                     }
@@ -344,15 +347,16 @@ static bool hasNextSong() {
     if (!audioController.songReady) {
         return false;
     }
-    for (size_t i = fileController.playingFile + 1; i < fileController.files.size(); ++i) {
-        if (fileController.files[i].d_type == DT_REG &&
-            isSupportedAudioFile(fileController.cwd + fileController.files[i].d_name)) {
+    for (size_t i = fileController.playingFile + 1; i < fileController.playingFiles.size(); ++i) {
+        if (fileController.playingFiles[i].d_type == DT_REG &&
+            isSupportedAudioFile(fileController.playingCwd +
+                                 fileController.playingFiles[i].d_name)) {
             return true;
         }
     }
     if (g_settings.repeat == RepeatMode::ALL) {
-        for (const auto &f : fileController.files) {
-            if (f.d_type == DT_REG && isSupportedAudioFile(fileController.cwd + f.d_name)) {
+        for (const auto &f : fileController.playingFiles) {
+            if (f.d_type == DT_REG && isSupportedAudioFile(fileController.playingCwd + f.d_name)) {
                 return true;
             }
         }

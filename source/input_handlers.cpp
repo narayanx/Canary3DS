@@ -527,6 +527,8 @@ void handleAButton(u32 &kDown,
                 logToDebugScreen("Playing: " + (std::string) nm);
                 screenState = TopScreenState::INFO;
                 fileController.playingFile = fileController.selectedFile;
+                fileController.playingCwd = fileController.cwd;
+                fileController.playingFiles = fileController.files;
             }
         }
     } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
@@ -627,8 +629,9 @@ void handleAButton(u32 &kDown,
             int ai = sel - qSz - 1;
             const std::string path = info.autoplayItems[(size_t) ai];
             fileController.playQueue.clear();
-            for (size_t i = fileController.playingFile + 1; i < fileController.files.size(); ++i) {
-                if (fileController.cwd + fileController.files[i].d_name == path) {
+            for (size_t i = fileController.playingFile + 1; i < fileController.playingFiles.size();
+                 ++i) {
+                if (fileController.playingCwd + fileController.playingFiles[i].d_name == path) {
                     fileController.playingFile = i;
                     break;
                 }
