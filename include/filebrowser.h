@@ -33,7 +33,7 @@ struct FileController {
     int selectedQueueItem;
 };
 
-// stop saving depth after this many directories (conserve memory, TODO allow changing in settings)
+// stop saving depth after this many directories (conserve memory)
 inline constexpr size_t MAX_DEPTH = 20;
 
 extern FileController fileController;
