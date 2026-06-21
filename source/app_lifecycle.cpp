@@ -55,7 +55,7 @@ bool appInit() {
         romfsExit();
         return false;
     }
-    applyVolume();  // push saved volume to NDSP
+    applyVolume();
     applyBrightness();
     applyAccentColor();
     applySecondaryColor();
