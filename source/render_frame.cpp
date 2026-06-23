@@ -42,6 +42,7 @@ void renderFrame(TopScreenState screenState,
         // hack to cover up lines that go off screen
         const float MARGIN = 10.0f;
         C2D_DrawRectSolid(400 - MARGIN, 0.0f, 0.6f, MARGIN, 240.0f, CLEAR_COLOR);
+        drawScreenPillIndicator(true);
     } else if (screenState == TopScreenState::INFO) {
         if (info.displayCover) {
             if (info.hasCover) {
@@ -83,6 +84,7 @@ void renderFrame(TopScreenState screenState,
             drawProgressBar(10.0f, 206.0f, 190.0f, 7.0f, (dur > 0) ? (float) (pos / dur) : 0.0f);
             drawTimeText(pos, dur, 10.0f, 217.0f, 0.44f, 0.44f);
         }
+        drawScreenPillIndicator(false);
 
     } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
         // \uE000: A, \uE002: X

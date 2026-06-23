@@ -615,6 +615,35 @@ void drawProgressBar(float x, float y, float w, float h, float progress) {
     C2D_DrawRectSolid(thumbX, y - 2, 0.65f, 6, h + 4, C2D_Color32(0xFF, 0xFF, 0xFF, 0xCC));
 }
 
+void drawScreenPillIndicator(bool leftFilled) {
+    const float CX = 200.0f;
+    const float CY = 226.0f;
+    const float PILL_W = 22.0f;
+    const float PILL_H = 12.0f;
+    const float DOT_R = 3.0f;
+    const float DOT_OFFSET = 6.0f;
+
+    u32 pillBg = C2D_Color32(0x28, 0x28, 0x28, 0xC0);
+    u32 dimDot = C2D_Color32(0x55, 0x55, 0x55, 0xFF);
+
+    // Capsule background: rect body + rounded ends.
+    C2D_DrawRectSolid(CX - PILL_W * 0.5f, CY - PILL_H * 0.5f, 0.51f, PILL_W, PILL_H, pillBg);
+    C2D_DrawCircleSolid(CX - PILL_W * 0.5f, CY, 0.5f, PILL_H * 0.5f, pillBg);
+    C2D_DrawCircleSolid(CX + PILL_W * 0.5f, CY, 0.5f, PILL_H * 0.5f, pillBg);
+
+    C2D_DrawCircleSolid(CX - DOT_OFFSET, CY, 0.55f, DOT_R, leftFilled ? g_accentColor : dimDot);
+    C2D_DrawCircleSolid(CX + DOT_OFFSET, CY, 0.55f, DOT_R, leftFilled ? dimDot : g_accentColor);
+
+    drawStr("\uE003",
+            CX - (PILL_W * 0.5f) - PILL_H - 6.0f,
+            CY - 8.0f,
+            0.55f,
+            0.5f,
+            0.5f,
+            C2D_Color32f(.8f, .8f, .8f, 0xFF),
+            C2D_AlignCenter | C2D_WithColor);
+}
+
 static std::string fmtTime(double secs) {
     if (secs < 0) {
         secs = 0;

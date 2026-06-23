@@ -113,6 +113,9 @@ void printContextMenu(const std::vector<std::string> &options,
 // progress is clamped to [0, 1].
 void drawProgressBar(float x, float y, float w, float h, float progress);
 
+// Indicator to show whether the user is on filebrowser/player screen
+void drawScreenPillIndicator(bool leftFilled);
+
 // draw "M:SS / M:SS" (if durationSeconds <= 0 only the position is shown)
 void drawTimeText(double positionSeconds,
                   double durationSeconds,
