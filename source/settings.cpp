@@ -172,13 +172,13 @@ bool saveSettings() {
     // In default write order
     static constexpr std::array<std::string_view, 16> KEYS = {{
         "volume",
+        "brightness",
+        "seek_seconds",
+        "music_folder",
+        "lock_to_music_folder",
         "loop_folder",
         "show_cover_art",
         "sleep_allowed",
-        "music_folder",
-        "brightness",
-        "seek_seconds",
-        "lock_to_music_folder",
         "accent_color",
         "accent_custom",
         "accent_color2",
