@@ -100,9 +100,6 @@ struct SettingsState {
 
     static std::vector<std::string> buildRows() {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
-        auto repeat = [](RepeatMode r) -> const char * {
-            return r == RepeatMode::ALL ? "All" : "Off";
-        };
 
         char vol[48], bri[48], seek[48], lock[48], rep[48], cov[48], slp[48], acc[48], sec[48],
             qsz[48], hsz[48], dep[48], dbg[48];
@@ -129,10 +126,9 @@ struct SettingsState {
                  sizeof(lock),
                  "Prevent Exiting Music Folder: %c",
                  toggle(g_settings.lockToStartPath));
-        snprintf(rep, sizeof(rep), "Repeat:  %s", repeat(g_settings.repeat));
+        snprintf(rep, sizeof(rep), "Loop Folder: %c", toggle(g_settings.repeat == RepeatMode::ALL));
         snprintf(cov, sizeof(cov), "Cover Art: %c", toggle(g_settings.showCoverArt));
-        snprintf(
-            slp, sizeof(slp), "Sleep (lid):  %s", g_settings.sleepAllowed ? "Allowed" : "Blocked");
+        snprintf(slp, sizeof(slp), "Play with Lid Closed: %c", toggle(g_settings.sleepAllowed));
 
         if (g_settings.accentColor == "custom") {
             snprintf(
