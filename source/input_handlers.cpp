@@ -1299,8 +1299,7 @@ void handleSettingsInput(u32 kDown,
                 break;
 
             case SettingsState::ROW_REPEAT:
-                g_settings.repeat =
-                    (g_settings.repeat == RepeatMode::OFF) ? RepeatMode::ALL : RepeatMode::OFF;
+                g_settings.loopFolder = !g_settings.loopFolder;
                 changed = true;
                 break;
 

@@ -126,7 +126,7 @@ struct SettingsState {
                  sizeof(lock),
                  "Prevent Exiting Music Folder: %c",
                  toggle(g_settings.lockToStartPath));
-        snprintf(rep, sizeof(rep), "Loop Folder: %c", toggle(g_settings.repeat == RepeatMode::ALL));
+        snprintf(rep, sizeof(rep), "Loop Folder: %c", toggle(g_settings.loopFolder));
         snprintf(cov, sizeof(cov), "Cover Art: %c", toggle(g_settings.showCoverArt));
         snprintf(slp, sizeof(slp), "Play with Lid Closed: %c", toggle(g_settings.sleepAllowed));
 

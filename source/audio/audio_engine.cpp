@@ -255,8 +255,7 @@ void audioThread(void *) {
                     logToDebugScreen("Autoplaying: " +
                                      std::string(fileController.playingFiles[next].d_name));
                 }
-            } else if (g_settings.repeat == RepeatMode::ALL &&
-                       !fileController.playingFiles.empty()) {
+            } else if (g_settings.loopFolder && !fileController.playingFiles.empty()) {
                 // Wrap around to the first audio file in the directory
                 for (size_t i = 0; i < fileController.playingFiles.size(); ++i) {
                     if (fileController.playingFiles[i].d_type == DT_REG) {
@@ -354,7 +353,7 @@ static bool hasNextSong() {
             return true;
         }
     }
-    if (g_settings.repeat == RepeatMode::ALL) {
+    if (g_settings.loopFolder) {
         for (const auto &f : fileController.playingFiles) {
             if (f.d_type == DT_REG && isSupportedAudioFile(fileController.playingCwd + f.d_name)) {
                 return true;

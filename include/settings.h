@@ -8,7 +8,7 @@ enum class RepeatMode { OFF, ALL };
 
 struct Settings {
     int volume = 8;  // 1-10 levels
-    RepeatMode repeat = RepeatMode::OFF;
+    bool loopFolder = true;
     bool showCoverArt = true;
     bool sleepAllowed = false;
     std::string startPath = "sdmc:/Music/";

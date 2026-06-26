@@ -59,7 +59,7 @@ bool loadSettings() {
             } catch (...) {
             }
         } else if (key == "loop_folder") {
-            g_settings.repeat = (val == "1") ? RepeatMode::ALL : RepeatMode::OFF;
+            g_settings.loopFolder = (val == "1");
         } else if (key == "show_cover_art") {
             g_settings.showCoverArt = (val != "0");
         } else if (key == "sleep_allowed") {
@@ -201,7 +201,7 @@ bool saveSettings() {
             return std::to_string(g_settings.volume);
         }
         if (key == "loop_folder") {
-            return g_settings.repeat == RepeatMode::ALL ? "1" : "0";
+            return g_settings.loopFolder ? "1" : "0";
         }
         if (key == "show_cover_art") {
             return g_settings.showCoverArt ? "1" : "0";
