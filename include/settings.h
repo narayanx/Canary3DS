@@ -7,14 +7,14 @@ inline constexpr std::string_view SETTINGS_PATH = "sdmc:/3ds/Canary/settings.ini
 enum class RepeatMode { OFF, ALL };
 
 struct Settings {
-    int volume = 8;  // 1-10 levels
+    int volume = 8;        // 1-10 levels
+    int brightness = 3;    // 1-5 levels
+    int seekSeconds = 10;  // seek duration in seconds
+    std::string startPath = "sdmc:/Music/";
+    bool lockToStartPath = true;  // prevent navigating above start path
     bool loopFolder = true;
     bool showCoverArt = true;
     bool allowClosedLidPlayback = true;
-    std::string startPath = "sdmc:/Music/";
-    int brightness = 3;                  // 1-5 levels
-    int seekSeconds = 10;                // seek duration in seconds
-    bool lockToStartPath = true;         // prevent navigating above start path
     std::string accentColor = "Blue";    // palette name or "custom"
     std::string accentColor2 = "Green";  // palette name or "custom"
     unsigned int accentColorHex = 0;     // used when accentColor == "custom", stored as 0xRRGGBB
