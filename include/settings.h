@@ -4,8 +4,6 @@
 
 inline constexpr std::string_view SETTINGS_PATH = "sdmc:/3ds/Canary/settings.ini";
 
-enum class RepeatMode { OFF, ALL };
-
 struct Settings {
     int volume = 8;        // 1-10 levels
     int brightness = 3;    // 1-5 levels
