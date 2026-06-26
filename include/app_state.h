@@ -94,8 +94,12 @@ struct SettingsState {
         return row == ROW_ADV_HEADER;
     }
 
+    // Sentinel bytes appended to a row's label to indicate to draw toggle icon
+    static constexpr char TOGGLE_ON = '\x01';
+    static constexpr char TOGGLE_OFF = '\x02';
+
     static std::vector<std::string> buildRows() {
-        auto yn = [](bool b) -> const char * { return b ? "Yes" : "No"; };
+        auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
         auto repeat = [](RepeatMode r) -> const char * {
             return r == RepeatMode::ALL ? "All" : "Off";
         };
@@ -123,10 +127,10 @@ struct SettingsState {
 
         snprintf(lock,
                  sizeof(lock),
-                 "Prevent Exiting Music Folder:  %s",
-                 yn(g_settings.lockToStartPath));
+                 "Prevent Exiting Music Folder: %c",
+                 toggle(g_settings.lockToStartPath));
         snprintf(rep, sizeof(rep), "Repeat:  %s", repeat(g_settings.repeat));
-        snprintf(cov, sizeof(cov), "Cover Art:  %s", yn(g_settings.showCoverArt));
+        snprintf(cov, sizeof(cov), "Cover Art: %c", toggle(g_settings.showCoverArt));
         snprintf(
             slp, sizeof(slp), "Sleep (lid):  %s", g_settings.sleepAllowed ? "Allowed" : "Blocked");
 
@@ -151,7 +155,8 @@ struct SettingsState {
         snprintf(qsz, sizeof(qsz), "Max Queue Size:  %d", g_settings.queueSize);
         snprintf(hsz, sizeof(hsz), "Max History Size:  %d", g_settings.historySize);
         snprintf(dep, sizeof(dep), "Max Depth:  %d", g_settings.maxDepth);
-        snprintf(dbg, sizeof(dbg), "Enable Dev Debug Screen:  %s", yn(g_settings.showDebugScreen));
+        snprintf(
+            dbg, sizeof(dbg), "Enable Dev Debug Screen: %c", toggle(g_settings.showDebugScreen));
 
         return {vol,
                 bri,

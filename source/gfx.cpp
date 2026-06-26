@@ -917,6 +917,19 @@ void printAudioInitError() {
     drawStr("Press START to exit", CX, 210.0f, 0.5f, 0.42f, 0.42f, dimCol, centerFlags);
 }
 
+// Draws a on/off switch for toggleable settings (looks better than yes/no)
+static void drawToggle(float x, float y, float w, float h, float z, bool on, u32 accentCol) {
+    const float r = h * 0.5f;
+    u32 track = on ? accentCol : C2D_Color32(0x3A, 0x3A, 0x3A, 0xFF);
+    C2D_DrawCircleSolid(x + r, y + r, z, r, track);
+    C2D_DrawCircleSolid(x + w - r, y + r, z, r, track);
+    C2D_DrawRectSolid(x + r, y, z, w - h, h, track);
+
+    const float knobR = r - 2.0f;
+    const float knobX = on ? (x + w - r) : (x + r);
+    C2D_DrawCircleSolid(knobX, y + r, z + 0.01f, knobR, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
+}
+
 // Settings screen
 void printSettingsMenu(const std::vector<std::string> &items,
                        size_t selectedIdx,
@@ -976,7 +989,25 @@ void printSettingsMenu(const std::vector<std::string> &items,
 
         u32 col =
             sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.65f, 0.65f, 0.65f, 1.0f);
-        drawStr(items[i].c_str(), X_LABEL + 4.0f, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+        // Toggle rows end with a sentinel byte marking their boolean state, draw a switch instead
+        char last = items[i].empty() ? '\0' : items[i].back();
+        if (last == '\x01' || last == '\x02') {
+            std::string label = items[i].substr(0, items[i].size() - 1);
+            const float TEXT_X = X_LABEL + 4.0f;
+            drawStr(label.c_str(), TEXT_X, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+            float lw = textWidth(label, 0.44f);
+
+            const float TOGGLE_W = 30.0f, TOGGLE_H = 14.0f, GAP = 6.0f;
+            drawToggle(TEXT_X + lw + GAP,
+                       y + (LINE_H - TOGGLE_H) * 0.5f - 2.0f,
+                       TOGGLE_W,
+                       TOGGLE_H,
+                       0.56f,
+                       last == '\x01',
+                       g_accentColor);
+        } else {
+            drawStr(items[i].c_str(), X_LABEL + 4.0f, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+        }
     }
 
     // Scroll nub on the right edge when there are more rows than fit.
