@@ -10,7 +10,7 @@ struct Settings {
     int volume = 8;  // 1-10 levels
     bool loopFolder = true;
     bool showCoverArt = true;
-    bool sleepAllowed = false;
+    bool allowClosedLidPlayback = true;
     std::string startPath = "sdmc:/Music/";
     int brightness = 3;                  // 1-5 levels
     int seekSeconds = 10;                // seek duration in seconds

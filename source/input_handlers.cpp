@@ -1310,8 +1310,9 @@ void handleSettingsInput(u32 kDown,
                 break;
 
             case SettingsState::ROW_SLEEP:
-                g_settings.sleepAllowed = !g_settings.sleepAllowed;
-                aptSetSleepAllowed(g_settings.sleepAllowed);
+                g_settings.allowClosedLidPlayback = !g_settings.allowClosedLidPlayback;
+                aptSetSleepAllowed(
+                    !g_settings.allowClosedLidPlayback);  // disallow sleep to allow playback
                 changed = true;
                 break;
 

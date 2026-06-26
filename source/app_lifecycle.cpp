@@ -45,7 +45,7 @@ bool appInit() {
 
     // Load settings before everything else that depends on them
     loadSettings();
-    aptSetSleepAllowed(g_settings.sleepAllowed);
+    aptSetSleepAllowed(!g_settings.allowClosedLidPlayback);
 
     if (!audioInit()) {
         // Most likely cause is dspfirm is not dumped

@@ -128,7 +128,10 @@ struct SettingsState {
                  toggle(g_settings.lockToStartPath));
         snprintf(rep, sizeof(rep), "Loop Folder: %c", toggle(g_settings.loopFolder));
         snprintf(cov, sizeof(cov), "Cover Art: %c", toggle(g_settings.showCoverArt));
-        snprintf(slp, sizeof(slp), "Play with Lid Closed: %c", toggle(g_settings.sleepAllowed));
+        snprintf(slp,
+                 sizeof(slp),
+                 "Play with Lid Closed: %c",
+                 toggle(g_settings.allowClosedLidPlayback));
 
         if (g_settings.accentColor == "custom") {
             snprintf(

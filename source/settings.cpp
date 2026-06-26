@@ -62,8 +62,8 @@ bool loadSettings() {
             g_settings.loopFolder = (val == "1");
         } else if (key == "show_cover_art") {
             g_settings.showCoverArt = (val != "0");
-        } else if (key == "sleep_allowed") {
-            g_settings.sleepAllowed = (val == "1");
+        } else if (key == "allow_closed_lid_playback") {
+            g_settings.allowClosedLidPlayback = (val == "1");
         } else if (key == "music_folder") {
             if (!val.empty()) {
                 if (val.back() != '/') {
@@ -178,7 +178,7 @@ bool saveSettings() {
         "lock_to_music_folder",
         "loop_folder",
         "show_cover_art",
-        "sleep_allowed",
+        "allow_closed_lid_playback",
         "accent_color",
         "accent_custom",
         "accent_color2",
@@ -206,8 +206,8 @@ bool saveSettings() {
         if (key == "show_cover_art") {
             return g_settings.showCoverArt ? "1" : "0";
         }
-        if (key == "sleep_allowed") {
-            return g_settings.sleepAllowed ? "1" : "0";
+        if (key == "allow_closed_lid_playback") {
+            return g_settings.allowClosedLidPlayback ? "1" : "0";
         }
         if (key == "music_folder") {
             return g_settings.startPath;
