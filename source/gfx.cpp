@@ -634,9 +634,12 @@ void drawScreenPillIndicator(bool leftFilled) {
     C2D_DrawCircleSolid(CX - DOT_OFFSET, CY, 0.55f, DOT_R, leftFilled ? g_accentColor : dimDot);
     C2D_DrawCircleSolid(CX + DOT_OFFSET, CY, 0.55f, DOT_R, leftFilled ? dimDot : g_accentColor);
 
+    // in case there is text underneath Y button hint on filebrowser
+    C2D_DrawCircleSolid(
+        CX - (PILL_W * 0.5f) - PILL_H - 6.0f, CY, 0.5f, (PILL_H * 0.5) + 1.0f, pillBg);
     drawStr("\uE003",
             CX - (PILL_W * 0.5f) - PILL_H - 6.0f,
-            CY - 8.0f,
+            CY - 7.0f,
             0.55f,
             0.5f,
             0.5f,
