@@ -14,11 +14,13 @@ A 3DS music player with modern features.
 - Supports many audio file formats: `mp3`, `flac`, `m4a`, `aac`, `wav`, `opus`, `vorbis`
 - Allows enqueuing audio files, has a queue which songs can be added to and played from
 - Creating playlists, which are stored in the standard `m3u` file format
+- Allows playing songs through headphones with the lid closed
 - Powerful filebrowser with context menus that allows bulk operations to add to queue/playlist
 - Supports displaying embedded cover art and setting custom cover art for playlists
 - Automatically plays next file
 - Settings menu to customize configuration
 - Seeking with a touch seek bar on the bottom touch screen, or using the left/right dpad to seek in steps
+- Pause on headphones disconnect
 
 #### Planned
 - Indexing system to allow viewing songs in groups of albums or artist
