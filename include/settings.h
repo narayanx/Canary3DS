@@ -17,7 +17,7 @@ struct Settings {
     std::string accentColor = "Blue";    // palette name or "custom"
     std::string accentColor2 = "Green";  // palette name or "custom"
     unsigned int accentColorHex = 0;     // used when accentColor == "custom", stored as 0xRRGGBB
-    unsigned secondaryColorHex = 0;      // used when accentColor2 == "custom", stored as 0xRRGGBB
+    unsigned int secondaryColorHex = 0;  // used when accentColor2 == "custom", stored as 0xRRGGBB
 
     // Advanced
     int queueSize = 500;           // max entries in playQueue

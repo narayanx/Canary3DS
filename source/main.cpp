@@ -277,8 +277,8 @@ int main(int argc, char *argv[]) {
             std::string coverPath = playlistCoverPath(curPl.name);
             if (coverPath != pl.coverLoadedFrom) {
                 pl.coverLoadedFrom = coverPath;
-                struct stat st;
-                if (stat(coverPath.c_str(), &st) == 0) {
+                struct stat fst;
+                if (stat(coverPath.c_str(), &fst) == 0) {
                     if (pl.hasCover) {
                         C3D_TexDelete(&pl.coverTex);
                     }

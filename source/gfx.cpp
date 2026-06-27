@@ -10,8 +10,8 @@
 #include <string>
 #include <vector>
 
-C3D_RenderTarget *top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
-C3D_RenderTarget *bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
+C3D_RenderTarget *top = nullptr;
+C3D_RenderTarget *bottom = nullptr;
 C2D_Font g_font = nullptr;
 
 C2D_TextBuf g_dynamicBuf;
@@ -38,6 +38,8 @@ static void ensureLogLock() {
 }
 
 void sceneInit() {
+    top = C2D_CreateScreenTarget(GFX_TOP, GFX_LEFT);
+    bottom = C2D_CreateScreenTarget(GFX_BOTTOM, GFX_LEFT);
     g_font = C2D_FontLoad("romfs:/font/OpenSans-Semibold.bcfnt");
     g_dynamicBuf = C2D_TextBufNew(4096);
     ensureLogLock();
