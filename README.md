@@ -3,9 +3,11 @@
 
 A 3DS music player with modern features.  
 
-![](meta/filebrowser_screenshot_v1.0.0.png)  
-![](meta/player_screenshot_v1.0.0.png)  
-![](meta/playlist_screenshot_v1.0.0.png)  
+<div style="display: flex; gap: 10px;">
+  <img src="meta/filebrowser_screenshot_v1.0.0.png" width="300" />
+  <img src="meta/player_screenshot_v1.0.0.png" width="300" />
+  <img src="meta/playlist_screenshot_v1.0.0.png" width="300" />
+</div>
 
 
 ## Features
