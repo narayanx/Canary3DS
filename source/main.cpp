@@ -67,7 +67,8 @@ int main(int argc, char *argv[]) {
         }
 
         bool hpNow = osIsHeadsetConnected();
-        if (!hpNow && prevHeadphonesConnected && audioController.songReady) {
+        if (!hpNow && prevHeadphonesConnected && audioController.songReady &&
+            g_settings.pauseOnHeadphoneDisconnect) {
             ndspChnSetPaused(0, true);
             logToDebugScreen("Headphones disconnected, pausing");
         }

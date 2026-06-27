@@ -479,7 +479,7 @@ void handleAButton(u32 &kDown,
                 applyBrightness();
                 applyAccentColor();
                 applySecondaryColor();
-                aptSetSleepAllowed(false);
+                aptSetSleepAllowed(!g_settings.allowClosedLidPlayback);
                 saveSettings();
                 st.sel = 0;
                 st.scrollOffset = 0;
@@ -1308,6 +1308,11 @@ void handleSettingsInput(u32 kDown,
                 g_settings.allowClosedLidPlayback = !g_settings.allowClosedLidPlayback;
                 aptSetSleepAllowed(
                     !g_settings.allowClosedLidPlayback);  // disallow sleep to allow playback
+                changed = true;
+                break;
+
+            case SettingsState::ROW_PAUSE_ON_HEADPHONE_DISCONNECT:
+                g_settings.pauseOnHeadphoneDisconnect = !g_settings.pauseOnHeadphoneDisconnect;
                 changed = true;
                 break;
 

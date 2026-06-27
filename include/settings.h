@@ -13,6 +13,7 @@ struct Settings {
     bool loopFolder = true;
     bool showCoverArt = true;
     bool allowClosedLidPlayback = true;
+    bool pauseOnHeadphoneDisconnect = true;
     std::string accentColor = "Blue";    // palette name or "custom"
     std::string accentColor2 = "Green";  // palette name or "custom"
     unsigned int accentColorHex = 0;     // used when accentColor == "custom", stored as 0xRRGGBB
