@@ -1,14 +1,19 @@
 ![Canary](assets/icon.png) Canary3DS
 ==
 
-A 3DS music player with modern features.
+A 3DS music player with modern features.  
+
+![](meta/filebrowser_screenshot_v1.0.0.png)  
+![](meta/player_screenshot_v1.0.0.png)  
+![](meta/playlist_screenshot_v1.0.0.png)  
+
 
 ## Features
 - Supports many audio file formats: `mp3`, `flac`, `m4a`, `aac`, `wav`, `opus`, `vorbis`
 - Allows enqueuing audio files, has a queue which songs can be added to and played from
 - Creating playlists, which are stored in the standard `m3u` file format
 - Powerful filebrowser with context menus that allows bulk operations to add to queue/playlist
-- Supports displaying embedded cover art. Can set custom cover art for playlists
+- Supports displaying embedded cover art and setting custom cover art for playlists
 - Automatically plays next file
 - Settings menu to customize configuration
 - Seeking with a touch seek bar on the bottom touch screen, or using the left/right dpad to seek in steps
