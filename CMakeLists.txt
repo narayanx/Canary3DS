@@ -118,11 +118,18 @@ add_custom_command(
   COMMENT "Building banner"
 )
 
+# -ver expects a 16-bit integer, not a string
+math(EXPR CIA_VERSION
+    "(${PROJECT_VERSION_MAJOR} << 10) |
+     (${PROJECT_VERSION_MINOR} << 4)  |
+      ${PROJECT_VERSION_PATCH}")
+
 # Build CIA
 add_custom_command(
   OUTPUT ${CMAKE_BINARY_DIR}/${CIA_FILE}
   COMMAND makerom
     -f cia
+    -ver ${CIA_VERSION}
     -o ${CMAKE_BINARY_DIR}/${CIA_FILE}
     -elf ${CMAKE_BINARY_DIR}/${ELF_FILE}
     -rsf ${CMAKE_SOURCE_DIR}/assets/canary.rsf
