@@ -290,11 +290,6 @@ void handleNavTouch(touchPosition touchPos,
             logToDebugScreen(audioController.loopOne ? "Loop: on" : "Loop: off");
         } else if (px >= SHUFFLE_BTN_X && px <= SHUFFLE_BTN_X + LOOP_BTN_W) {
             if (!fileController.playQueue.empty()) {
-                srand((unsigned) svcGetSystemTick());
-                for (size_t i = fileController.playQueue.size() - 1; i > 0; --i) {
-                    size_t j = (size_t) rand() % (i + 1);
-                    std::swap(fileController.playQueue[i], fileController.playQueue[j]);
-                }
                 std::mt19937 g(std::random_device{}());
                 std::shuffle(fileController.playQueue.begin(), fileController.playQueue.end(), g);
                 logToDebugScreen("Queue shuffled");

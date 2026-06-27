@@ -261,7 +261,6 @@ bool saveSettings() {
             }
             std::string trimmed = raw;
             trim(trimmed);
-            logToDebugScreen("parsing " + trimmed);
             if (!trimmed.empty() && trimmed[0] != '#' && trimmed[0] != ';') {
                 const auto eq = trimmed.find('=');
                 if (eq != std::string::npos) {
