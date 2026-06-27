@@ -40,6 +40,7 @@ void initFileHistory(const std::string &startPath) {
     closedir(tmp);
     fileController.cwd = startPath;
 
+    fileController.fileHistory.clear();
     // Ensure going up directories restores the correct selection at each level
     std::string cur = "sdmc:/";
     size_t pos = 6;  // skip "sdmc:/"

@@ -649,7 +649,6 @@ void handleXButton(u32 kDown,
             auto &f = fileController.files[fileController.selectedFile];
             std::string songPath = fileController.cwd + f.d_name;
             if (f.d_type == DT_REG && isSupportedAudioFile(songPath)) {
-                std::string songPath = fileController.cwd + f.d_name;
                 float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
                 s_ctx.close();
                 s_ctx.add("Play next", [&s_ctx, songPath]() {
