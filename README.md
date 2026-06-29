@@ -25,6 +25,10 @@ A 3DS music player with modern features.
 #### Planned
 - Indexing system to allow viewing songs in groups of albums or artist
 
+## Installation Options
+1. [Universal Updater](https://github.com/Universal-Team/Universal-Updater/releases) (recommended)
+2. [Manual install](https://github.com/narayanx/Canary3DS/releases) of `3dsx`/`cia` file from releases
+
 ## Controls
 - double tap `R`: toggle play/pause
 - triple tap `L`: go to previous song
