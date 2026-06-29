@@ -20,7 +20,7 @@ A 3DS music player with modern features.
 - Displaying embedded cover art and setting custom cover art for playlists
 - Settings menu to customize configuration
 - Seeking with a touch seek bar on the bottom touch screen, or using the left/right dpad to seek in steps
-- Pause on headphones disconnect
+- Pause on headphone disconnect
 
 #### Planned
 - Indexing system to allow viewing songs in groups of albums or artist
