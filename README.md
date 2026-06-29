@@ -55,9 +55,9 @@ A 3DS music player with modern features.
 - `X`: Open context menu
 
 ## Assets
-- [Unbreakable Resolve](https://www.bensound.com/royalty-free-music/track/unbreakable-resolve-hopeful-epic) by Lunar Years on Bensound for home menu banner music
 - [Iconoir](https://iconoir.com/) for user interface icons
-- [@narayanx](https://github.com/narayanx) for home menu icon and banner pixel art images
+- [@narayanx](https://github.com/narayanx) for home menu banner music, icon, and pixel art assets
+- [Bosca Ceoil Blue](https://github.com/yurisizov/boscaceoil-blue) by [@YuriSizov](https://github.com/YuriSizov) for the software used to make the banner music
 
 ## Credits
 - [ctrmus](https://github.com/deltabeard/ctrmus) by [@deltabeard](https://github.com/deltabeard) for initially inspiring this project
