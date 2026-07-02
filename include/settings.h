@@ -5,9 +5,9 @@
 inline constexpr std::string_view SETTINGS_PATH = "sdmc:/3ds/Canary/settings.ini";
 
 struct Settings {
-    int volume = 8;        // 1-10 levels
-    int brightness = 3;    // 1-5 levels
-    int seekSeconds = 10;  // seek duration in seconds
+    int volumePercent = 100;  // 0-VOLUME_MAX_PERCENT
+    int brightness = 3;       // 1-5 levels
+    int seekSeconds = 10;     // seek duration in seconds
     std::string startPath = "sdmc:/Music/";
     bool lockToStartPath = true;  // prevent navigating above start path
     bool loopFolder = true;
@@ -27,6 +27,9 @@ struct Settings {
 };
 
 inline constexpr int SEEK_PRESETS[4] = {1, 5, 10, 30};
+
+inline constexpr int VOLUME_STEP = 5;
+inline constexpr int VOLUME_MAX_PERCENT = 200;
 
 // Global settings instance - populated by loadSettings() at startup.
 extern Settings g_settings;

@@ -189,6 +189,25 @@ static void openSeekKeyboard() {
     }
 }
 
+static void openVolumeKeyboard() {
+    SwkbdState swkbd;
+    char buf[16] = {};
+    snprintf(buf, sizeof(buf), "%d", g_settings.volumePercent);
+    swkbdInit(&swkbd, SWKBD_TYPE_NUMPAD, 2, 3);
+    swkbdSetHintText(&swkbd, "Volume percent (0-200)");
+    swkbdSetInitialText(&swkbd, buf);
+    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
+        try {
+            int v = std::stoi(buf);
+            if (v >= 0 && v <= VOLUME_MAX_PERCENT) {
+                g_settings.volumePercent = v;
+                applyVolume();
+            }
+        } catch (...) {
+        }
+    }
+}
+
 void enterFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb) {
     fb.pickerSavedCwd = fileController.cwd;
     fb.pickerSavedSel = fileController.selectedFile;
@@ -432,6 +451,9 @@ void handleAButton(u32 &kDown,
                 enterFolderPickerMode(screenState, fb);
             });
             s_ctx.open(60.0f, 60.0f);
+        } else if (st.sel == SettingsState::ROW_VOLUME) {
+            openVolumeKeyboard();
+            saveSettings();
         } else if (st.sel == SettingsState::ROW_SEEK) {
             openSeekKeyboard();
             saveSettings();
@@ -1235,12 +1257,13 @@ void handleSettingsInput(u32 kDown,
         switch (st.sel) {
 
             case SettingsState::ROW_VOLUME:
-                if (right && g_settings.volume < 10) {
-                    ++g_settings.volume;
+                if (right && g_settings.volumePercent < VOLUME_MAX_PERCENT) {
+                    g_settings.volumePercent =
+                        std::min(g_settings.volumePercent + VOLUME_STEP, VOLUME_MAX_PERCENT);
                     changed = true;
                 }
-                if (left && g_settings.volume > 1) {
-                    --g_settings.volume;
+                if (left && g_settings.volumePercent > 0) {
+                    g_settings.volumePercent = std::max(g_settings.volumePercent - VOLUME_STEP, 0);
                     changed = true;
                 }
                 if (changed) {

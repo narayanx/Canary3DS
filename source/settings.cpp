@@ -50,11 +50,11 @@ bool loadSettings() {
         trim(key);
         trim(val);
 
-        if (key == "volume") {
+        if (key == "volume_percent") {
             try {
                 int v = std::stoi(val);
-                if (v >= 1 && v <= 10) {
-                    g_settings.volume = v;
+                if (v >= 0 && v <= VOLUME_MAX_PERCENT) {
+                    g_settings.volumePercent = v;
                 }
             } catch (...) {
             }
@@ -173,7 +173,7 @@ bool saveSettings() {
 
     // In default write order
     static constexpr std::array<std::string_view, 17> KEYS = {{
-        "volume",
+        "volume_percent",
         "brightness",
         "seek_seconds",
         "music_folder",
@@ -200,8 +200,8 @@ bool saveSettings() {
             return buf;
         };
 
-        if (key == "volume") {
-            return std::to_string(g_settings.volume);
+        if (key == "volume_percent") {
+            return std::to_string(g_settings.volumePercent);
         }
         if (key == "loop_folder") {
             return g_settings.loopFolder ? "1" : "0";
@@ -307,7 +307,7 @@ bool saveSettings() {
 }
 
 void applyVolume() {
-    float vol = (float) g_settings.volume / 10.0f;
+    float vol = (float) g_settings.volumePercent / 100.0f;
     float mix[12] = {};
     mix[0] = vol;  // left  -> left
     mix[1] = vol;  // left  -> right

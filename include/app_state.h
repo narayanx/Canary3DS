@@ -105,7 +105,7 @@ struct SettingsState {
         char vol[48], bri[48], seek[48], lock[48], rep[48], cov[48], slp[48], phd[48], acc[48],
             sec[48], qsz[48], hsz[48], dep[48], dbg[48];
 
-        snprintf(vol, sizeof(vol), "Volume:  %d / 10", g_settings.volume);
+        snprintf(vol, sizeof(vol), "Volume:  %d%%", g_settings.volumePercent);
         snprintf(bri, sizeof(bri), "Brightness:  %d / 5", g_settings.brightness);
 
         bool seekIsPreset = false;
