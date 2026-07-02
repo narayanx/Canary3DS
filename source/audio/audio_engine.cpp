@@ -105,6 +105,7 @@ static void resetChannel(int sampleRate) {
     ndspChnSetInterp(0, NDSP_INTERP_POLYPHASE);
     ndspChnSetRate(0, static_cast<float>(sampleRate));
     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
+    applyVolume();  // restore volume setting
     for (auto &wb : s_waveBufs) {
         wb.status = NDSP_WBUF_DONE;
     }
