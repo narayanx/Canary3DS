@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
@@ -307,7 +308,21 @@ bool saveSettings() {
 }
 
 void applyVolume() {
-    float vol = (float) g_settings.volumePercent / 100.0f;
+    float pct = (float) g_settings.volumePercent;
+    float vol;
+    if (pct <= 0.0f) {
+        vol = 0.0f;
+    } else if (pct <= 100.0f) {
+        // dB scaling matches perceived loudness
+        // Floor of -20dB at 0%, ramping up to unity (0dB) at 100%
+        constexpr float MIN_DB = -20.0f;
+        float dB = MIN_DB * (1.0f - pct / 100.0f);
+        vol = powf(10.0f, dB / 20.0f);
+    } else {
+        // Plain linear headroom above unity, this is a boost past normal loudness
+        vol = 1.0f + (pct - 100.0f) / 100.0f;
+    }
+
     float mix[12] = {};
     mix[0] = vol;  // left  -> left
     mix[1] = vol;  // left  -> right
