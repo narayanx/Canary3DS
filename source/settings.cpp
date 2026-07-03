@@ -60,15 +60,15 @@ bool loadSettings() {
             } catch (...) {
             }
         } else if (key == "loop_folder") {
-            g_settings.loopFolder = (val == "1");
+            g_settings.loopFolder = (val != "0");
         } else if (key == "show_cover_art") {
             g_settings.showCoverArt = (val != "0");
         } else if (key == "allow_closed_lid_playback") {
-            g_settings.allowClosedLidPlayback = (val == "1");
+            g_settings.allowClosedLidPlayback = (val != "0");
         } else if (key == "auto_switch_to_player") {
             g_settings.autoSwitchToPlayer = (val != "0");
         } else if (key == "pause_on_headphone_disconnect") {
-            g_settings.pauseOnHeadphoneDisconnect = (val == "1");
+            g_settings.pauseOnHeadphoneDisconnect = (val != "0");
         } else if (key == "music_folder") {
             if (!val.empty()) {
                 if (val.back() != '/') {
