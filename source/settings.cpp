@@ -65,6 +65,8 @@ bool loadSettings() {
             g_settings.showCoverArt = (val != "0");
         } else if (key == "allow_closed_lid_playback") {
             g_settings.allowClosedLidPlayback = (val == "1");
+        } else if (key == "auto_switch_to_player") {
+            g_settings.autoSwitchToPlayer = (val != "0");
         } else if (key == "pause_on_headphone_disconnect") {
             g_settings.pauseOnHeadphoneDisconnect = (val == "1");
         } else if (key == "music_folder") {
@@ -173,7 +175,7 @@ bool saveSettings() {
     ensureDir();
 
     // In default write order
-    static constexpr std::array<std::string_view, 17> KEYS = {{
+    static constexpr std::array<std::string_view, 18> KEYS = {{
         "volume_percent",
         "brightness",
         "seek_seconds",
@@ -182,6 +184,7 @@ bool saveSettings() {
         "loop_folder",
         "show_cover_art",
         "allow_closed_lid_playback",
+        "auto_switch_to_player",
         "pause_on_headphone_disconnect",
         "accent_color",
         "accent_custom",
@@ -212,6 +215,9 @@ bool saveSettings() {
         }
         if (key == "allow_closed_lid_playback") {
             return g_settings.allowClosedLidPlayback ? "1" : "0";
+        }
+        if (key == "auto_switch_to_player") {
+            return g_settings.autoSwitchToPlayer ? "1" : "0";
         }
         if (key == "pause_on_headphone_disconnect") {
             return g_settings.pauseOnHeadphoneDisconnect ? "1" : "0";

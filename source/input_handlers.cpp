@@ -73,7 +73,9 @@ triggerPlaylistPlay(PlaylistState &pl, CtxMenu &s_ctx, TopScreenState &screenSta
             for (size_t i = 1; i < songs.size(); ++i) {
                 enqueueSong(songs[i]);
             }
-            screenState = TopScreenState::INFO;
+            if (g_settings.autoSwitchToPlayer) {
+                screenState = TopScreenState::INFO;
+            }
         }
         s_ctx.close();
     };
@@ -542,7 +544,9 @@ void handleAButton(u32 &kDown,
             stopPlaybackIfPlaying();
             if (playSong(path)) {
                 logToDebugScreen("Playing: " + (std::string) nm);
-                screenState = TopScreenState::INFO;
+                if (g_settings.autoSwitchToPlayer) {
+                    screenState = TopScreenState::INFO;
+                }
                 fileController.playingFile = fileController.selectedFile;
                 fileController.playingCwd = fileController.cwd;
                 fileController.playingFiles = fileController.files;
@@ -599,7 +603,9 @@ void handleAButton(u32 &kDown,
                 for (size_t i = pl.selSong + 1; i < lst.songs.size(); ++i) {
                     enqueueSong(lst.songs[i]);
                 }
-                screenState = TopScreenState::INFO;
+                if (g_settings.autoSwitchToPlayer) {
+                    screenState = TopScreenState::INFO;
+                }
             }
         }
     } else if (screenState == TopScreenState::INFO) {
@@ -1335,6 +1341,11 @@ void handleSettingsInput(u32 kDown,
 
             case SettingsState::ROW_PAUSE_ON_HEADPHONE_DISCONNECT:
                 g_settings.pauseOnHeadphoneDisconnect = !g_settings.pauseOnHeadphoneDisconnect;
+                changed = true;
+                break;
+
+            case SettingsState::ROW_AUTO_SWITCH_PLAYER:
+                g_settings.autoSwitchToPlayer = !g_settings.autoSwitchToPlayer;
                 changed = true;
                 break;
 

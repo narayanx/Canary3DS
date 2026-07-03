@@ -14,6 +14,7 @@ struct Settings {
     bool showCoverArt = true;
     bool allowClosedLidPlayback = true;
     bool pauseOnHeadphoneDisconnect = true;
+    bool autoSwitchToPlayer = true;      // switch to player screen automatically
     std::string accentColor = "Blue";    // palette name or "custom"
     std::string accentColor2 = "Green";  // palette name or "custom"
     unsigned int accentColorHex = 0;     // used when accentColor == "custom", stored as 0xRRGGBB

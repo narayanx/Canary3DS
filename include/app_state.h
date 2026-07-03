@@ -78,16 +78,17 @@ struct SettingsState {
     static constexpr size_t ROW_REPEAT = 5;
     static constexpr size_t ROW_COVER_ART = 6;
     static constexpr size_t ROW_SLEEP = 7;
-    static constexpr size_t ROW_PAUSE_ON_HEADPHONE_DISCONNECT = 8;
-    static constexpr size_t ROW_ACCENT = 9;
-    static constexpr size_t ROW_SECONDARY = 10;
-    static constexpr size_t ROW_ADV_HEADER = 11;
-    static constexpr size_t ROW_QUEUE_SIZE = 12;
-    static constexpr size_t ROW_HISTORY_SIZE = 13;
-    static constexpr size_t ROW_MAX_DEPTH = 14;
-    static constexpr size_t ROW_DEBUG = 15;
-    static constexpr size_t ROW_RESET = 16;
-    static constexpr size_t ROW_COUNT = 17;
+    static constexpr size_t ROW_AUTO_SWITCH_PLAYER = 8;
+    static constexpr size_t ROW_PAUSE_ON_HEADPHONE_DISCONNECT = 9;
+    static constexpr size_t ROW_ACCENT = 10;
+    static constexpr size_t ROW_SECONDARY = 11;
+    static constexpr size_t ROW_ADV_HEADER = 12;
+    static constexpr size_t ROW_QUEUE_SIZE = 13;
+    static constexpr size_t ROW_HISTORY_SIZE = 14;
+    static constexpr size_t ROW_MAX_DEPTH = 15;
+    static constexpr size_t ROW_DEBUG = 16;
+    static constexpr size_t ROW_RESET = 17;
+    static constexpr size_t ROW_COUNT = 18;
 
     static constexpr size_t VISIBLE_ROWS = 11;
 
@@ -102,8 +103,8 @@ struct SettingsState {
     static std::vector<std::string> buildRows() {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
 
-        char vol[48], bri[48], seek[48], lock[48], rep[48], cov[48], slp[48], phd[48], acc[48],
-            sec[48], qsz[48], hsz[48], dep[48], dbg[48];
+        char vol[48], bri[48], seek[48], lock[48], rep[48], cov[48], slp[48], phd[48], asp[48],
+            acc[48], sec[48], qsz[48], hsz[48], dep[48], dbg[48];
 
         snprintf(vol, sizeof(vol), "Volume:  %d%%", g_settings.volumePercent);
         snprintf(bri, sizeof(bri), "Brightness:  %d / 5", g_settings.brightness);
@@ -133,10 +134,15 @@ struct SettingsState {
                  sizeof(slp),
                  "Play with Lid Closed: %c",
                  toggle(g_settings.allowClosedLidPlayback));
+        snprintf(asp,
+                 sizeof(asp),
+                 "Auto Switch to Player Screen: %c",
+                 toggle(g_settings.autoSwitchToPlayer));
         snprintf(phd,
                  sizeof(phd),
                  "Pause On Headphone Disconnect: %c",
                  toggle(g_settings.pauseOnHeadphoneDisconnect));
+
         if (g_settings.accentColor == "custom") {
             snprintf(
                 acc, sizeof(acc), "Accent Color:  #%06X", g_settings.accentColorHex & 0xFFFFFFu);
@@ -169,6 +175,7 @@ struct SettingsState {
                 rep,
                 cov,
                 slp,
+                asp,
                 phd,
                 acc,
                 sec,
