@@ -38,6 +38,14 @@ bool loadCoverArtFromBytes(const unsigned char *data,
                            Tex3DS_SubTexture &subtex,
                            bool freeExisting);
 
+// Fallback for when a song has no embedded cover art: looks for images alongside songPath and loads
+// it if found. freeExisting: call C3D_TexDelete on tex before reinitialising.
+bool loadFolderCoverArt(const std::string &songPath,
+                        C2D_Image &image,
+                        C3D_Tex &tex,
+                        Tex3DS_SubTexture &subtex,
+                        bool freeExisting);
+
 // Target dimensions (pixels) for displayed cover art
 constexpr float COVER_TARGET_WIDTH = 190.0f;
 constexpr float COVER_TARGET_HEIGHT = 190.0f;

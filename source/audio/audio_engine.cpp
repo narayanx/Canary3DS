@@ -418,8 +418,14 @@ bool loadCoverArtForCurrentSong(C2D_Image &image,
         loadedImage = false;
         return false;
     }
-    const bool ok = dec->loadCoverArt(image, tex, subtex, loadedImage);
+    bool ok = dec->loadCoverArt(image, tex, subtex, loadedImage);
     LightLock_Unlock(&audioController.decoderLock);
+
+    if (!ok) {
+        // No embedded cover art, fall back to image in the song's folder
+        ok = loadFolderCoverArt(audioController.songPath, image, tex, subtex, loadedImage);
+    }
+
     loadedImage = ok;
     return ok;
 }

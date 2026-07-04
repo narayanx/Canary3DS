@@ -11,9 +11,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <stb_image.h>
+#include <sys/stat.h>
 #include <vector>
 
 #include "gfx.h"
+
+// 3DS GPU texture dimensions are capped at 1024x1024
+static constexpr int MAX_COVER_TEX_SIZE = 1024;
 
 static int nextPow2(int x) {
     int p = 1;
@@ -33,17 +37,42 @@ bool loadC2DImage(const char *filepath,
         logToDebugScreen("Failed to load image");
         return false;
     }
+    if (w > MAX_COVER_TEX_SIZE || h > MAX_COVER_TEX_SIZE) {
+        stbi_image_free(data);
+        logToDebugScreen("Image exceeds 1024x1024, skipping (width, height): " + std::to_string(w) +
+                         ", " + std::to_string(h));
+        return false;
+    }
 
-    C3D_TexInit(&imageTex, (u16) w, (u16) h, GPU_RGBA8);
-    ripConvertAndLoadC3DTexImage(&imageTex, data, GPU_TEXFACE_2D, 0);
+    int nw = nextPow2(w);
+    int nh = nextPow2(h);
+
+    unsigned char *padded = (unsigned char *) linearAlloc((size_t) nw * nh * 4);
+    if (!padded) {
+        stbi_image_free(data);
+        logToDebugScreen("linearAlloc failed for image");
+        return false;
+    }
+    memset(padded, 0, (size_t) nw * nh * 4);
+    for (int y = 0; y < h; ++y) {
+        memcpy(padded + y * nw * 4, data + y * w * 4, (size_t) w * 4);
+    }
     stbi_image_free(data);
+
+    if (!C3D_TexInit(&imageTex, (u16) nw, (u16) nh, GPU_RGBA8)) {
+        linearFree(padded);
+        logToDebugScreen("C3D_TexInit failed");
+        return false;
+    }
+    ripConvertAndLoadC3DTexImage(&imageTex, padded, GPU_TEXFACE_2D, 0);
+    linearFree(padded);
 
     subtex = {.width = imageTex.width,
               .height = imageTex.height,
               .left = 0.0f,
               .top = 1.0f,
-              .right = 1.0f,
-              .bottom = 0.0f};
+              .right = (float) w / (float) imageTex.width,
+              .bottom = 1.0f - (float) h / (float) imageTex.height};
     image.tex = &imageTex;
     image.subtex = &subtex;
     return true;
@@ -59,6 +88,13 @@ bool loadC2DImageMemory(const unsigned char *buffer,
     stbi_uc *data = stbi_load_from_memory(buffer, len, &w, &h, nullptr, 4);
     if (!data) {
         logToDebugScreen("Failed to load image from memory");
+        return false;
+    }
+    if (w > MAX_COVER_TEX_SIZE || h > MAX_COVER_TEX_SIZE) {
+        stbi_image_free(data);
+        logToDebugScreen("Cover art exceeds 1024x1024, skipping (width, height): " +
+                         std::to_string(w) + ", " + std::to_string(h));
+
         return false;
     }
 
@@ -163,6 +199,46 @@ bool loadCoverArtFromBytes(const unsigned char *data,
         return false;
     }
     return loadC2DImageMemory(data, len, image, tex, subtex, freeExisting);
+}
+
+bool loadFolderCoverArt(const std::string &songPath,
+                        C2D_Image &image,
+                        C3D_Tex &tex,
+                        Tex3DS_SubTexture &subtex,
+                        bool freeExisting) {
+    size_t sl = songPath.find_last_of('/');
+    if (sl == std::string::npos) {
+        return false;
+    }
+    std::string dir = songPath.substr(0, sl + 1);
+
+    static constexpr const char *CANDIDATES[] = {
+        "cover.jpg",
+        "cover.jpeg",
+        "cover.png",
+        "folder.jpg",
+        "folder.jpeg",
+        "folder.png",
+    };
+
+    struct stat st;
+    std::string path;
+    bool found = false;
+    for (const char *name : CANDIDATES) {
+        path = dir + name;
+        if (stat(path.c_str(), &st) == 0) {
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        return false;
+    }
+
+    if (freeExisting) {
+        C3D_TexDelete(&tex);
+    }
+    return loadC2DImage(path.c_str(), image, tex, subtex);
 }
 
 bool saveAsBmp128(const std::string &path, const unsigned char *data, int len) {
