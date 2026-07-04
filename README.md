@@ -1,5 +1,7 @@
 ![Canary](assets/icon.png) Canary3DS
 ==
+[![Release](https://img.shields.io/github/v/release/narayanx/Canary3DS?label=release)](https://github.com/narayanx/Canary3DS/releases)
+![Downloads](https://img.shields.io/github/downloads/narayanx/Canary3DS/total)
 
 A 3DS music player with modern features.  
 
