@@ -70,25 +70,27 @@ struct SettingsState {
     size_t scrollOffset = 0;
 
     // Row indices
-    static constexpr size_t ROW_VOLUME = 0;
-    static constexpr size_t ROW_BRIGHTNESS = 1;
-    static constexpr size_t ROW_SEEK = 2;
-    static constexpr size_t ROW_START_PATH = 3;
-    static constexpr size_t ROW_LOCK_START = 4;
-    static constexpr size_t ROW_REPEAT = 5;
-    static constexpr size_t ROW_COVER_ART = 6;
-    static constexpr size_t ROW_SLEEP = 7;
-    static constexpr size_t ROW_AUTO_SWITCH_PLAYER = 8;
-    static constexpr size_t ROW_PAUSE_ON_HEADPHONE_DISCONNECT = 9;
-    static constexpr size_t ROW_ACCENT = 10;
-    static constexpr size_t ROW_SECONDARY = 11;
-    static constexpr size_t ROW_ADV_HEADER = 12;
-    static constexpr size_t ROW_QUEUE_SIZE = 13;
-    static constexpr size_t ROW_HISTORY_SIZE = 14;
-    static constexpr size_t ROW_MAX_DEPTH = 15;
-    static constexpr size_t ROW_DEBUG = 16;
-    static constexpr size_t ROW_RESET = 17;
-    static constexpr size_t ROW_COUNT = 18;
+    enum : size_t {
+        ROW_VOLUME,
+        ROW_BRIGHTNESS,
+        ROW_SEEK,
+        ROW_START_PATH,
+        ROW_LOCK_START,
+        ROW_REPEAT,
+        ROW_COVER_ART,
+        ROW_SLEEP,
+        ROW_AUTO_SWITCH_PLAYER,
+        ROW_PAUSE_ON_HEADPHONE_DISCONNECT,
+        ROW_ACCENT,
+        ROW_SECONDARY,
+        ROW_ADV_HEADER,
+        ROW_QUEUE_SIZE,
+        ROW_HISTORY_SIZE,
+        ROW_MAX_DEPTH,
+        ROW_DEBUG,
+        ROW_RESET,
+        ROW_COUNT,
+    };
 
     static constexpr size_t VISIBLE_ROWS = 11;
 
