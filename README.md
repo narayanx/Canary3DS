@@ -17,6 +17,7 @@ A 3DS music player with modern features.
 - Queue which songs can be added to and played from
 - Creating playlists, which are stored in the standard `m3u` file format
 - Playing songs through headphones with the lid closed
+- Shuffling and looping songs
 - Powerful context menu allowing bulk operations to add to queue/playlist
 - Automatically plays next file
 - Displaying embedded cover art and setting custom cover art for playlists
