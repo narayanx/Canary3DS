@@ -430,6 +430,10 @@ void handleAButton(u32 &kDown,
     if (screenState == TopScreenState::SETTINGS) {
         if (st.sel == SettingsState::ROW_START_PATH) {
             s_ctx.close();
+            s_ctx.add("Browse folders", [&screenState, &fb, &s_ctx]() {
+                s_ctx.close();
+                enterFolderPickerMode(screenState, fb);
+            });
             s_ctx.add("Type path (keyboard)", [&s_ctx, &fb]() {
                 SwkbdState swkbd;
                 char buf[256] = {};
@@ -448,10 +452,6 @@ void handleAButton(u32 &kDown,
                     logToDebugScreen("Start path: " + p);
                 }
                 s_ctx.close();
-            });
-            s_ctx.add("Browse folders", [&screenState, &fb, &s_ctx]() {
-                s_ctx.close();
-                enterFolderPickerMode(screenState, fb);
             });
             s_ctx.open(60.0f, 60.0f);
         } else if (st.sel == SettingsState::ROW_VOLUME) {
