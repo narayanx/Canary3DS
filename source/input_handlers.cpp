@@ -1461,6 +1461,9 @@ void handleSettingsInput(u32 kDown,
 
 void handleShoulderTaps(
     u32 kDown, u64 now, u64 &lTapTime, int &lTapCount, u64 &rTapTime, int &rTapCount) {
+    if (g_settings.lockShoulderButtons) {
+        return;
+    }
     if (kDown & KEY_L) {
         lTapCount = (lTapCount > 0 && (now - lTapTime) <= MULTI_TAP_WINDOW_MS) ? lTapCount + 1 : 1;
         lTapTime = now;
