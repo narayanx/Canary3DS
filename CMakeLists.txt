@@ -31,6 +31,7 @@ add_executable(${PROJECT_NAME}
   source/image.cpp
   source/playlist.cpp
   source/settings.cpp
+  source/toggle_settings.cpp
 )
 
 target_sources(${PROJECT_NAME} PRIVATE

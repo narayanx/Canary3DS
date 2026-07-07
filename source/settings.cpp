@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "gfx.h"
+#include "toggle_settings.h"
 
 Settings g_settings;
 
@@ -51,6 +52,18 @@ bool loadSettings() {
         trim(key);
         trim(val);
 
+        bool isToggle = false;
+        for (size_t i = 0; i < TOGGLE_SETTINGS_COUNT; ++i) {
+            if (key == TOGGLE_SETTINGS[i].key) {
+                g_settings.*(TOGGLE_SETTINGS[i].value) = (val != "0");
+                isToggle = true;
+                break;
+            }
+        }
+        if (isToggle) {
+            continue;
+        }
+
         if (key == "volume_percent") {
             try {
                 int v = std::stoi(val);
@@ -59,16 +72,6 @@ bool loadSettings() {
                 }
             } catch (...) {
             }
-        } else if (key == "loop_folder") {
-            g_settings.loopFolder = (val != "0");
-        } else if (key == "show_cover_art") {
-            g_settings.showCoverArt = (val != "0");
-        } else if (key == "allow_closed_lid_playback") {
-            g_settings.allowClosedLidPlayback = (val != "0");
-        } else if (key == "auto_switch_to_player") {
-            g_settings.autoSwitchToPlayer = (val != "0");
-        } else if (key == "pause_on_headphone_disconnect") {
-            g_settings.pauseOnHeadphoneDisconnect = (val != "0");
         } else if (key == "music_folder") {
             if (!val.empty()) {
                 if (val.back() != '/') {
@@ -92,8 +95,6 @@ bool loadSettings() {
                 }
             } catch (...) {
             }
-        } else if (key == "lock_to_music_folder") {
-            g_settings.lockToStartPath = (val != "0");
         } else if (key == "accent_color") {
             if (val == "custom") {
                 g_settings.accentColor = "custom";
@@ -162,8 +163,6 @@ bool loadSettings() {
                 }
             } catch (...) {
             }
-        } else if (key == "show_debug") {
-            g_settings.showDebugScreen = (val == "1");
         }
     }
 
@@ -204,23 +203,14 @@ bool saveSettings() {
             return buf;
         };
 
+        for (size_t i = 0; i < TOGGLE_SETTINGS_COUNT; ++i) {
+            if (key == TOGGLE_SETTINGS[i].key) {
+                return (g_settings.*(TOGGLE_SETTINGS[i].value)) ? "1" : "0";
+            }
+        }
+
         if (key == "volume_percent") {
             return std::to_string(g_settings.volumePercent);
-        }
-        if (key == "loop_folder") {
-            return g_settings.loopFolder ? "1" : "0";
-        }
-        if (key == "show_cover_art") {
-            return g_settings.showCoverArt ? "1" : "0";
-        }
-        if (key == "allow_closed_lid_playback") {
-            return g_settings.allowClosedLidPlayback ? "1" : "0";
-        }
-        if (key == "auto_switch_to_player") {
-            return g_settings.autoSwitchToPlayer ? "1" : "0";
-        }
-        if (key == "pause_on_headphone_disconnect") {
-            return g_settings.pauseOnHeadphoneDisconnect ? "1" : "0";
         }
         if (key == "music_folder") {
             return g_settings.startPath;
@@ -230,9 +220,6 @@ bool saveSettings() {
         }
         if (key == "seek_seconds") {
             return std::to_string(g_settings.seekSeconds);
-        }
-        if (key == "lock_to_music_folder") {
-            return g_settings.lockToStartPath ? "1" : "0";
         }
         if (key == "accent_color") {
             return g_settings.accentColor;
@@ -254,9 +241,6 @@ bool saveSettings() {
         }
         if (key == "max_folder_history_depth") {
             return std::to_string(g_settings.maxDepth);
-        }
-        if (key == "show_debug") {
-            return g_settings.showDebugScreen ? "1" : "0";
         }
         return {};
     };

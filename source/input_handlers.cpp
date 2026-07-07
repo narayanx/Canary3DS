@@ -14,6 +14,7 @@
 #include "gfx.h"
 #include "playlist.h"
 #include "settings.h"
+#include "toggle_settings.h"
 
 static constexpr u64 MULTI_TAP_WINDOW_MS = 350;
 
@@ -1260,196 +1261,167 @@ void handleSettingsInput(u32 kDown,
     bool left = (kDown & KEY_DLEFT) || (kDown & KEY_LEFT);
 
     if (right || left) {
-        switch (st.sel) {
-
-            case SettingsState::ROW_VOLUME:
-                if (right && g_settings.volumePercent < VOLUME_MAX_PERCENT) {
-                    g_settings.volumePercent =
-                        std::min(g_settings.volumePercent + VOLUME_STEP, VOLUME_MAX_PERCENT);
-                    changed = true;
-                }
-                if (left && g_settings.volumePercent > 0) {
-                    g_settings.volumePercent = std::max(g_settings.volumePercent - VOLUME_STEP, 0);
-                    changed = true;
-                }
-                if (changed) {
-                    applyVolume();
-                }
-                break;
-
-            case SettingsState::ROW_BRIGHTNESS:
-                if (right && g_settings.brightness < 5) {
-                    ++g_settings.brightness;
-                    changed = true;
-                }
-                if (left && g_settings.brightness > 1) {
-                    --g_settings.brightness;
-                    changed = true;
-                }
-                if (changed) {
-                    applyBrightness();
-                }
-                break;
-
-            case SettingsState::ROW_SEEK:
-                {
-                    int n = 4;
-                    int curIdx = -1;
-                    for (int i = 0; i < n; i++) {
-                        if (g_settings.seekSeconds == SEEK_PRESETS[i]) {
-                            curIdx = i;
-                            break;
-                        }
+        if (const ToggleSetting *tgl = findToggle(st.sel)) {
+            g_settings.*(tgl->value) = !(g_settings.*(tgl->value));
+            if (tgl->onToggle) {
+                tgl->onToggle(info);
+            }
+            changed = true;
+        } else {
+            switch (st.sel) {
+                case SettingsState::ROW_VOLUME:
+                    if (right && g_settings.volumePercent < VOLUME_MAX_PERCENT) {
+                        g_settings.volumePercent =
+                            std::min(g_settings.volumePercent + VOLUME_STEP, VOLUME_MAX_PERCENT);
+                        changed = true;
                     }
-                    int oldVal = g_settings.seekSeconds;
+                    if (left && g_settings.volumePercent > 0) {
+                        g_settings.volumePercent =
+                            std::max(g_settings.volumePercent - VOLUME_STEP, 0);
+                        changed = true;
+                    }
+                    if (changed) {
+                        applyVolume();
+                    }
+                    break;
+
+                case SettingsState::ROW_BRIGHTNESS:
+                    if (right && g_settings.brightness < 5) {
+                        ++g_settings.brightness;
+                        changed = true;
+                    }
+                    if (left && g_settings.brightness > 1) {
+                        --g_settings.brightness;
+                        changed = true;
+                    }
+                    if (changed) {
+                        applyBrightness();
+                    }
+                    break;
+
+                case SettingsState::ROW_SEEK:
+                    {
+                        int n = 4;
+                        int curIdx = -1;
+                        for (int i = 0; i < n; i++) {
+                            if (g_settings.seekSeconds == SEEK_PRESETS[i]) {
+                                curIdx = i;
+                                break;
+                            }
+                        }
+                        int oldVal = g_settings.seekSeconds;
+                        if (right) {
+                            g_settings.seekSeconds =
+                                SEEK_PRESETS[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                        }
+                        if (left) {
+                            g_settings.seekSeconds =
+                                SEEK_PRESETS[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                        }
+                        changed = (g_settings.seekSeconds != oldVal);
+                        break;
+                    }
+
+                case SettingsState::ROW_START_PATH:
+                    break;
+
+                case SettingsState::ROW_ACCENT:
+                    {
+                        int n = ACCENT_COLOR_COUNT;
+                        int curIdx = -1;
+                        for (int i = 0; i < n; i++) {
+                            if (g_settings.accentColor == ACCENT_COLOR_NAMES[i]) {
+                                curIdx = i;
+                                break;
+                            }
+                        }
+                        if (right) {
+                            g_settings.accentColor =
+                                ACCENT_COLOR_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                        }
+                        if (left) {
+                            g_settings.accentColor =
+                                ACCENT_COLOR_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                        }
+                        applyAccentColor();
+                        changed = true;
+                        break;
+                    }
+
+                case SettingsState::ROW_SECONDARY:
+                    {
+                        int n = SECONDARY_COLOR_COUNT;
+                        int curIdx = -1;
+                        for (int i = 0; i < n; i++) {
+                            if (g_settings.accentColor2 == SECONDARY_COLOR_NAMES[i]) {
+                                curIdx = i;
+                                break;
+                            }
+                        }
+                        if (right) {
+                            g_settings.accentColor2 =
+                                SECONDARY_COLOR_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                        }
+                        if (left) {
+                            g_settings.accentColor2 =
+                                SECONDARY_COLOR_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                        }
+                        applySecondaryColor();
+                        changed = true;
+                        break;
+                    }
+
+                case SettingsState::ROW_QUEUE_SIZE:
                     if (right) {
-                        g_settings.seekSeconds = SEEK_PRESETS[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                        if (g_settings.queueSize < 20) {
+                            g_settings.queueSize += 1;
+                        } else if (g_settings.queueSize < 100) {
+                            g_settings.queueSize += 10;
+                        } else {
+                            g_settings.queueSize += 50;
+                        }
+                        if (g_settings.queueSize > 9999) {
+                            g_settings.queueSize = 9999;
+                        }
+                        changed = true;
                     }
                     if (left) {
-                        g_settings.seekSeconds =
-                            SEEK_PRESETS[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
-                    }
-                    changed = (g_settings.seekSeconds != oldVal);
-                    break;
-                }
-
-            case SettingsState::ROW_START_PATH:
-                break;
-
-            case SettingsState::ROW_LOCK_START:
-                g_settings.lockToStartPath = !g_settings.lockToStartPath;
-                changed = true;
-                break;
-
-            case SettingsState::ROW_REPEAT:
-                g_settings.loopFolder = !g_settings.loopFolder;
-                changed = true;
-                break;
-
-            case SettingsState::ROW_COVER_ART:
-                g_settings.showCoverArt = !g_settings.showCoverArt;
-                info.displayCover = g_settings.showCoverArt;
-                changed = true;
-                break;
-
-            case SettingsState::ROW_SLEEP:
-                g_settings.allowClosedLidPlayback = !g_settings.allowClosedLidPlayback;
-                aptSetSleepAllowed(
-                    !g_settings.allowClosedLidPlayback);  // disallow sleep to allow playback
-                changed = true;
-                break;
-
-            case SettingsState::ROW_PAUSE_ON_HEADPHONE_DISCONNECT:
-                g_settings.pauseOnHeadphoneDisconnect = !g_settings.pauseOnHeadphoneDisconnect;
-                changed = true;
-                break;
-
-            case SettingsState::ROW_AUTO_SWITCH_PLAYER:
-                g_settings.autoSwitchToPlayer = !g_settings.autoSwitchToPlayer;
-                changed = true;
-                break;
-
-            case SettingsState::ROW_ACCENT:
-                {
-                    int n = ACCENT_COLOR_COUNT;
-                    int curIdx = -1;
-                    for (int i = 0; i < n; i++) {
-                        if (g_settings.accentColor == ACCENT_COLOR_NAMES[i]) {
-                            curIdx = i;
-                            break;
+                        if (g_settings.queueSize > 100) {
+                            g_settings.queueSize -= 50;
+                        } else if (g_settings.queueSize > 20) {
+                            g_settings.queueSize -= 10;
+                        } else if (g_settings.queueSize > 10) {
+                            g_settings.queueSize -= 1;
                         }
+                        changed = true;
                     }
-                    if (right) {
-                        g_settings.accentColor =
-                            ACCENT_COLOR_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
-                    }
-                    if (left) {
-                        g_settings.accentColor =
-                            ACCENT_COLOR_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
-                    }
-                    applyAccentColor();
-                    changed = true;
                     break;
-                }
 
-            case SettingsState::ROW_SECONDARY:
-                {
-                    int n = SECONDARY_COLOR_COUNT;
-                    int curIdx = -1;
-                    for (int i = 0; i < n; i++) {
-                        if (g_settings.accentColor2 == SECONDARY_COLOR_NAMES[i]) {
-                            curIdx = i;
-                            break;
-                        }
+                case SettingsState::ROW_HISTORY_SIZE:
+                    if (right && g_settings.historySize < 200) {
+                        g_settings.historySize = std::min(200, g_settings.historySize + 5);
+                        changed = true;
                     }
-                    if (right) {
-                        g_settings.accentColor2 =
-                            SECONDARY_COLOR_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                    if (left && g_settings.historySize > 5) {
+                        g_settings.historySize = std::max(5, g_settings.historySize - 5);
+                        changed = true;
                     }
-                    if (left) {
-                        g_settings.accentColor2 =
-                            SECONDARY_COLOR_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
-                    }
-                    applySecondaryColor();
-                    changed = true;
                     break;
-                }
 
-            case SettingsState::ROW_QUEUE_SIZE:
-                if (right) {
-                    if (g_settings.queueSize < 20) {
-                        g_settings.queueSize += 1;
-                    } else if (g_settings.queueSize < 100) {
-                        g_settings.queueSize += 10;
-                    } else {
-                        g_settings.queueSize += 50;
+                case SettingsState::ROW_MAX_DEPTH:
+                    if (right && g_settings.maxDepth < 50) {
+                        ++g_settings.maxDepth;
+                        changed = true;
                     }
-                    if (g_settings.queueSize > 9999) {
-                        g_settings.queueSize = 9999;
+                    if (left && g_settings.maxDepth > 1) {
+                        --g_settings.maxDepth;
+                        changed = true;
                     }
-                    changed = true;
-                }
-                if (left) {
-                    if (g_settings.queueSize > 100) {
-                        g_settings.queueSize -= 50;
-                    } else if (g_settings.queueSize > 20) {
-                        g_settings.queueSize -= 10;
-                    } else if (g_settings.queueSize > 10) {
-                        g_settings.queueSize -= 1;
-                    }
-                    changed = true;
-                }
-                break;
+                    break;
 
-            case SettingsState::ROW_HISTORY_SIZE:
-                if (right && g_settings.historySize < 200) {
-                    g_settings.historySize = std::min(200, g_settings.historySize + 5);
-                    changed = true;
-                }
-                if (left && g_settings.historySize > 5) {
-                    g_settings.historySize = std::max(5, g_settings.historySize - 5);
-                    changed = true;
-                }
-                break;
-
-            case SettingsState::ROW_MAX_DEPTH:
-                if (right && g_settings.maxDepth < 50) {
-                    ++g_settings.maxDepth;
-                    changed = true;
-                }
-                if (left && g_settings.maxDepth > 1) {
-                    --g_settings.maxDepth;
-                    changed = true;
-                }
-                break;
-
-            case SettingsState::ROW_DEBUG:
-                g_settings.showDebugScreen = !g_settings.showDebugScreen;
-                changed = true;
-                break;
-
-            default:
-                break;
+                default:
+                    break;
+            }
         }
         if (changed) {
             saveSettings();

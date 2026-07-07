@@ -12,6 +12,7 @@
 #include "gfx.h"
 #include "playlist.h"
 #include "settings.h"
+#include "toggle_settings.h"
 
 enum class TopScreenState { FILEBROWSER, INFO, PLAYLIST_BROWSER, PLAYLIST_VIEW, SETTINGS };
 
@@ -105,8 +106,17 @@ struct SettingsState {
     static std::vector<std::string> buildRows() {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
 
-        char vol[48], bri[48], seek[48], lock[48], rep[48], cov[48], slp[48], phd[48], asp[48],
-            acc[48], sec[48], qsz[48], hsz[48], dep[48], dbg[48];
+        char vol[48], bri[48], seek[48], acc[48], sec[48], qsz[48], hsz[48], dep[48];
+
+        std::vector<std::string> rows(ROW_COUNT);
+
+        // Toggle rows are table driven
+        for (size_t i = 0; i < TOGGLE_SETTINGS_COUNT; ++i) {
+            const ToggleSetting &t = TOGGLE_SETTINGS[i];
+            char buf[48];
+            snprintf(buf, sizeof(buf), "%s: %c", t.label, toggle(g_settings.*t.value));
+            rows[t.row] = buf;
+        }
 
         snprintf(vol, sizeof(vol), "Volume:  %d%%", g_settings.volumePercent);
         snprintf(bri, sizeof(bri), "Brightness:  %d / 5", g_settings.brightness);
@@ -125,25 +135,6 @@ struct SettingsState {
         }
 
         std::string pathRow = "Music Folder:   " + g_settings.startPath;
-
-        snprintf(lock,
-                 sizeof(lock),
-                 "Prevent Exiting Music Folder: %c",
-                 toggle(g_settings.lockToStartPath));
-        snprintf(rep, sizeof(rep), "Loop Folder: %c", toggle(g_settings.loopFolder));
-        snprintf(cov, sizeof(cov), "Cover Art: %c", toggle(g_settings.showCoverArt));
-        snprintf(slp,
-                 sizeof(slp),
-                 "Play with Lid Closed: %c",
-                 toggle(g_settings.allowClosedLidPlayback));
-        snprintf(asp,
-                 sizeof(asp),
-                 "Auto Switch to Player Screen: %c",
-                 toggle(g_settings.autoSwitchToPlayer));
-        snprintf(phd,
-                 sizeof(phd),
-                 "Pause On Headphone Disconnect: %c",
-                 toggle(g_settings.pauseOnHeadphoneDisconnect));
 
         if (g_settings.accentColor == "custom") {
             snprintf(
@@ -166,26 +157,18 @@ struct SettingsState {
         snprintf(qsz, sizeof(qsz), "Max Queue Size:  %d", g_settings.queueSize);
         snprintf(hsz, sizeof(hsz), "Max History Size:  %d", g_settings.historySize);
         snprintf(dep, sizeof(dep), "Max Depth:  %d", g_settings.maxDepth);
-        snprintf(
-            dbg, sizeof(dbg), "Enable Dev Debug Screen: %c", toggle(g_settings.showDebugScreen));
 
-        return {vol,
-                bri,
-                seek,
-                pathRow,
-                lock,
-                rep,
-                cov,
-                slp,
-                asp,
-                phd,
-                acc,
-                sec,
-                advHeader,
-                qsz,
-                hsz,
-                dep,
-                dbg,
-                "Reset to Defaults"};
+        rows[ROW_VOLUME] = vol;
+        rows[ROW_BRIGHTNESS] = bri;
+        rows[ROW_SEEK] = seek;
+        rows[ROW_START_PATH] = pathRow;
+        rows[ROW_ACCENT] = acc;
+        rows[ROW_SECONDARY] = sec;
+        rows[ROW_ADV_HEADER] = advHeader;
+        rows[ROW_QUEUE_SIZE] = qsz;
+        rows[ROW_HISTORY_SIZE] = hsz;
+        rows[ROW_MAX_DEPTH] = dep;
+        rows[ROW_RESET] = "Reset to Defaults";
+        return rows;
     }
 };
