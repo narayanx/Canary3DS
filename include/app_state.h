@@ -83,6 +83,7 @@ struct SettingsState {
         ROW_AUTO_SWITCH_PLAYER,
         ROW_LOCK_SHOULDER_BUTTONS,
         ROW_PAUSE_ON_HEADPHONE_DISCONNECT,
+        ROW_SCROBBLING,
         ROW_ACCENT,
         ROW_SECONDARY,
         ROW_ADV_HEADER,

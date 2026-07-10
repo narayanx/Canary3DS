@@ -16,6 +16,7 @@ struct Settings {
     bool autoSwitchToPlayer = true;    // switch to player screen automatically
     bool lockShoulderButtons = false;  // disable L/R multi-tap shortcuts
     bool pauseOnHeadphoneDisconnect = true;
+    bool enableScrobbling = false;       // write finished tracks to .scrobbler.log
     std::string accentColor = "Blue";    // palette name or "custom"
     std::string accentColor2 = "Green";  // palette name or "custom"
     unsigned int accentColorHex = 0;     // used when accentColor == "custom", stored as 0xRRGGBB

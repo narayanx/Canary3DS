@@ -6,6 +6,7 @@
 #include <sys/types.h>
 
 #include "gfx.h"
+#include "settings.h"
 
 namespace {
     // Tracks shorter than this are never logged (standard scrobbling rule)
@@ -72,6 +73,9 @@ void scrobblerLogTrack(const std::string &path,
                        double playedSeconds,
                        double durationSeconds,
                        time_t startUnixTime) {
+    if (!g_settings.enableScrobbling) {
+        return;
+    }
     if (durationSeconds < MIN_SCROBBLE_DURATION) {
         return;
     }

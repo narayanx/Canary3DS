@@ -35,6 +35,10 @@ const ToggleSetting TOGGLE_SETTINGS[] = {
      SettingsState::ROW_PAUSE_ON_HEADPHONE_DISCONNECT,
      "pause_on_headphone_disconnect",
      "Pause On Headphone Disconnect"},
+    {&Settings::enableScrobbling,
+     SettingsState::ROW_SCROBBLING,
+     "enable_scrobbling",
+     "Scrobble Log"},
     {&Settings::showDebugScreen, SettingsState::ROW_DEBUG, "show_debug", "Enable Dev Debug Screen"},
 };
 
