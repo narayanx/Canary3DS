@@ -30,6 +30,7 @@ add_executable(${PROJECT_NAME}
   source/gfx.cpp
   source/image.cpp
   source/playlist.cpp
+  source/scrobbler.cpp
   source/settings.cpp
   source/toggle_settings.cpp
 )

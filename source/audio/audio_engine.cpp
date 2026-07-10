@@ -3,12 +3,14 @@
 #include <3ds.h>
 
 #include <cstring>
+#include <ctime>
 #include <string>
 
 #include "audio_decoder.h"
 #include "filebrowser.h"
 #include "gfx.h"
 #include "image.h"
+#include "scrobbler.h"
 #include "settings.h"
 
 ndspWaveBuf s_waveBufs[3];
@@ -149,6 +151,9 @@ void audioThread(void *) {
         // main thread cannot cause us to delete the wrong object.
         IAudioDecoder *dec = audioController.decoder;
         std::string finishedPath = audioController.songPath;
+        std::string finishedArtist = audioController.songArtist;
+        std::string finishedTrackNumber = audioController.songTrackNumber;
+        time_t scrobbleStartTime = time(nullptr);
 
         resetChannel(dec->getSampleRate());
         if (audioController.applyPendingStartPaused) {
@@ -209,6 +214,15 @@ void audioThread(void *) {
             }
         }
         audioController.skipNextHistoryEntry = false;
+
+        if (!finishedPath.empty()) {
+            scrobblerLogTrack(finishedPath,
+                              finishedArtist,
+                              finishedTrackNumber,
+                              dec->getPositionSeconds(),
+                              dec->getDurationSeconds(),
+                              scrobbleStartTime);
+        }
 
         LightLock_Lock(&audioController.decoderLock);
         if (audioController.decoder == dec) {

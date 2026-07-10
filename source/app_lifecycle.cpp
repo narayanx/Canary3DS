@@ -5,6 +5,7 @@
 
 #include "audio_engine.h"
 #include "gfx.h"
+#include "scrobbler.h"
 #include "settings.h"
 
 static Thread g_audioTid;
@@ -46,6 +47,7 @@ bool appInit() {
     // Load settings before everything else that depends on them
     loadSettings();
     aptSetSleepAllowed(!g_settings.allowClosedLidPlayback);
+    scrobblerInit();
 
     if (!audioInit()) {
         // Most likely cause is dspfirm is not dumped
