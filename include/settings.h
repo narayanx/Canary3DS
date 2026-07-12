@@ -10,7 +10,7 @@ struct Settings {
     int seekSeconds = 10;           // seek duration in seconds
     int speedPercent = 100;         // playback speed, SPEED_MIN_PERCENT-SPEED_MAX_PERCENT
     int pitchSemitones = 0;         // pitch shift, PITCH_MIN_SEMITONES-PITCH_MAX_SEMITONES
-    bool linkedSpeedPitch = false;  // when true, pitch follows speed (tape/turntable style)
+    bool linkedSpeedPitch = false;  // when true, pitch follows speed
     std::string startPath = "sdmc:/Music/";
     bool lockToStartPath = true;  // prevent navigating above start path
     bool loopFolder = true;
@@ -38,8 +38,8 @@ inline constexpr int VOLUME_STEP = 5;
 inline constexpr int VOLUME_MAX_PERCENT = 200;
 
 inline constexpr int SPEED_STEP = 5;
-inline constexpr int SPEED_MIN_PERCENT = 50;
-inline constexpr int SPEED_MAX_PERCENT = 200;
+inline constexpr int SPEED_MIN_PERCENT = 25;
+inline constexpr int SPEED_MAX_PERCENT = 400;
 
 inline constexpr int PITCH_MIN_SEMITONES = -12;
 inline constexpr int PITCH_MAX_SEMITONES = 12;

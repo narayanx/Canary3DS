@@ -140,7 +140,7 @@ struct SettingsState {
             snprintf(seek, sizeof(seek), "Seek:  %ds (custom)", g_settings.seekSeconds);
         }
 
-        snprintf(spd, sizeof(spd), "Speed:  %d%%", g_settings.speedPercent);
+        snprintf(spd, sizeof(spd), "Speed:  %.2fx", g_settings.speedPercent / 100.0f);
         if (g_settings.linkedSpeedPitch) {
             snprintf(pit, sizeof(pit), "Pitch:  Linked to Speed");
         } else if (g_settings.pitchSemitones > 0) {
