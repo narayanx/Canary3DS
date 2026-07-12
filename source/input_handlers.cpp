@@ -211,6 +211,44 @@ static void openVolumeKeyboard() {
     }
 }
 
+static void openSpeedKeyboard() {
+    SwkbdState swkbd;
+    char buf[16] = {};
+    snprintf(buf, sizeof(buf), "%d", g_settings.speedPercent);
+    swkbdInit(&swkbd, SWKBD_TYPE_NUMPAD, 2, 4);
+    swkbdSetHintText(&swkbd, "Speed percent (25-400)");
+    swkbdSetInitialText(&swkbd, buf);
+    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
+        try {
+            int v = std::stoi(buf);
+            if (v >= SPEED_MIN_PERCENT && v <= SPEED_MAX_PERCENT) {
+                g_settings.speedPercent = v;
+                applySpeedPitch();
+            }
+        } catch (...) {
+        }
+    }
+}
+
+static void openPitchKeyboard() {
+    SwkbdState swkbd;
+    char buf[16] = {};
+    snprintf(buf, sizeof(buf), "%d", g_settings.pitchSemitones);
+    swkbdInit(&swkbd, SWKBD_TYPE_NUMPAD, 2, 4);
+    swkbdSetHintText(&swkbd, "Pitch semitones (-12 to 12)");
+    swkbdSetInitialText(&swkbd, buf);
+    if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
+        try {
+            int v = std::stoi(buf);
+            if (v >= PITCH_MIN_SEMITONES && v <= PITCH_MAX_SEMITONES) {
+                g_settings.pitchSemitones = v;
+                applySpeedPitch();
+            }
+        } catch (...) {
+        }
+    }
+}
+
 void enterFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb) {
     fb.pickerSavedCwd = fileController.cwd;
     fb.pickerSavedSel = fileController.selectedFile;
@@ -458,6 +496,14 @@ void handleAButton(u32 &kDown,
         } else if (st.sel == SettingsState::ROW_SEEK) {
             openSeekKeyboard();
             saveSettings();
+        } else if (st.sel == SettingsState::ROW_SPEED) {
+            openSpeedKeyboard();
+            saveSettings();
+        } else if (st.sel == SettingsState::ROW_PITCH) {
+            if (!g_settings.linkedSpeedPitch) {
+                openPitchKeyboard();
+                saveSettings();
+            }
         } else if (st.sel == SettingsState::ROW_ACCENT || st.sel == SettingsState::ROW_SECONDARY) {
             bool isAccent = (st.sel == SettingsState::ROW_ACCENT);
             u32 cur = isAccent ? g_accentColor : g_secondaryColor;
