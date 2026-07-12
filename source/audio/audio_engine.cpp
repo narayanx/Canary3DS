@@ -2,8 +2,10 @@
 
 #include <3ds.h>
 
+#include <algorithm>
 #include <cstring>
 #include <ctime>
+#include <random>
 #include <string>
 
 #include "audio_decoder.h"
@@ -253,34 +255,56 @@ void audioThread(void *) {
 
         // Prioritize queue first
         if (!playNextFromQueue()) {
-            size_t next = fileController.playingFile + 1;
-            while (next < fileController.playingFiles.size()) {
-                if (fileController.playingFiles[next].d_type == DT_REG &&
-                    isSupportedAudioFile(fileController.playingCwd +
-                                         fileController.playingFiles[next].d_name)) {
-                    break;
+            if (fileController.shuffleEnabled) {
+                if (fileController.shuffledAutoplay.empty() && g_settings.loopFolder) {
+                    reshuffleAutoplay(true);
                 }
-                ++next;
-            }
-            if (next < fileController.playingFiles.size()) {
-                const std::string path =
-                    fileController.playingCwd + fileController.playingFiles[next].d_name;
-                if (playSong(path)) {
-                    fileController.playingFile = next;
-                    logToDebugScreen("Autoplaying: " +
-                                     std::string(fileController.playingFiles[next].d_name));
+                while (!fileController.shuffledAutoplay.empty()) {
+                    const std::string path = fileController.shuffledAutoplay.front();
+                    fileController.shuffledAutoplay.erase(fileController.shuffledAutoplay.begin());
+                    if (playSong(path)) {
+                        for (size_t i = 0; i < fileController.playingFiles.size(); ++i) {
+                            if (fileController.playingCwd + fileController.playingFiles[i].d_name ==
+                                path) {
+                                fileController.playingFile = i;
+                                break;
+                            }
+                        }
+                        logToDebugScreen("Autoplaying (shuffled): " + path);
+                        break;
+                    }
                 }
-            } else if (g_settings.loopFolder && !fileController.playingFiles.empty()) {
-                // Wrap around to the first audio file in the directory
-                for (size_t i = 0; i < fileController.playingFiles.size(); ++i) {
-                    if (fileController.playingFiles[i].d_type == DT_REG) {
-                        const std::string path =
-                            fileController.playingCwd + fileController.playingFiles[i].d_name;
-                        if (isSupportedAudioFile(path) && playSong(path)) {
-                            fileController.playingFile = i;
-                            logToDebugScreen("Repeat All: " +
-                                             std::string(fileController.playingFiles[i].d_name));
-                            break;
+            } else {
+                size_t next = fileController.playingFile + 1;
+                while (next < fileController.playingFiles.size()) {
+                    if (fileController.playingFiles[next].d_type == DT_REG &&
+                        isSupportedAudioFile(fileController.playingCwd +
+                                             fileController.playingFiles[next].d_name)) {
+                        break;
+                    }
+                    ++next;
+                }
+                if (next < fileController.playingFiles.size()) {
+                    const std::string path =
+                        fileController.playingCwd + fileController.playingFiles[next].d_name;
+                    if (playSong(path)) {
+                        fileController.playingFile = next;
+                        logToDebugScreen("Autoplaying: " +
+                                         std::string(fileController.playingFiles[next].d_name));
+                    }
+                } else if (g_settings.loopFolder && !fileController.playingFiles.empty()) {
+                    // Wrap around to the first audio file in the directory
+                    for (size_t i = 0; i < fileController.playingFiles.size(); ++i) {
+                        if (fileController.playingFiles[i].d_type == DT_REG) {
+                            const std::string path =
+                                fileController.playingCwd + fileController.playingFiles[i].d_name;
+                            if (isSupportedAudioFile(path) && playSong(path)) {
+                                fileController.playingFile = i;
+                                logToDebugScreen(
+                                    "Repeat All: " +
+                                    std::string(fileController.playingFiles[i].d_name));
+                                break;
+                            }
                         }
                     }
                 }
@@ -361,6 +385,9 @@ static bool hasNextSong() {
     if (!audioController.songReady) {
         return false;
     }
+    if (fileController.shuffleEnabled) {
+        return !fileController.shuffledAutoplay.empty() || g_settings.loopFolder;
+    }
     for (size_t i = fileController.playingFile + 1; i < fileController.playingFiles.size(); ++i) {
         if (fileController.playingFiles[i].d_type == DT_REG &&
             isSupportedAudioFile(fileController.playingCwd +
@@ -401,21 +428,122 @@ void enqueueSong(const std::string &path) {
         return;
     }
     fileController.playQueue.push_back(path);
+    fileController.playbackOrder.push_back(path);
     logToDebugScreen("Queued: " + path);
 }
 
-// Pop the front of the play queue and start it. Returns false if queue empty
-// or the song fails to open (the failed entry is discarded in that case).
+void queuePlayNext(const std::string &path) {
+    if (fileController.playQueue.size() >= (size_t) g_settings.queueSize) {
+        logToDebugScreen("Queue full (" + std::to_string(g_settings.queueSize) +
+                         "), skipping: " + path);
+        return;
+    }
+    fileController.playQueue.push_front(path);
+    fileController.playbackOrder.insert(fileController.playbackOrder.begin(), path);
+    logToDebugScreen("Play next: " + path);
+}
+
+// Pop the front of the playback order and start it, removing the same song
+// from playQueue. Returns false if empty or the song fails to open (the
+// failed entry is discarded in that case).
 bool playNextFromQueue() {
-    while (!fileController.playQueue.empty()) {
-        const std::string next = fileController.playQueue.front();
-        fileController.playQueue.pop_front();
+    while (!fileController.playbackOrder.empty()) {
+        const std::string next = fileController.playbackOrder.front();
+        fileController.playbackOrder.erase(fileController.playbackOrder.begin());
+        auto it = std::find(fileController.playQueue.begin(), fileController.playQueue.end(), next);
+        if (it != fileController.playQueue.end()) {
+            fileController.playQueue.erase(it);
+        }
         if (playSong(next)) {
             logToDebugScreen("Playing from queue: " + next);
             return true;
         }
     }
     return false;
+}
+
+void removeQueueItem(size_t idx) {
+    if (idx >= fileController.playbackOrder.size()) {
+        return;
+    }
+    const std::string song = fileController.playbackOrder[idx];
+    fileController.playbackOrder.erase(fileController.playbackOrder.begin() + (long) idx);
+    auto it = std::find(fileController.playQueue.begin(), fileController.playQueue.end(), song);
+    if (it != fileController.playQueue.end()) {
+        fileController.playQueue.erase(it);
+    }
+}
+
+void reorderQueueItem(size_t from, size_t to) {
+    if (from >= fileController.playbackOrder.size() || to >= fileController.playbackOrder.size()) {
+        return;
+    }
+    const std::string song = fileController.playbackOrder[from];
+    fileController.playbackOrder.erase(fileController.playbackOrder.begin() + (long) from);
+    fileController.playbackOrder.insert(fileController.playbackOrder.begin() + (long) to, song);
+    if (!fileController.shuffleEnabled) {
+        // playbackOrder must mirror playQueue's order when not shuffled.
+        fileController.playQueue.assign(fileController.playbackOrder.begin(),
+                                        fileController.playbackOrder.end());
+    }
+}
+
+void skipQueueItems(size_t count) {
+    count = std::min(count, fileController.playbackOrder.size());
+    for (size_t i = 0; i < count; ++i) {
+        const std::string song = fileController.playbackOrder.front();
+        fileController.playbackOrder.erase(fileController.playbackOrder.begin());
+        auto it = std::find(fileController.playQueue.begin(), fileController.playQueue.end(), song);
+        if (it != fileController.playQueue.end()) {
+            fileController.playQueue.erase(it);
+        }
+    }
+}
+
+void clearQueue() {
+    fileController.playQueue.clear();
+    fileController.playbackOrder.clear();
+}
+
+// random_device can return the same value on every call, so seed from the CPU tick counter instead
+std::mt19937 makeShuffleRng() {
+    return std::mt19937(static_cast<unsigned>(svcGetSystemTick()));
+}
+
+void reshuffleAutoplay(bool wholeFolder) {
+    fileController.shuffledAutoplay.clear();
+    std::vector<std::string> upcoming;
+    size_t start = wholeFolder ? 0 : fileController.playingFile + 1;
+    for (size_t i = start; i < fileController.playingFiles.size(); ++i) {
+        if (fileController.playingFiles[i].d_type == DT_REG &&
+            isSupportedAudioFile(fileController.playingCwd +
+                                 fileController.playingFiles[i].d_name)) {
+            upcoming.push_back(fileController.playingCwd + fileController.playingFiles[i].d_name);
+        }
+    }
+    std::mt19937 g = makeShuffleRng();
+    std::shuffle(upcoming.begin(), upcoming.end(), g);
+    fileController.shuffledAutoplay.assign(upcoming.begin(), upcoming.end());
+}
+
+void toggleShuffle() {
+    if (fileController.shuffleEnabled) {
+        fileController.shuffleEnabled = false;
+        // Restore playback order to the queue's order, discarding any
+        // temporary reordering done while shuffled.
+        fileController.playbackOrder.assign(fileController.playQueue.begin(),
+                                            fileController.playQueue.end());
+        fileController.shuffledAutoplay.clear();
+        logToDebugScreen("Shuffle: off");
+    } else {
+        fileController.shuffleEnabled = true;
+        fileController.playbackOrder.assign(fileController.playQueue.begin(),
+                                            fileController.playQueue.end());
+        std::mt19937 g = makeShuffleRng();
+        std::shuffle(fileController.playbackOrder.begin(), fileController.playbackOrder.end(), g);
+        reshuffleAutoplay(false);
+        logToDebugScreen("Shuffle: on");
+    }
 }
 
 // Called from the main thread after audioController.newSongStarted fires.

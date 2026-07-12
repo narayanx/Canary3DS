@@ -63,12 +63,12 @@ triggerPlaylistPlay(PlaylistState &pl, CtxMenu &s_ctx, TopScreenState &screenSta
 
     std::vector<std::string> songs = lst.songs;
     if (shuffle) {
-        std::mt19937 g(std::random_device{}());
+        std::mt19937 g = makeShuffleRng();
         std::shuffle(songs.begin(), songs.end(), g);
     }
 
     auto doPlay = [&pl, &s_ctx, &screenState, songs]() {
-        fileController.playQueue.clear();
+        clearQueue();
         stopPlaybackIfPlaying();
         if (playSong(songs[0])) {
             for (size_t i = 1; i < songs.size(); ++i) {
@@ -311,11 +311,7 @@ void handleNavTouch(touchPosition touchPos,
             audioController.loopOne = !audioController.loopOne;
             logToDebugScreen(audioController.loopOne ? "Loop: on" : "Loop: off");
         } else if (px >= SHUFFLE_BTN_X && px <= SHUFFLE_BTN_X + LOOP_BTN_W) {
-            if (!fileController.playQueue.empty()) {
-                std::mt19937 g(std::random_device{}());
-                std::shuffle(fileController.playQueue.begin(), fileController.playQueue.end(), g);
-                logToDebugScreen("Queue shuffled");
-            }
+            toggleShuffle();
         }
     }
     if (py >= PLAY_BTN_Y && py <= PLAY_BTN_Y + PLAY_BTN_H) {
@@ -324,6 +320,8 @@ void handleNavTouch(touchPosition touchPos,
                 std::string prevSong = fileController.playHistory.front();
                 fileController.playHistory.pop_front();
                 fileController.playQueue.push_front(audioController.songPath);
+                fileController.playbackOrder.insert(fileController.playbackOrder.begin(),
+                                                    audioController.songPath);
                 audioController.skipNextHistoryEntry = true;
                 audioController.pendingStartPaused = ndspChnIsPaused(0);
                 audioController.applyPendingStartPaused = true;
@@ -551,6 +549,9 @@ void handleAButton(u32 &kDown,
                 fileController.playingFile = fileController.selectedFile;
                 fileController.playingCwd = fileController.cwd;
                 fileController.playingFiles = fileController.files;
+                if (fileController.shuffleEnabled) {
+                    reshuffleAutoplay(false);
+                }
             }
         }
     } else if (screenState == TopScreenState::PLAYLIST_BROWSER) {
@@ -611,7 +612,7 @@ void handleAButton(u32 &kDown,
         }
     } else if (screenState == TopScreenState::INFO) {
         if (info.reorderMode) {
-            const int qSz = (int) fileController.playQueue.size();
+            const int qSz = (int) fileController.playbackOrder.size();
             if (!info.reorderPicked) {
                 if (qSz > 0) {
                     info.reorderPicked = true;
@@ -621,9 +622,7 @@ void handleAButton(u32 &kDown,
                 int from = info.reorderFromIdx;
                 int to = fileController.selectedQueueItem - 1;
                 if (from >= 0 && from < qSz && to >= 0 && to < qSz && from != to) {
-                    std::string song = fileController.playQueue[(size_t) from];
-                    fileController.playQueue.erase(fileController.playQueue.begin() + from);
-                    fileController.playQueue.insert(fileController.playQueue.begin() + to, song);
+                    reorderQueueItem((size_t) from, (size_t) to);
                 }
                 info.reorderPicked = false;
                 info.reorderFromIdx = -1;
@@ -631,7 +630,7 @@ void handleAButton(u32 &kDown,
             return;
         }
         const int sel = fileController.selectedQueueItem;
-        const int qSz = (int) fileController.playQueue.size();
+        const int qSz = (int) fileController.playbackOrder.size();
         const int aSz = (int) info.autoplayItems.size();
 
         if (sel < 0) {
@@ -643,16 +642,19 @@ void handleAButton(u32 &kDown,
             }
         } else if (sel >= 1 && sel <= qSz) {
             int qi = sel - 1;
-            fileController.playQueue.erase(fileController.playQueue.begin(),
-                                           fileController.playQueue.begin() + qi);
-            std::string path = fileController.playQueue.front();
-            fileController.playQueue.pop_front();
+            std::string path = fileController.playbackOrder[(size_t) qi];
+            skipQueueItems((size_t) qi + 1);
             stopPlaybackIfPlaying();
             playSong(path);
         } else if (sel > qSz && sel - qSz - 1 < aSz) {
             int ai = sel - qSz - 1;
             const std::string path = info.autoplayItems[(size_t) ai];
-            fileController.playQueue.clear();
+            clearQueue();
+            if (fileController.shuffleEnabled) {
+                fileController.shuffledAutoplay.erase(fileController.shuffledAutoplay.begin(),
+                                                      fileController.shuffledAutoplay.begin() + ai +
+                                                          1);
+            }
             for (size_t i = fileController.playingFile + 1; i < fileController.playingFiles.size();
                  ++i) {
                 if (fileController.playingCwd + fileController.playingFiles[i].d_name == path) {
@@ -681,12 +683,7 @@ void handleXButton(u32 kDown,
                 float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
                 s_ctx.close();
                 s_ctx.add("Play next", [&s_ctx, songPath]() {
-                    if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                        fileController.playQueue.push_front(songPath);
-                        logToDebugScreen("Play next: " + songPath);
-                    } else {
-                        logToDebugScreen("Queue full, cannot play next");
-                    }
+                    queuePlayNext(songPath);
                     s_ctx.close();
                 });
                 s_ctx.add("Add to queue", [&s_ctx, songPath]() {
@@ -705,45 +702,33 @@ void handleXButton(u32 kDown,
                 s_ctx.add("Play folder next", [&s_ctx, folderPath]() {
                     auto songs = getFolderSongs(folderPath);
                     for (int i = (int) songs.size() - 1; i >= 0; --i) {
-                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                            fileController.playQueue.push_front(songs[i]);
-                        }
+                        queuePlayNext(songs[i]);
                     }
-                    logToDebugScreen("Queued folder next: " + folderPath);
                     s_ctx.close();
                 });
                 s_ctx.add("Add folder to queue", [&s_ctx, folderPath]() {
                     auto songs = getFolderSongs(folderPath);
                     for (const auto &s : songs) {
-                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                            fileController.playQueue.push_back(s);
-                        }
+                        enqueueSong(s);
                     }
-                    logToDebugScreen("Added folder to queue: " + folderPath);
                     s_ctx.close();
                 });
                 s_ctx.add("Play shuffled next", [&s_ctx, folderPath]() {
                     auto songs = getFolderSongs(folderPath);
-                    std::mt19937 g(std::random_device{}());
+                    std::mt19937 g = makeShuffleRng();
                     std::shuffle(songs.begin(), songs.end(), g);
                     for (int i = (int) songs.size() - 1; i >= 0; --i) {
-                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                            fileController.playQueue.push_front(songs[i]);
-                        }
+                        queuePlayNext(songs[i]);
                     }
-                    logToDebugScreen("Queued shuffled folder next: " + folderPath);
                     s_ctx.close();
                 });
                 s_ctx.add("Add shuffled to queue", [&s_ctx, folderPath]() {
                     auto songs = getFolderSongs(folderPath);
-                    std::mt19937 g(std::random_device{}());
+                    std::mt19937 g = makeShuffleRng();
                     std::shuffle(songs.begin(), songs.end(), g);
                     for (const auto &s : songs) {
-                        if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                            fileController.playQueue.push_back(s);
-                        }
+                        enqueueSong(s);
                     }
-                    logToDebugScreen("Added shuffled folder to queue: " + folderPath);
                     s_ctx.close();
                 });
                 s_ctx.add("Add folder to playlist >", [&pl, &s_ctx, &s_sub, folderPath]() {
@@ -783,7 +768,7 @@ void handleXButton(u32 kDown,
 
     } else if (screenState == TopScreenState::INFO) {
         const int sel = fileController.selectedQueueItem;
-        const int qSz = (int) fileController.playQueue.size();
+        const int qSz = (int) fileController.playbackOrder.size();
         const int hSz = (int) fileController.playHistory.size();
         const int aSz = (int) info.autoplayItems.size();
 
@@ -796,7 +781,7 @@ void handleXButton(u32 kDown,
         } else if (sel == 0) {
             path = audioController.songPath;
         } else if (sel <= qSz) {
-            path = fileController.playQueue[(size_t) (sel - 1)];
+            path = fileController.playbackOrder[(size_t) (sel - 1)];
         } else {
             int ai = sel - qSz - 1;
             if (ai < aSz) {
@@ -808,12 +793,7 @@ void handleXButton(u32 kDown,
             float row = (float) (sel - info.scrollTop) + 1.0f;
             s_ctx.close();
             s_ctx.add("Play next", [&s_ctx, path]() {
-                if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                    fileController.playQueue.push_front(path);
-                    logToDebugScreen("Play next: " + path);
-                } else {
-                    logToDebugScreen("Queue full, cannot play next");
-                }
+                queuePlayNext(path);
                 s_ctx.close();
             });
             s_ctx.add("Add to queue", [&s_ctx, path]() {
@@ -843,10 +823,10 @@ void handleXButton(u32 kDown,
             } else if (sel >= 1 && sel <= qSz) {
                 s_ctx.add("Remove from queue", [&s_ctx, &info, sel]() {
                     int qi = sel - 1;
-                    if (qi < (int) fileController.playQueue.size()) {
-                        fileController.playQueue.erase(fileController.playQueue.begin() + qi);
-                        int newMax =
-                            (int) fileController.playQueue.size() + (int) info.autoplayItems.size();
+                    if (qi < (int) fileController.playbackOrder.size()) {
+                        removeQueueItem((size_t) qi);
+                        int newMax = (int) fileController.playbackOrder.size() +
+                                     (int) info.autoplayItems.size();
                         if (fileController.selectedQueueItem > newMax) {
                             fileController.selectedQueueItem = newMax > 0 ? newMax : 0;
                         }
@@ -876,10 +856,10 @@ void handleXButton(u32 kDown,
                 openAddToPlaylistSub(pl, s_ctx, s_sub, path);
             });
 
-            if (sel >= 0 && !fileController.playQueue.empty()) {
+            if (sel >= 0 && !fileController.playbackOrder.empty()) {
                 s_ctx.add("Add entire queue to playlist >", [&pl, &s_ctx, &s_sub]() {
-                    std::vector<std::string> songs(fileController.playQueue.begin(),
-                                                   fileController.playQueue.end());
+                    std::vector<std::string> songs(fileController.playbackOrder.begin(),
+                                                   fileController.playbackOrder.end());
                     openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
                 });
             }
@@ -901,7 +881,7 @@ void handleXButton(u32 kDown,
                     });
                     s_sub.open(s_ctx.x + 10.0f, s_ctx.y + 20.0f);
                 });
-            } else if (sel >= 0 && !fileController.playQueue.empty()) {
+            } else if (sel >= 0 && !fileController.playbackOrder.empty()) {
                 s_ctx.add("Clear queue", [&s_ctx, &s_sub]() {
                     s_sub.close();
                     s_sub.add("No (cancel)", [&s_sub, &s_ctx]() {
@@ -909,7 +889,7 @@ void handleXButton(u32 kDown,
                         s_ctx.close();
                     });
                     s_sub.add("Yes, clear queue", [&s_sub, &s_ctx]() {
-                        fileController.playQueue.clear();
+                        clearQueue();
                         logToDebugScreen("Queue cleared");
                         s_sub.active = false;
                         s_ctx.close();
@@ -1067,12 +1047,7 @@ void handleXButton(u32 kDown,
                            16.0f * (float) (pl.selSong - pv_song_offset);
             s_ctx.close();
             s_ctx.add("Play next", [&s_ctx, songPath]() {
-                if (fileController.playQueue.size() < (size_t) g_settings.queueSize) {
-                    fileController.playQueue.push_front(songPath);
-                    logToDebugScreen("Play next: " + songPath);
-                } else {
-                    logToDebugScreen("Queue full, cannot play next");
-                }
+                queuePlayNext(songPath);
                 s_ctx.close();
             });
             s_ctx.add("Add to queue", [&s_ctx, songPath]() {
@@ -1478,6 +1453,8 @@ void handleShoulderTaps(
             fileController.playHistory.pop_front();
             if (audioController.songReady) {
                 fileController.playQueue.push_front(audioController.songPath);
+                fileController.playbackOrder.insert(fileController.playbackOrder.begin(),
+                                                    audioController.songPath);
                 audioController.skipNextHistoryEntry = true;
                 audioController.pendingStartPaused = ndspChnIsPaused(0);
                 audioController.applyPendingStartPaused = true;

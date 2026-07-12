@@ -31,6 +31,11 @@ struct FileController {
     std::deque<std::string> playHistory;
     // use int so it can go negative (negative = scrolled into history)
     int selectedQueueItem;
+    bool shuffleEnabled;
+    // Order actually played. Mirrors playQueue when shuffle is off, permutation of it when on
+    std::vector<std::string> playbackOrder;
+    // shuffled order of upcoming autoplay songs in playingFiles, used when shuffleEnabled
+    std::vector<std::string> shuffledAutoplay;
 };
 
 // stop saving depth after this many directories (conserve memory)

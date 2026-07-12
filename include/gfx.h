@@ -87,7 +87,7 @@ void printFiles(std::vector<dirent> files,
                 size_t totalFiles = 0);
 
 void printNowPlayingList(const std::deque<std::string> &history,
-                         const std::deque<std::string> &queue,
+                         const std::vector<std::string> &queue,
                          const std::vector<std::string> &autoplay,
                          int selectedVirtualIdx,
                          int topVirtualIdx,
@@ -179,4 +179,5 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarH,
                         float seekProgressOverride = -1.0f,
                         int activeTab = 0,
-                        bool loopActive = false);
+                        bool loopActive = false,
+                        bool shuffleActive = false);

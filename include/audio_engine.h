@@ -3,6 +3,7 @@
 #include <3ds.h>
 #include <citro2d.h>
 
+#include <random>
 #include <string>
 
 #include "audio_decoder.h"
@@ -78,7 +79,32 @@ bool playSong(const std::string &path);
 void stopPlaybackIfPlaying();  // stops current song, suppresses autoplay
 bool goToNextSong();           // stops current song, allows autoplay to advance
 void enqueueSong(const std::string &path);
+// Insert a song at the front of the queue, to play next.
+void queuePlayNext(const std::string &path);
 bool playNextFromQueue();
+
+// Remove the item at playback order index from both queue and playback order list.
+void removeQueueItem(size_t idx);
+// Move the playback order item at `from` to `to`. Also applied to playQueue
+// when shuffle is off, since playbackOrder must mirror it in that state.
+void reorderQueueItem(size_t from, size_t to);
+// Discard the first `count` items of the playback order, keeping playQueue in sync.
+void skipQueueItems(size_t count);
+// Empty both playQueue and playbackOrder.
+void clearQueue();
+
+// Returns an mt19937 seeded from the system tick counter. std::random_device
+// is not a reliable entropy source (it can return the same value on
+// every call), so all one off shuffles should seed through this instead.
+std::mt19937 makeShuffleRng();
+
+void toggleShuffle();
+
+// Rebuild shuffled autoplay vector from the eligible audio files in
+// playingFiles. If wholeFolder is false, only files after playingFile are
+// included; if true, every eligible file in the folder is included (used
+// when the shuffled order runs out and the folder loops).
+void reshuffleAutoplay(bool wholeFolder);
 
 bool loadCoverArtForCurrentSong(C2D_Image &image,
                                 C3D_Tex &tex,

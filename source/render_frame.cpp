@@ -1,6 +1,5 @@
 #include "render_frame.h"
 
-#include <deque>
 #include <string>
 #include <vector>
 
@@ -53,8 +52,8 @@ void renderFrame(TopScreenState screenState,
         }
 
         // While a song is picked up, show it at its in-progress position without
-        // touching fileController.playQueue (that only happens when it's dropped).
-        std::deque<std::string> displayQueue = fileController.playQueue;
+        // touching fileController.playbackOrder (that only happens when it's dropped).
+        std::vector<std::string> displayQueue = fileController.playbackOrder;
         if (info.reorderMode && info.reorderPicked && info.reorderFromIdx >= 0 &&
             info.reorderFromIdx < (int) displayQueue.size()) {
             int from = info.reorderFromIdx;
@@ -154,6 +153,7 @@ void renderFrame(TopScreenState screenState,
                        (info.seekDragging || audioController.seekPending) ? info.seekDragProgress
                                                                           : -1.0f,
                        activeTab,
-                       audioController.loopOne);
+                       audioController.loopOne,
+                       fileController.shuffleEnabled);
     C3D_FrameEnd(0);
 }

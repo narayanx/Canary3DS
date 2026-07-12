@@ -101,17 +101,23 @@ int main(int argc, char *argv[]) {
         // Autoplay preview (cheap to rebuild each frame)
         info.autoplayItems.clear();
         if (audioController.songReady || audioController.starting) {
-            size_t nf = fileController.playingFile + 1;
-            while (nf < fileController.playingFiles.size() &&
-                   info.autoplayItems.size() < AUTOPLAY_PEEK) {
-                if (fileController.playingFiles[nf].d_type == DT_REG) {
-                    std::string p =
-                        fileController.playingCwd + fileController.playingFiles[nf].d_name;
-                    if (isSupportedAudioFile(p)) {
-                        info.autoplayItems.push_back(p);
+            if (fileController.shuffleEnabled) {
+                size_t n = std::min(fileController.shuffledAutoplay.size(), AUTOPLAY_PEEK);
+                info.autoplayItems.assign(fileController.shuffledAutoplay.begin(),
+                                          fileController.shuffledAutoplay.begin() + n);
+            } else {
+                size_t nf = fileController.playingFile + 1;
+                while (nf < fileController.playingFiles.size() &&
+                       info.autoplayItems.size() < AUTOPLAY_PEEK) {
+                    if (fileController.playingFiles[nf].d_type == DT_REG) {
+                        std::string p =
+                            fileController.playingCwd + fileController.playingFiles[nf].d_name;
+                        if (isSupportedAudioFile(p)) {
+                            info.autoplayItems.push_back(p);
+                        }
                     }
+                    ++nf;
                 }
-                ++nf;
             }
         }
 
