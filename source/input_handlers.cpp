@@ -645,7 +645,9 @@ void handleAButton(u32 &kDown,
             std::string path = fileController.playbackOrder[(size_t) qi];
             skipQueueItems((size_t) qi + 1);
             stopPlaybackIfPlaying();
-            playSong(path);
+            if (!playSong(path)) {
+                advanceQueueOrAutoplay();
+            }
         } else if (sel > qSz && sel - qSz - 1 < aSz) {
             int ai = sel - qSz - 1;
             const std::string path = info.autoplayItems[(size_t) ai];
@@ -663,7 +665,9 @@ void handleAButton(u32 &kDown,
                 }
             }
             stopPlaybackIfPlaying();
-            playSong(path);
+            if (!playSong(path)) {
+                advanceQueueOrAutoplay();
+            }
         }
     }
 }

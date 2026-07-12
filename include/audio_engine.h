@@ -82,6 +82,11 @@ void enqueueSong(const std::string &path);
 // Insert a song at the front of the queue, to play next.
 void queuePlayNext(const std::string &path);
 bool playNextFromQueue();
+// Try the rest of the queue, then autoplay (shuffled or sequential),
+// stopping at the first song that opens successfully. Shared by the natural
+// end of song advance and by picking a queue/autoplay entry directly that
+// turns out to fail to open, so a bad file never leaves playback stuck.
+bool advanceQueueOrAutoplay();
 
 // Remove the item at playback order index from both queue and playback order list.
 void removeQueueItem(size_t idx);
@@ -98,6 +103,9 @@ void clearQueue();
 // every call), so all one off shuffles should seed through this instead.
 std::mt19937 makeShuffleRng();
 
+// Toggle shuffle mode: turning it on generates a freshly shuffled playback
+// order for the queue and builds a shuffled autoplay order for the current
+// folder; turning it off restores the playback order to the queue's order.
 void toggleShuffle();
 
 // Rebuild shuffled autoplay vector from the eligible audio files in
