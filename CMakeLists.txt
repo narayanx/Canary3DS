@@ -15,6 +15,7 @@ CPMAddPackage(
 add_executable(${PROJECT_NAME}
   source/audio/audio_engine.cpp
   source/audio/audio_decoder.cpp
+  source/audio/audio_dsp.cpp
   source/audio/opus_decoder.cpp
   source/audio/mp3_decoder.cpp
   source/audio/flac_decoder.cpp

@@ -58,6 +58,7 @@ bool appInit() {
         return false;
     }
     applyVolume();
+    applySpeedPitch();
     applyBrightness();
     applyAccentColor();
     applySecondaryColor();

@@ -8,6 +8,8 @@ struct Settings {
     int volumePercent = 100;  // 0-VOLUME_MAX_PERCENT
     int brightness = 3;       // 1-5 levels
     int seekSeconds = 10;     // seek duration in seconds
+    int speedPercent = 100;   // playback speed, SPEED_MIN_PERCENT-SPEED_MAX_PERCENT
+    int pitchSemitones = 0;   // pitch shift, PITCH_MIN_SEMITONES-PITCH_MAX_SEMITONES
     std::string startPath = "sdmc:/Music/";
     bool lockToStartPath = true;  // prevent navigating above start path
     bool loopFolder = true;
@@ -34,6 +36,13 @@ inline constexpr int SEEK_PRESETS[4] = {1, 5, 10, 30};
 inline constexpr int VOLUME_STEP = 5;
 inline constexpr int VOLUME_MAX_PERCENT = 200;
 
+inline constexpr int SPEED_STEP = 5;
+inline constexpr int SPEED_MIN_PERCENT = 50;
+inline constexpr int SPEED_MAX_PERCENT = 200;
+
+inline constexpr int PITCH_MIN_SEMITONES = -12;
+inline constexpr int PITCH_MAX_SEMITONES = 12;
+
 // Global settings instance - populated by loadSettings() at startup.
 extern Settings g_settings;
 
@@ -47,6 +56,11 @@ bool saveSettings();
 // Push the current volume setting to the NDSP channel.
 // Call once after audioInit() and again whenever volume changes.
 void applyVolume();
+
+// Push the current speed/pitch settings to the audio thread's DSP
+// processor. Call whenever they change, and once per song/seek so a fresh
+// stream picks up the current values.
+void applySpeedPitch();
 
 // Push brightness setting to the LCD hardware.
 void applyBrightness();

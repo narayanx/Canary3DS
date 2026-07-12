@@ -78,15 +78,19 @@ void audioExit() {
     s_audioBuffer = nullptr;
 }
 
-// Fill one wave buffer with decoded audio.
-// Loops until the buffer is full or the decoder signals EOF/error.
-// Returns false when the decoder is done and no samples were produced.
+// Fill one wave buffer with decoded audio, passed through the speed/pitch
+// processor (a no-op passthrough when both are at their default of 1.0).
+// Loops until the buffer is full or the source signals EOF/error.
+// Returns false when the source is done and no samples were produced.
 static bool fillBuffer(IAudioDecoder *decoder, ndspWaveBuf *wb) {
     int total = 0;
     while (total < AUDIO_SAMPLES_PER_BUF) {
         int16_t *dst = wb->data_pcm16 + total * AUDIO_CHANNELS;
         int rem = AUDIO_SAMPLES_PER_BUF - total;
-        int got = decoder->decode(dst, rem);
+        int got = audioController.speedPitch.process(
+            [decoder](int16_t *buf, int maxFrames) { return decoder->decode(buf, maxFrames); },
+            dst,
+            rem);
         if (got <= 0) {
             break;
         }
@@ -110,6 +114,11 @@ static void resetChannel(int sampleRate) {
     ndspChnSetRate(0, static_cast<float>(sampleRate));
     ndspChnSetFormat(0, NDSP_FORMAT_STEREO_PCM16);
     applyVolume();  // restore volume setting
+    applySpeedPitch();
+    // The decode stream position just changed discontinuously (new song or
+    // seek); any audio buffered inside the processor referred to the old
+    // position and must be discarded.
+    audioController.speedPitch.reset();
     for (auto &wb : s_waveBufs) {
         wb.status = NDSP_WBUF_DONE;
     }

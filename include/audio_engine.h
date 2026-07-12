@@ -7,6 +7,7 @@
 #include <string>
 
 #include "audio_decoder.h"
+#include "audio_dsp.h"
 
 #define AUDIO_ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
@@ -29,6 +30,12 @@ struct AudioController {
     IAudioDecoder *decoder;
     LightLock decoderLock;   // guards against concurrent delete/replace during a song transition
     volatile bool starting;  // true while opening song file (blocks a second concurrent transition)
+
+    // Speed/pitch DSP, sits between the decoder and the NDSP wave buffers.
+    // Owned by the audio thread; settings changes are applied via
+    // applySpeedPitch() from either thread (same relaxed-consistency
+    // convention as the rest of this struct's settings-derived state).
+    SpeedPitchProcessor speedPitch;
 
     // Playback-control flags (written by main thread, read by audio thread)
     volatile bool songReady;       // true while a decoder is loaded and filling buffers

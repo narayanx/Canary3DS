@@ -75,6 +75,8 @@ struct SettingsState {
         ROW_VOLUME,
         ROW_BRIGHTNESS,
         ROW_SEEK,
+        ROW_SPEED,
+        ROW_PITCH,
         ROW_START_PATH,
         ROW_LOCK_START,
         ROW_REPEAT,
@@ -108,7 +110,8 @@ struct SettingsState {
     static std::vector<std::string> buildRows() {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
 
-        char vol[48], bri[48], seek[48], acc[48], sec[48], qsz[48], hsz[48], dep[48];
+        char vol[48], bri[48], seek[48], spd[48], pit[48], acc[48], sec[48], qsz[48], hsz[48],
+            dep[48];
 
         std::vector<std::string> rows(ROW_COUNT);
 
@@ -134,6 +137,13 @@ struct SettingsState {
             snprintf(seek, sizeof(seek), "Seek:  %ds", g_settings.seekSeconds);
         } else {
             snprintf(seek, sizeof(seek), "Seek:  %ds (custom)", g_settings.seekSeconds);
+        }
+
+        snprintf(spd, sizeof(spd), "Speed:  %d%%", g_settings.speedPercent);
+        if (g_settings.pitchSemitones > 0) {
+            snprintf(pit, sizeof(pit), "Pitch:  +%d semitones", g_settings.pitchSemitones);
+        } else {
+            snprintf(pit, sizeof(pit), "Pitch:  %d semitones", g_settings.pitchSemitones);
         }
 
         std::string pathRow = "Music Folder:   " + g_settings.startPath;
@@ -163,6 +173,8 @@ struct SettingsState {
         rows[ROW_VOLUME] = vol;
         rows[ROW_BRIGHTNESS] = bri;
         rows[ROW_SEEK] = seek;
+        rows[ROW_SPEED] = spd;
+        rows[ROW_PITCH] = pit;
         rows[ROW_START_PATH] = pathRow;
         rows[ROW_ACCENT] = acc;
         rows[ROW_SECONDARY] = sec;

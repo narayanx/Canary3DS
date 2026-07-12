@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+#include "audio_engine.h"
 #include "gfx.h"
 #include "toggle_settings.h"
 
@@ -95,6 +96,22 @@ bool loadSettings() {
                 }
             } catch (...) {
             }
+        } else if (key == "speed_percent") {
+            try {
+                int v = std::stoi(val);
+                if (v >= SPEED_MIN_PERCENT && v <= SPEED_MAX_PERCENT) {
+                    g_settings.speedPercent = v;
+                }
+            } catch (...) {
+            }
+        } else if (key == "pitch_semitones") {
+            try {
+                int v = std::stoi(val);
+                if (v >= PITCH_MIN_SEMITONES && v <= PITCH_MAX_SEMITONES) {
+                    g_settings.pitchSemitones = v;
+                }
+            } catch (...) {
+            }
         } else if (key == "accent_color") {
             if (val == "custom") {
                 g_settings.accentColor = "custom";
@@ -174,10 +191,12 @@ bool saveSettings() {
     ensureDir();
 
     // In default write order
-    static constexpr std::array<std::string_view, 20> KEYS = {{
+    static constexpr std::array<std::string_view, 22> KEYS = {{
         "volume_percent",
         "brightness",
         "seek_seconds",
+        "speed_percent",
+        "pitch_semitones",
         "music_folder",
         "lock_to_music_folder",
         "loop_folder",
@@ -222,6 +241,12 @@ bool saveSettings() {
         }
         if (key == "seek_seconds") {
             return std::to_string(g_settings.seekSeconds);
+        }
+        if (key == "speed_percent") {
+            return std::to_string(g_settings.speedPercent);
+        }
+        if (key == "pitch_semitones") {
+            return std::to_string(g_settings.pitchSemitones);
         }
         if (key == "accent_color") {
             return g_settings.accentColor;
@@ -321,6 +346,11 @@ void applyVolume() {
     mix[2] = vol;  // right -> left
     mix[3] = vol;  // right -> right
     ndspChnSetMix(0, mix);
+}
+
+void applySpeedPitch() {
+    audioController.speedPitch.setSpeed((float) g_settings.speedPercent / 100.0f);
+    audioController.speedPitch.setPitch(std::pow(2.0f, (float) g_settings.pitchSemitones / 12.0f));
 }
 
 static u32 s_originalBrightness = 0;

@@ -499,6 +499,7 @@ void handleAButton(u32 &kDown,
             s_ctx.add("Yes, reset", [&s_ctx, &st]() {
                 g_settings = Settings{};
                 applyVolume();
+                applySpeedPitch();
                 applyBrightness();
                 applyAccentColor();
                 applySecondaryColor();
@@ -1300,6 +1301,36 @@ void handleSettingsInput(u32 kDown,
                         changed = (g_settings.seekSeconds != oldVal);
                         break;
                     }
+
+                case SettingsState::ROW_SPEED:
+                    if (right && g_settings.speedPercent < SPEED_MAX_PERCENT) {
+                        g_settings.speedPercent =
+                            std::min(g_settings.speedPercent + SPEED_STEP, SPEED_MAX_PERCENT);
+                        changed = true;
+                    }
+                    if (left && g_settings.speedPercent > SPEED_MIN_PERCENT) {
+                        g_settings.speedPercent =
+                            std::max(g_settings.speedPercent - SPEED_STEP, SPEED_MIN_PERCENT);
+                        changed = true;
+                    }
+                    if (changed) {
+                        applySpeedPitch();
+                    }
+                    break;
+
+                case SettingsState::ROW_PITCH:
+                    if (right && g_settings.pitchSemitones < PITCH_MAX_SEMITONES) {
+                        ++g_settings.pitchSemitones;
+                        changed = true;
+                    }
+                    if (left && g_settings.pitchSemitones > PITCH_MIN_SEMITONES) {
+                        --g_settings.pitchSemitones;
+                        changed = true;
+                    }
+                    if (changed) {
+                        applySpeedPitch();
+                    }
+                    break;
 
                 case SettingsState::ROW_START_PATH:
                     break;
