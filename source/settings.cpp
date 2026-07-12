@@ -191,12 +191,13 @@ bool saveSettings() {
     ensureDir();
 
     // In default write order
-    static constexpr std::array<std::string_view, 22> KEYS = {{
+    static constexpr std::array<std::string_view, 23> KEYS = {{
         "volume_percent",
         "brightness",
         "seek_seconds",
         "speed_percent",
         "pitch_semitones",
+        "linked_speed_pitch",
         "music_folder",
         "lock_to_music_folder",
         "loop_folder",
@@ -349,8 +350,17 @@ void applyVolume() {
 }
 
 void applySpeedPitch() {
-    audioController.speedPitch.setSpeed((float) g_settings.speedPercent / 100.0f);
-    audioController.speedPitch.setPitch(std::pow(2.0f, (float) g_settings.pitchSemitones / 12.0f));
+    float speedRatio = (float) g_settings.speedPercent / 100.0f;
+    audioController.speedPitch.setSpeed(speedRatio);
+    if (g_settings.linkedSpeedPitch) {
+        // Linked mode: no independent pitch correction, so pitch rises and
+        // falls with speed, same as changing playback rate on a tape or
+        // turntable would sound.
+        audioController.speedPitch.setPitch(speedRatio);
+    } else {
+        audioController.speedPitch.setPitch(
+            std::pow(2.0f, (float) g_settings.pitchSemitones / 12.0f));
+    }
 }
 
 static u32 s_originalBrightness = 0;

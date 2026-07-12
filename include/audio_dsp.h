@@ -65,7 +65,7 @@ class SpeedPitchProcessor {
     size_t wsolaOutPos_ = 0;         // read cursor into wsolaOut_
     std::vector<float> window_;      // periodic Hann, kFrameSize
 
-    bool wsolaEnsureInput(const SourceFn &source, double upToPos);
+    void wsolaEnsureInput(const SourceFn &source, double upToPos);
     bool wsolaProduceHop(const SourceFn &source);
     int wsolaPull(const SourceFn &source, int16_t *out, int maxFrames);
     bool wsolaFinalizing_ = false;
@@ -76,6 +76,6 @@ class SpeedPitchProcessor {
     double resPos_ = 0.0;         // fractional read position into resIn_
     bool resDrained_ = false;
 
-    bool resEnsureInput(const SourceFn &source, double upToPos);
+    void resEnsureInput(const SourceFn &source, double upToPos);
     int resamplePull(const SourceFn &source, int16_t *out, int maxFrames);
 };

@@ -77,6 +77,7 @@ struct SettingsState {
         ROW_SEEK,
         ROW_SPEED,
         ROW_PITCH,
+        ROW_LINK_SPEED_PITCH,
         ROW_START_PATH,
         ROW_LOCK_START,
         ROW_REPEAT,
@@ -140,7 +141,9 @@ struct SettingsState {
         }
 
         snprintf(spd, sizeof(spd), "Speed:  %d%%", g_settings.speedPercent);
-        if (g_settings.pitchSemitones > 0) {
+        if (g_settings.linkedSpeedPitch) {
+            snprintf(pit, sizeof(pit), "Pitch:  Linked to Speed");
+        } else if (g_settings.pitchSemitones > 0) {
             snprintf(pit, sizeof(pit), "Pitch:  +%d semitones", g_settings.pitchSemitones);
         } else {
             snprintf(pit, sizeof(pit), "Pitch:  %d semitones", g_settings.pitchSemitones);

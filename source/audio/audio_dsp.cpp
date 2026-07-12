@@ -3,14 +3,55 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+    constexpr float kPi = 3.14159265358979323846f;
+    // Frames pulled from `source` per iteration while topping up wsolaIn_.
+    constexpr int kSourceReadChunk = 512;
+    // Frames pulled from wsolaPull() per iteration while topping up resIn_.
+    constexpr int kResampleReadChunk = 256;
+
+    // Drop samples already consumed (more than `marginFrames` behind `pos`) from
+    // the front of `buf`, once that's more than `thresholdFrames`, and rebase
+    // `pos` to match. Used by both the WSOLA input buffer and the resample
+    // input buffer to keep them from growing for the whole length of a song.
+    //
+    // This is an O(n) erase, run roughly every 50-100ms of audio depending on
+    // speed/pitch settings. At kCompactThreshold's size that's a memmove of a
+    // few tens of KB, which is cheap next to a 268 MHz CPU's per-second budget;
+    // a ring buffer would avoid it entirely but isn't warranted at this rate.
+    void compactBuffer(std::vector<int16_t> &buf,
+                       double &pos,
+                       int64_t marginFrames,
+                       int64_t thresholdFrames,
+                       int channels) {
+        int64_t keepFrom = (int64_t) pos - marginFrames;
+        if (keepFrom > thresholdFrames) {
+            size_t dropSamples = (size_t) keepFrom * channels;
+            dropSamples = std::min(dropSamples, buf.size());
+            buf.erase(buf.begin(), buf.begin() + (long) dropSamples);
+            pos -= (double) (dropSamples / channels);
+        }
+    }
+}  // namespace
+
 SpeedPitchProcessor::SpeedPitchProcessor() {
     window_.resize((size_t) kFrameSize);
     for (int n = 0; n < kFrameSize; ++n) {
         // Periodic Hann window: satisfies constant overlap-add at 50% hop,
-        // so alpha == 1.0 reconstructs the input losslessly.
-        window_[(size_t) n] =
-            0.5f - 0.5f * std::cos(2.0f * 3.14159265358979323846f * (float) n / (float) kFrameSize);
+        // so alpha == 1.0 reconstructs the input without amplitude
+        // modulation (COLA holds exactly for this window/hop combination).
+        window_[(size_t) n] = 0.5f - 0.5f * std::cos(2.0f * kPi * (float) n / (float) kFrameSize);
     }
+
+    // Each buffer ramps up to roughly kCompactThreshold (plus a small
+    // margin for wsolaIn_) between compactions, then gets trimmed back
+    // down; reserving that ceiling up front avoids reallocation churn
+    // once a song is playing. This processor outlives any single song
+    // (reset() clears contents, not capacity), so it's a one-time cost.
+    wsolaIn_.reserve((size_t) (kCompactThreshold + kSearchRadius + kFrameSize) * kChannels);
+    wsolaOut_.reserve((size_t) kCompactThreshold * kChannels);
+    resIn_.reserve((size_t) kCompactThreshold * kChannels);
+    lastTail_.reserve((size_t) kCompareLen);
 }
 
 void SpeedPitchProcessor::recomputeAlpha() {
@@ -19,7 +60,7 @@ void SpeedPitchProcessor::recomputeAlpha() {
 
 void SpeedPitchProcessor::setSpeed(float speed) {
     speed = std::clamp(speed, 0.25f, 4.0f);
-    if (speed_ == speed) {
+    if (std::abs(speed_ - speed) < 1e-6f) {
         return;
     }
     speed_ = speed;
@@ -28,7 +69,7 @@ void SpeedPitchProcessor::setSpeed(float speed) {
 
 void SpeedPitchProcessor::setPitch(float ratio) {
     ratio = std::clamp(ratio, 0.25f, 4.0f);
-    if (pitch_ == ratio) {
+    if (std::abs(pitch_ - ratio) < 1e-6f) {
         return;
     }
     pitch_ = ratio;
@@ -54,18 +95,17 @@ void SpeedPitchProcessor::reset() {
     resDrained_ = false;
 }
 
-bool SpeedPitchProcessor::wsolaEnsureInput(const SourceFn &source, double upToPos) {
+void SpeedPitchProcessor::wsolaEnsureInput(const SourceFn &source, double upToPos) {
     int64_t needed = (int64_t) std::ceil(upToPos);
     while (!wsolaSourceEOF_ && (int64_t) (wsolaIn_.size() / kChannels) < needed) {
-        int16_t chunk[512 * kChannels];
-        int got = source(chunk, 512);
+        int16_t chunk[kSourceReadChunk * kChannels];
+        int got = source(chunk, kSourceReadChunk);
         if (got <= 0) {
             wsolaSourceEOF_ = true;
             break;
         }
         wsolaIn_.insert(wsolaIn_.end(), chunk, chunk + (size_t) got * kChannels);
     }
-    return true;
 }
 
 bool SpeedPitchProcessor::wsolaProduceHop(const SourceFn &source) {
@@ -154,13 +194,7 @@ bool SpeedPitchProcessor::wsolaProduceHop(const SourceFn &source) {
 
     analysisPos_ += (double) kSynthHop * alpha_;
 
-    int64_t keepFrom = (int64_t) analysisPos_ - kSearchRadius - kFrameSize;
-    if (keepFrom > kCompactThreshold) {
-        size_t dropSamples = (size_t) keepFrom * kChannels;
-        dropSamples = std::min(dropSamples, wsolaIn_.size());
-        wsolaIn_.erase(wsolaIn_.begin(), wsolaIn_.begin() + (long) dropSamples);
-        analysisPos_ -= (double) (dropSamples / kChannels);
-    }
+    compactBuffer(wsolaIn_, analysisPos_, kSearchRadius + kFrameSize, kCompactThreshold, kChannels);
 
     return true;
 }
@@ -189,18 +223,17 @@ int SpeedPitchProcessor::wsolaPull(const SourceFn &source, int16_t *out, int max
     return produced;
 }
 
-bool SpeedPitchProcessor::resEnsureInput(const SourceFn &source, double upToPos) {
+void SpeedPitchProcessor::resEnsureInput(const SourceFn &source, double upToPos) {
     int64_t needed = (int64_t) std::ceil(upToPos) + 1;
     while (!resDrained_ && (int64_t) (resIn_.size() / kChannels) < needed) {
-        int16_t chunk[256 * kChannels];
-        int got = wsolaPull(source, chunk, 256);
+        int16_t chunk[kResampleReadChunk * kChannels];
+        int got = wsolaPull(source, chunk, kResampleReadChunk);
         if (got <= 0) {
             resDrained_ = true;
             break;
         }
         resIn_.insert(resIn_.end(), chunk, chunk + (size_t) got * kChannels);
     }
-    return true;
 }
 
 int SpeedPitchProcessor::resamplePull(const SourceFn &source, int16_t *out, int maxFrames) {
@@ -210,7 +243,14 @@ int SpeedPitchProcessor::resamplePull(const SourceFn &source, int16_t *out, int 
         int64_t avail = (int64_t) (resIn_.size() / kChannels);
         int64_t idx = (int64_t) resPos_;
         if (idx + 1 >= avail) {
-            break;  // not enough to interpolate; drop the final fractional sample
+            // Only reachable once wsolaPull (and the decoder behind it) has
+            // truly run out: resEnsureInput above always tries to keep one
+            // extra frame past resPos_ buffered. At that point there's no
+            // second sample left to interpolate towards, so the final
+            // fractional frame is dropped rather than duplicating or
+            // zero-extending the last real sample; at most ~1 sample
+            // (<1/48000s) of trailing audio, inaudible.
+            break;
         }
         double frac = resPos_ - (double) idx;
         for (int ch = 0; ch < kChannels; ++ch) {
@@ -222,13 +262,7 @@ int SpeedPitchProcessor::resamplePull(const SourceFn &source, int16_t *out, int 
         resPos_ += pitch_;
         ++produced;
 
-        if (resPos_ > kCompactThreshold) {
-            size_t drop = (size_t) resPos_;
-            size_t dropSamples = drop * kChannels;
-            dropSamples = std::min(dropSamples, resIn_.size());
-            resIn_.erase(resIn_.begin(), resIn_.begin() + (long) dropSamples);
-            resPos_ -= (double) drop;
-        }
+        compactBuffer(resIn_, resPos_, 0, kCompactThreshold, kChannels);
     }
     return produced;
 }

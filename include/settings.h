@@ -5,11 +5,12 @@
 inline constexpr std::string_view SETTINGS_PATH = "sdmc:/3ds/Canary/settings.ini";
 
 struct Settings {
-    int volumePercent = 100;  // 0-VOLUME_MAX_PERCENT
-    int brightness = 3;       // 1-5 levels
-    int seekSeconds = 10;     // seek duration in seconds
-    int speedPercent = 100;   // playback speed, SPEED_MIN_PERCENT-SPEED_MAX_PERCENT
-    int pitchSemitones = 0;   // pitch shift, PITCH_MIN_SEMITONES-PITCH_MAX_SEMITONES
+    int volumePercent = 100;        // 0-VOLUME_MAX_PERCENT
+    int brightness = 3;             // 1-5 levels
+    int seekSeconds = 10;           // seek duration in seconds
+    int speedPercent = 100;         // playback speed, SPEED_MIN_PERCENT-SPEED_MAX_PERCENT
+    int pitchSemitones = 0;         // pitch shift, PITCH_MIN_SEMITONES-PITCH_MAX_SEMITONES
+    bool linkedSpeedPitch = false;  // when true, pitch follows speed (tape/turntable style)
     std::string startPath = "sdmc:/Music/";
     bool lockToStartPath = true;  // prevent navigating above start path
     bool loopFolder = true;

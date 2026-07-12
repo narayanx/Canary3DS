@@ -1319,6 +1319,9 @@ void handleSettingsInput(u32 kDown,
                     break;
 
                 case SettingsState::ROW_PITCH:
+                    if (g_settings.linkedSpeedPitch) {
+                        break;  // pitch follows speed automatically, not directly adjustable
+                    }
                     if (right && g_settings.pitchSemitones < PITCH_MAX_SEMITONES) {
                         ++g_settings.pitchSemitones;
                         changed = true;
