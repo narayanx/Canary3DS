@@ -24,6 +24,8 @@ A 3DS music player with modern features.
 - Settings menu to customize configuration
 - Seeking with a touch seek bar on the bottom touch screen, or using the left/right dpad to seek in steps
 - Pause on headphone disconnect
+- Independent speed and pitch control
+- Offline scrobbler log support
 
 #### Planned
 - Indexing system to allow viewing songs in groups of albums or artist
