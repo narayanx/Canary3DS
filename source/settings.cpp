@@ -106,7 +106,7 @@ bool loadSettings() {
             }
         } else if (key == "pitch_semitones") {
             try {
-                int v = std::stoi(val);
+                float v = std::stof(val);
                 if (v >= PITCH_MIN_SEMITONES && v <= PITCH_MAX_SEMITONES) {
                     g_settings.pitchSemitones = v;
                 }
@@ -247,7 +247,9 @@ bool saveSettings() {
             return std::to_string(g_settings.speedPercent);
         }
         if (key == "pitch_semitones") {
-            return std::to_string(g_settings.pitchSemitones);
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f", g_settings.pitchSemitones);
+            return buf;
         }
         if (key == "accent_color") {
             return g_settings.accentColor;

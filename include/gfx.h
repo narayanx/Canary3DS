@@ -35,6 +35,32 @@ inline constexpr float PREV_BTN_X = 78.0f;  // (320 - (48+6+56+6+48)) / 2
 inline constexpr float PLAY_PAUSE_X = PREV_BTN_X + PREV_BTN_W + PLAY_BTN_GAP;
 inline constexpr float NEXT_BTN_X = PLAY_PAUSE_X + PLAY_PAUSE_W + PLAY_BTN_GAP;
 
+// Speed/Pitch pad open button
+inline constexpr float SPEEDPITCH_BTN_W = 32.0f;
+inline constexpr float SPEEDPITCH_BTN_H = 32.0f;
+inline constexpr float SPEEDPITCH_BTN_X = 317.0f - SPEEDPITCH_BTN_W;
+inline constexpr float SPEEDPITCH_BTN_Y = NAV_BTN_Y;
+
+// Speed/Pitch XY pad overlay
+inline constexpr float SP_PANEL_X = 10.0f;
+inline constexpr float SP_PANEL_Y = 8.0f;
+inline constexpr float SP_PANEL_W = 300.0f;
+inline constexpr float SP_PANEL_H = 224.0f;
+inline constexpr float SP_CLOSE_SIZE = 28.0f;
+inline constexpr float SP_CLOSE_X = SP_PANEL_X + SP_PANEL_W - SP_CLOSE_SIZE - 8.0f;
+inline constexpr float SP_CLOSE_Y = SP_PANEL_Y + 8.0f;
+inline constexpr float SP_PLOT_X = SP_PANEL_X + 40.0f;
+inline constexpr float SP_PLOT_Y = SP_PANEL_Y + 40.0f;
+inline constexpr float SP_PLOT_W = SP_PANEL_W - 60.0f;
+inline constexpr float SP_PLOT_H = SP_PANEL_H - 96.0f;
+
+// "Link: " toggle row
+inline constexpr float SP_LINK_LABEL_X = SP_PANEL_X + 10.0f;
+inline constexpr float SP_LINK_Y = SP_PANEL_Y + 24.0f;
+inline constexpr float SP_LINK_TOGGLE_X = SP_PANEL_X + 40.0f;
+inline constexpr float SP_LINK_TOGGLE_W = 30.0f;
+inline constexpr float SP_LINK_TOGGLE_H = 14.0f;
+
 // Maximum number of rows visible at once before scrolling kicks in
 inline constexpr int MAX_CTX_VISIBLE = 8;
 inline constexpr int MAX_FILES = 14;
@@ -164,6 +190,8 @@ void printPlaylistView(const std::string &playlistName,
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).
 // activeTab:            0=Files, 1=Now Playing, 2=Playlists; highlights the
 //                       matching nav button.
+// speedPercent/pitchSemitones/linkedSpeedPitch: current values; the
+//                       persistent icon button no longer displays them.
 // seekProgressOverride: when >= 0 the progress bar and timestamp are drawn at
 //                       this normalised position (0-1) instead of computing
 //                       from positionSeconds/durationSeconds.  Pass -1 (the
@@ -177,7 +205,14 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarY,
                         float seekBarW,
                         float seekBarH,
+                        int speedPercent,
+                        float pitchSemitones,
+                        bool linkedSpeedPitch,
                         float seekProgressOverride = -1.0f,
                         int activeTab = 0,
                         bool loopActive = false,
                         bool shuffleActive = false);
+
+// Draw the Speed/Pitch overlay on the bottom screen.
+// Call after renderBottomScreen, inside the same frame, whenever the pad is open.
+void drawSpeedPitchPad(int speedPercent, float pitchSemitones, bool linkedSpeedPitch);

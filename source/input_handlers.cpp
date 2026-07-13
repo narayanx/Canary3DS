@@ -3,6 +3,7 @@
 #include <3ds.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <random>
@@ -233,13 +234,13 @@ static void openSpeedKeyboard() {
 static void openPitchKeyboard() {
     SwkbdState swkbd;
     char buf[16] = {};
-    snprintf(buf, sizeof(buf), "%d", g_settings.pitchSemitones);
-    swkbdInit(&swkbd, SWKBD_TYPE_NUMPAD, 2, 4);
-    swkbdSetHintText(&swkbd, "Pitch semitones (-12 to 12)");
+    snprintf(buf, sizeof(buf), "%.1f", g_settings.pitchSemitones);
+    swkbdInit(&swkbd, SWKBD_TYPE_NUMPAD, 2, 6);
+    swkbdSetHintText(&swkbd, "Pitch semitones (-12.0 to 12.0)");
     swkbdSetInitialText(&swkbd, buf);
     if (swkbdInputText(&swkbd, buf, sizeof(buf)) == SWKBD_BUTTON_CONFIRM && buf[0]) {
         try {
-            int v = std::stoi(buf);
+            float v = std::stof(buf);
             if (v >= PITCH_MIN_SEMITONES && v <= PITCH_MAX_SEMITONES) {
                 g_settings.pitchSemitones = v;
                 applySpeedPitch();
@@ -299,8 +300,12 @@ void handleNavTouch(touchPosition touchPos,
                     InfoState &info,
                     SettingsState &st,
                     CtxMenu &s_ctx,
-                    CtxMenu &s_sub) {
+                    CtxMenu &s_sub,
+                    SpeedPitchPadState &sp) {
     if (!newTouch) {
+        return;
+    }
+    if (sp.active) {
         return;
     }
     float px = (float) touchPos.px, py = (float) touchPos.py;
@@ -373,6 +378,82 @@ void handleNavTouch(touchPosition touchPos,
         } else if (px >= NEXT_BTN_X && px <= NEXT_BTN_X + NEXT_BTN_W) {
             goToNextSong();
         }
+    }
+    if (py >= SPEEDPITCH_BTN_Y && py <= SPEEDPITCH_BTN_Y + SPEEDPITCH_BTN_H &&
+        px >= SPEEDPITCH_BTN_X && px <= SPEEDPITCH_BTN_X + SPEEDPITCH_BTN_W) {
+        sp.active = true;
+    }
+}
+
+void handleSpeedPitchPadTouch(touchPosition touchPos,
+                              bool newTouch,
+                              bool screenTouched,
+                              bool touchReleased,
+                              SpeedPitchPadState &sp) {
+    if (!sp.active) {
+        return;
+    }
+    float px = (float) touchPos.px, py = (float) touchPos.py;
+
+    if (newTouch && px >= SP_CLOSE_X && px <= SP_CLOSE_X + SP_CLOSE_SIZE && py >= SP_CLOSE_Y &&
+        py <= SP_CLOSE_Y + SP_CLOSE_SIZE) {
+        sp.active = false;
+        sp.dragging = false;
+        return;
+    }
+
+    if (newTouch && px >= SP_LINK_TOGGLE_X && px <= SP_LINK_TOGGLE_X + SP_LINK_TOGGLE_W &&
+        py >= SP_LINK_Y - 2.0f && py <= SP_LINK_Y - 2.0f + SP_LINK_TOGGLE_H) {
+        g_settings.linkedSpeedPitch = !g_settings.linkedSpeedPitch;
+        applySpeedPitch();
+        saveSettings();
+        return;
+    }
+
+    bool inPlot = px >= SP_PLOT_X && px <= SP_PLOT_X + SP_PLOT_W && py >= SP_PLOT_Y &&
+                  py <= SP_PLOT_Y + SP_PLOT_H;
+    if (newTouch && inPlot) {
+        sp.dragging = true;
+    }
+
+    if (sp.dragging && screenTouched) {
+        float speedFrac = std::max(0.0f, std::min(1.0f, (px - SP_PLOT_X) / SP_PLOT_W));
+        float pitchFrac = std::max(0.0f, std::min(1.0f, (SP_PLOT_Y + SP_PLOT_H - py) / SP_PLOT_H));
+
+        // Snap to center gridlines when close so it's easy to land exactly back on neutral position
+        constexpr float SNAP_PX = 6.0f;
+        float centerSpeedFrac =
+            (float) (100 - SPEED_MIN_PERCENT) / (float) (SPEED_MAX_PERCENT - SPEED_MIN_PERCENT);
+        constexpr float centerPitchFrac = 0.5f;  // 0 st is the midpoint of a symmetric range
+
+        int newSpeed;
+        if (std::abs(speedFrac - centerSpeedFrac) * SP_PLOT_W <= SNAP_PX) {
+            newSpeed = 100;
+        } else {
+            newSpeed = SPEED_MIN_PERCENT +
+                       (int) (speedFrac * (SPEED_MAX_PERCENT - SPEED_MIN_PERCENT) + 0.5f);
+        }
+        g_settings.speedPercent =
+            std::max(SPEED_MIN_PERCENT, std::min(SPEED_MAX_PERCENT, newSpeed));
+
+        if (!g_settings.linkedSpeedPitch) {
+            float newPitch;
+            if (std::abs(pitchFrac - centerPitchFrac) * SP_PLOT_H <= SNAP_PX) {
+                newPitch = 0.0f;
+            } else {
+                float raw =
+                    PITCH_MIN_SEMITONES + pitchFrac * (PITCH_MAX_SEMITONES - PITCH_MIN_SEMITONES);
+                newPitch = std::round(raw * 10.0f) / 10.0f;  // 0.1 semitone resolution
+            }
+            g_settings.pitchSemitones = std::max((float) PITCH_MIN_SEMITONES,
+                                                 std::min((float) PITCH_MAX_SEMITONES, newPitch));
+        }
+        applySpeedPitch();
+    }
+
+    if (sp.dragging && touchReleased) {
+        sp.dragging = false;
+        saveSettings();
     }
 }
 

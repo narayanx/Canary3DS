@@ -66,6 +66,14 @@ struct InfoState {
     int reorderFromIdx = -1;  // original queue index of the picked song, -1 when not picked
 };
 
+// State for the Speed/Pitch pad overlay shown on the bottom screen.
+// Dragging tracks whether the current touch started inside the plot area, so
+// the point keeps following the finger even if it strays slightly outside the plot bounds.
+struct SpeedPitchPadState {
+    bool active = false;
+    bool dragging = false;
+};
+
 struct SettingsState {
     size_t sel = 0;
     size_t scrollOffset = 0;
@@ -144,9 +152,9 @@ struct SettingsState {
         if (g_settings.linkedSpeedPitch) {
             snprintf(pit, sizeof(pit), "Pitch:  Linked to Speed");
         } else if (g_settings.pitchSemitones > 0) {
-            snprintf(pit, sizeof(pit), "Pitch:  +%d semitones", g_settings.pitchSemitones);
+            snprintf(pit, sizeof(pit), "Pitch:  +%.1f st", g_settings.pitchSemitones);
         } else {
-            snprintf(pit, sizeof(pit), "Pitch:  %d semitones", g_settings.pitchSemitones);
+            snprintf(pit, sizeof(pit), "Pitch:  %.1f st", g_settings.pitchSemitones);
         }
 
         std::string pathRow = "Music Folder:   " + g_settings.startPath;

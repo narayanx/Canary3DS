@@ -15,6 +15,7 @@ void renderFrame(TopScreenState screenState,
                  const SettingsState &st,
                  const CtxMenu &s_ctx,
                  const CtxMenu &s_sub,
+                 const SpeedPitchPadState &sp,
                  bool showLog,
                  float seekBarX,
                  float seekBarY,
@@ -150,10 +151,17 @@ void renderFrame(TopScreenState screenState,
                        seekBarY,
                        seekBarW,
                        seekBarH,
+                       g_settings.speedPercent,
+                       g_settings.pitchSemitones,
+                       g_settings.linkedSpeedPitch,
                        (info.seekDragging || audioController.seekPending) ? info.seekDragProgress
                                                                           : -1.0f,
                        activeTab,
                        audioController.loopOne,
                        fileController.shuffleEnabled);
+    if (sp.active) {
+        drawSpeedPitchPad(
+            g_settings.speedPercent, g_settings.pitchSemitones, g_settings.linkedSpeedPitch);
+    }
     C3D_FrameEnd(0);
 }

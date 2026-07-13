@@ -24,7 +24,18 @@ void handleNavTouch(touchPosition touchPos,
                     InfoState &info,
                     SettingsState &st,
                     CtxMenu &s_ctx,
-                    CtxMenu &s_sub);
+                    CtxMenu &s_sub,
+                    SpeedPitchPadState &sp);
+
+// Handles touch interaction with the Speed/Pitch XY pad overlay: dragging the
+// point sets speed (x-axis) and pitch (y-axis, ignored while pitch is linked
+// to speed), and tapping the close button closes it. No-op while sp.active
+// is false.
+void handleSpeedPitchPadTouch(touchPosition touchPos,
+                              bool newTouch,
+                              bool screenTouched,
+                              bool touchReleased,
+                              SpeedPitchPadState &sp);
 
 void handleSeekTouch(touchPosition touchPos,
                      bool newTouch,

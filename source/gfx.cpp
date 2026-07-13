@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "settings.h"
+
 C3D_RenderTarget *top = nullptr;
 C3D_RenderTarget *bottom = nullptr;
 C2D_Font g_font = nullptr;
@@ -22,6 +24,8 @@ static C2D_SpriteSheet s_filebrowserIcon = nullptr;
 static C2D_SpriteSheet s_playerIcon = nullptr;
 static C2D_SpriteSheet s_playlistIcon = nullptr;
 static C2D_SpriteSheet s_settingsIcon = nullptr;
+static C2D_SpriteSheet s_dashboardIcon = nullptr;
+static C2D_SpriteSheet s_xmarkIcon = nullptr;
 
 u32 g_accentColor = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
 u32 g_secondaryColor = C2D_Color32(0x33, 0xCC, 0x55, 0xFF);
@@ -50,6 +54,9 @@ void sceneInit() {
     s_playerIcon = C2D_SpriteSheetLoad("romfs:/icons/music-note-solid-white-24size-1.5weight.t3x");
     s_playlistIcon = C2D_SpriteSheetLoad("romfs:/icons/playlist-white-24size-1.5weight.t3x");
     s_settingsIcon = C2D_SpriteSheetLoad("romfs:/icons/settings-white-24size-1.5weight.t3x");
+    s_dashboardIcon =
+        C2D_SpriteSheetLoad("romfs:/icons/dashboard-speed-white-24size-1.5weight.t3x");
+    s_xmarkIcon = C2D_SpriteSheetLoad("romfs:/icons/xmark-white-24size-1.5weight.t3x");
 }
 
 void sceneExit() {
@@ -82,6 +89,14 @@ void sceneExit() {
     if (s_settingsIcon) {
         C2D_SpriteSheetFree(s_settingsIcon);
         s_settingsIcon = nullptr;
+    }
+    if (s_dashboardIcon) {
+        C2D_SpriteSheetFree(s_dashboardIcon);
+        s_dashboardIcon = nullptr;
+    }
+    if (s_xmarkIcon) {
+        C2D_SpriteSheetFree(s_xmarkIcon);
+        s_xmarkIcon = nullptr;
     }
 }
 
@@ -1040,6 +1055,9 @@ void renderBottomScreen(bool songPlaying,
                         float seekBarY,
                         float seekBarW,
                         float seekBarH,
+                        int speedPercent,
+                        float pitchSemitones,
+                        bool linkedSpeedPitch,
                         float seekProgressOverride,
                         int activeTab,
                         bool loopActive,
@@ -1164,6 +1182,39 @@ void renderBottomScreen(bool songPlaying,
         drawCtrlBtn(NEXT_BTN_X, NEXT_BTN_W, ">>", false);
     }
 
+    // Speed/Pitch pad open button
+    {
+        C2D_DrawRectSolid(SPEEDPITCH_BTN_X,
+                          SPEEDPITCH_BTN_Y,
+                          0.40f,
+                          SPEEDPITCH_BTN_W,
+                          SPEEDPITCH_BTN_H,
+                          C2D_Color32(0x18, 0x18, 0x18, 0xFF));
+        u32 bd = C2D_Color32(0x33, 0x33, 0x33, 0xFF);
+        C2D_DrawRectSolid(SPEEDPITCH_BTN_X, SPEEDPITCH_BTN_Y, 0.45f, SPEEDPITCH_BTN_W, 1, bd);
+        C2D_DrawRectSolid(SPEEDPITCH_BTN_X,
+                          SPEEDPITCH_BTN_Y + SPEEDPITCH_BTN_H - 1,
+                          0.45f,
+                          SPEEDPITCH_BTN_W,
+                          1,
+                          bd);
+        C2D_DrawRectSolid(SPEEDPITCH_BTN_X, SPEEDPITCH_BTN_Y, 0.45f, 1, SPEEDPITCH_BTN_H, bd);
+        C2D_DrawRectSolid(SPEEDPITCH_BTN_X + SPEEDPITCH_BTN_W - 1,
+                          SPEEDPITCH_BTN_Y,
+                          0.45f,
+                          1,
+                          SPEEDPITCH_BTN_H,
+                          bd);
+        const int ICON_PIXELS = 24;
+        C2D_DrawImageAt(C2D_SpriteSheetGetImage(s_dashboardIcon, 0),
+                        SPEEDPITCH_BTN_X + (SPEEDPITCH_BTN_W - ICON_PIXELS) * 0.5f,
+                        SPEEDPITCH_BTN_Y + (SPEEDPITCH_BTN_H - ICON_PIXELS) * 0.5f - 1,
+                        0.5f,
+                        nullptr,
+                        1.0f,
+                        1.0f);
+    }
+
     // Content area begins below the nav bar
     const float TITLE_Y = seekBarY - 28.0f;
     const float META_Y = seekBarY - 14.0f;
@@ -1221,4 +1272,149 @@ void renderBottomScreen(bool songPlaying,
             ? seekProgressOverride
             : ((durationSeconds > 0) ? (float) (positionSeconds / durationSeconds) : 0.0f);
     drawProgressBar(seekBarX, seekBarY, seekBarW, seekBarH, progress);
+}
+
+// Speed/Pitch XY pad overlay
+void drawSpeedPitchPad(int speedPercent, float pitchSemitones, bool linkedSpeedPitch) {
+    C2D_TextBufClear(g_dynamicBuf);
+
+    // Panel shadow + background
+    C2D_DrawRectSolid(
+        SP_PANEL_X + 2, SP_PANEL_Y + 2, 0.86f, SP_PANEL_W, SP_PANEL_H, C2D_Color32(0, 0, 0, 0xA0));
+    C2D_DrawRectSolid(
+        SP_PANEL_X, SP_PANEL_Y, 0.88f, SP_PANEL_W, SP_PANEL_H, C2D_Color32(0x14, 0x14, 0x14, 0xF8));
+
+    u32 border = C2D_Color32(0x33, 0x33, 0x33, 0xFF);
+    C2D_DrawRectSolid(SP_PANEL_X, SP_PANEL_Y, 0.90f, SP_PANEL_W, 1, border);
+    C2D_DrawRectSolid(SP_PANEL_X, SP_PANEL_Y + SP_PANEL_H - 1, 0.90f, SP_PANEL_W, 1, border);
+    C2D_DrawRectSolid(SP_PANEL_X, SP_PANEL_Y, 0.90f, 1, SP_PANEL_H, border);
+    C2D_DrawRectSolid(SP_PANEL_X + SP_PANEL_W - 1, SP_PANEL_Y, 0.90f, 1, SP_PANEL_H, border);
+
+    // Title
+    drawStr("Speed / Pitch",
+            SP_PANEL_X + 10.0f,
+            SP_PANEL_Y + 8.0f,
+            0.92f,
+            0.48f,
+            0.48f,
+            C2D_Color32f(0.85f, 0.85f, 0.85f, 1));
+    drawStr("Link: ",
+            SP_LINK_LABEL_X,
+            SP_LINK_Y,
+            0.92f,
+            0.40f,
+            0.40f,
+            C2D_Color32f(0.70f, 0.70f, 0.70f, 1));
+    drawToggle(SP_LINK_TOGGLE_X,
+               SP_LINK_Y - 2.0f,
+               SP_LINK_TOGGLE_W,
+               SP_LINK_TOGGLE_H,
+               0.92f,
+               linkedSpeedPitch,
+               g_accentColor);
+
+    // Close button
+    C2D_DrawRectSolid(SP_CLOSE_X,
+                      SP_CLOSE_Y,
+                      0.92f,
+                      SP_CLOSE_SIZE,
+                      SP_CLOSE_SIZE,
+                      C2D_Color32(0x28, 0x28, 0x28, 0xFF));
+    C2D_DrawRectSolid(SP_CLOSE_X, SP_CLOSE_Y, 0.93f, SP_CLOSE_SIZE, 1, border);
+    C2D_DrawRectSolid(SP_CLOSE_X, SP_CLOSE_Y + SP_CLOSE_SIZE - 1, 0.93f, SP_CLOSE_SIZE, 1, border);
+    C2D_DrawRectSolid(SP_CLOSE_X, SP_CLOSE_Y, 0.93f, 1, SP_CLOSE_SIZE, border);
+    C2D_DrawRectSolid(SP_CLOSE_X + SP_CLOSE_SIZE - 1, SP_CLOSE_Y, 0.93f, 1, SP_CLOSE_SIZE, border);
+    {
+        const int ICON_PIXELS = 24;
+        C2D_DrawImageAt(C2D_SpriteSheetGetImage(s_xmarkIcon, 0),
+                        SP_CLOSE_X + (SP_CLOSE_SIZE - ICON_PIXELS) * 0.5f,
+                        SP_CLOSE_Y + (SP_CLOSE_SIZE - ICON_PIXELS) * 0.5f,
+                        0.94f,
+                        nullptr,
+                        1.0f,
+                        1.0f);
+    }
+
+    // Plot background + border
+    C2D_DrawRectSolid(
+        SP_PLOT_X, SP_PLOT_Y, 0.90f, SP_PLOT_W, SP_PLOT_H, C2D_Color32(0x0A, 0x0A, 0x0A, 0xFF));
+    C2D_DrawRectSolid(SP_PLOT_X, SP_PLOT_Y, 0.91f, SP_PLOT_W, 1, border);
+    C2D_DrawRectSolid(SP_PLOT_X, SP_PLOT_Y + SP_PLOT_H - 1, 0.91f, SP_PLOT_W, 1, border);
+    C2D_DrawRectSolid(SP_PLOT_X, SP_PLOT_Y, 0.91f, 1, SP_PLOT_H, border);
+    C2D_DrawRectSolid(SP_PLOT_X + SP_PLOT_W - 1, SP_PLOT_Y, 0.91f, 1, SP_PLOT_H, border);
+
+    // Center gridlines: speed = 1.00x, pitch = 0 st
+    float centerSpeedFrac =
+        (float) (100 - SPEED_MIN_PERCENT) / (float) (SPEED_MAX_PERCENT - SPEED_MIN_PERCENT);
+    float centerPitchFrac =
+        (float) (0 - PITCH_MIN_SEMITONES) / (float) (PITCH_MAX_SEMITONES - PITCH_MIN_SEMITONES);
+    u32 grid = C2D_Color32(0x26, 0x26, 0x26, 0xFF);
+    C2D_DrawRectSolid(
+        SP_PLOT_X + centerSpeedFrac * SP_PLOT_W, SP_PLOT_Y, 0.915f, 1, SP_PLOT_H, grid);
+    C2D_DrawRectSolid(
+        SP_PLOT_X, SP_PLOT_Y + (1.0f - centerPitchFrac) * SP_PLOT_H, 0.915f, SP_PLOT_W, 1, grid);
+
+    // Axis range labels
+    drawStr("+12st",
+            SP_PANEL_X + 6.0f,
+            SP_PLOT_Y - 2.0f,
+            0.92f,
+            0.34f,
+            0.34f,
+            C2D_Color32(0x60, 0x60, 0x60, 0xFF));
+    drawStr("-12st",
+            SP_PANEL_X + 6.0f,
+            SP_PLOT_Y + SP_PLOT_H - 10.0f,
+            0.92f,
+            0.34f,
+            0.34f,
+            C2D_Color32(0x60, 0x60, 0x60, 0xFF));
+    drawStr("0.25x",
+            SP_PLOT_X,
+            SP_PLOT_Y + SP_PLOT_H + 4.0f,
+            0.92f,
+            0.34f,
+            0.34f,
+            C2D_Color32(0x60, 0x60, 0x60, 0xFF));
+    drawStr("4.00x",
+            SP_PLOT_X + SP_PLOT_W - 30.0f,
+            SP_PLOT_Y + SP_PLOT_H + 4.0f,
+            0.92f,
+            0.34f,
+            0.34f,
+            C2D_Color32(0x60, 0x60, 0x60, 0xFF));
+
+    // The draggable point
+    float speedFrac = (float) (speedPercent - SPEED_MIN_PERCENT) /
+                      (float) (SPEED_MAX_PERCENT - SPEED_MIN_PERCENT);
+    float pitchFrac = linkedSpeedPitch ? centerPitchFrac
+                                       : (float) (pitchSemitones - PITCH_MIN_SEMITONES) /
+                                             (float) (PITCH_MAX_SEMITONES - PITCH_MIN_SEMITONES);
+    speedFrac = std::max(0.0f, std::min(1.0f, speedFrac));
+    pitchFrac = std::max(0.0f, std::min(1.0f, pitchFrac));
+    float dotX = SP_PLOT_X + speedFrac * SP_PLOT_W;
+    float dotY = SP_PLOT_Y + (1.0f - pitchFrac) * SP_PLOT_H;
+    u32 dotCol = linkedSpeedPitch ? C2D_Color32(0x99, 0x99, 0x99, 0xFF) : g_accentColor;
+    C2D_DrawCircleSolid(dotX, dotY, 0.96f, 7.0f, C2D_Color32(0, 0, 0, 0x80));
+    C2D_DrawCircleSolid(dotX, dotY, 0.97f, 5.0f, dotCol);
+
+    // Numeric readout
+    char readout[48];
+    if (linkedSpeedPitch) {
+        snprintf(readout, sizeof(readout), "Speed:  %.2fx", speedPercent / 100.0f);
+    } else {
+        snprintf(readout,
+                 sizeof(readout),
+                 "Speed:  %.2fx    Pitch:  %+.1f st",
+                 speedPercent / 100.0f,
+                 pitchSemitones);
+    }
+    drawStr(readout,
+            SP_PANEL_X + SP_PANEL_W * 0.5f,
+            SP_PLOT_Y + SP_PLOT_H + 20.0f,
+            0.92f,
+            0.44f,
+            0.44f,
+            C2D_Color32f(0.85f, 0.85f, 0.85f, 1),
+            C2D_AlignCenter | C2D_WithColor);
 }

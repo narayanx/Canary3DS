@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
     InfoState info;
     SettingsState st;
     CtxMenu s_ctx, s_sub;
+    SpeedPitchPadState sp;
 
     initFileHistory(g_settings.startPath);
 
@@ -121,16 +122,25 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        handleNavTouch(touchPos, newTouch, screenState, fb, pl, info, st, s_ctx, s_sub);
-        handleSeekTouch(touchPos,
-                        newTouch,
-                        screenTouched,
-                        touchReleased,
-                        info,
-                        SEEK_BAR_X,
-                        SEEK_BAR_Y,
-                        SEEK_BAR_W,
-                        SEEK_BAR_H);
+        bool spWasActive = sp.active;
+        handleNavTouch(touchPos, newTouch, screenState, fb, pl, info, st, s_ctx, s_sub, sp);
+        if (!sp.active) {
+            handleSeekTouch(touchPos,
+                            newTouch,
+                            screenTouched,
+                            touchReleased,
+                            info,
+                            SEEK_BAR_X,
+                            SEEK_BAR_Y,
+                            SEEK_BAR_W,
+                            SEEK_BAR_H);
+        }
+        if (spWasActive) {
+            // Only process pad touches once it was already open before this
+            // frame, otherwise the same tap that opened it would also land
+            // on the point and make it jump there
+            handleSpeedPitchPadTouch(touchPos, newTouch, screenTouched, touchReleased, sp);
+        }
 
         u64 now = osGetTime();
         if (kDown & KEY_DLEFT) {
@@ -307,6 +317,7 @@ int main(int argc, char *argv[]) {
                         st,
                         s_ctx,
                         s_sub,
+                        sp,
                         showLog && g_settings.showDebugScreen,
                         SEEK_BAR_X,
                         SEEK_BAR_Y,
