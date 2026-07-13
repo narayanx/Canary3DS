@@ -93,6 +93,7 @@ void SpeedPitchProcessor::reset() {
     resIn_.clear();
     resPos_ = 0.0;
     resDrained_ = false;
+    pipelineEngaged_ = false;
 }
 
 void SpeedPitchProcessor::wsolaEnsureInput(const SourceFn &source, double upToPos) {
@@ -268,8 +269,9 @@ int SpeedPitchProcessor::resamplePull(const SourceFn &source, int16_t *out, int 
 }
 
 int SpeedPitchProcessor::process(const SourceFn &source, int16_t *out, int maxFrames) {
-    if (isIdentity()) {
+    if (isIdentity() && !pipelineEngaged_) {
         return source(out, maxFrames);
     }
+    pipelineEngaged_ = true;
     return resamplePull(source, out, maxFrames);
 }

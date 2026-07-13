@@ -11,7 +11,9 @@
 // compensating WSOLA stretch feeding a linear-interpolation resample
 // stage). Both can be set independently and combined; when both are at
 // their default of 1.0f, process() is a direct passthrough to `source`
-// with no extra CPU cost or latency.
+// with no extra CPU cost or latency, unless the pipeline has already been
+// engaged this song (see pipelineEngaged_), in which case it keeps running
+// through the pipeline so nothing buffered gets silently dropped.
 class SpeedPitchProcessor {
   public:
     // Matches IAudioDecoder::decode()'s contract: decode up to maxFrames
@@ -78,4 +80,11 @@ class SpeedPitchProcessor {
 
     void resEnsureInput(const SourceFn &source, double upToPos);
     int resamplePull(const SourceFn &source, int16_t *out, int maxFrames);
+
+    // True once process() has pulled anything through the WSOLA/resample
+    // pipeline since the last reset(). While set, process() keeps using
+    // that pipeline even if speed/pitch briefly return to identity, instead
+    // of bouncing to the raw passthrough, which would silently drop
+    // whatever lookahead audio is already buffered mid-pipeline.
+    bool pipelineEngaged_ = false;
 };
