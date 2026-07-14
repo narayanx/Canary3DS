@@ -29,6 +29,11 @@ class Mp3Decoder final : public IAudioDecoder {
 
         // Without this flag mpg123 ignores picture data entirely and v2->pictures is always 0
         mpg123_param(mh_, MPG123_ADD_FLAGS, MPG123_PICTURE, 0.0);
+        // Must be set before mpg123_open(). The channel count gets locked in
+        // the moment the core format is probed (during mpg123_getformat()
+        // below), so forcing stereo afterwards via mpg123_format() has no
+        // effect on mono sources
+        mpg123_param(mh_, MPG123_ADD_FLAGS, MPG123_FORCE_STEREO, 0.0);
 
         if (mpg123_open(mh_, path.c_str()) != MPG123_OK) {
             logToDebugScreen("mpg123_open failed: " + path);
