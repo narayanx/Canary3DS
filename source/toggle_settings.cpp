@@ -3,12 +3,18 @@
 #include <3ds.h>
 
 #include "app_state.h"
+#include "filebrowser.h"
 
 const ToggleSetting TOGGLE_SETTINGS[] = {
     {&Settings::lockToStartPath,
      SettingsState::ROW_LOCK_START,
      "lock_to_music_folder",
      "Prevent Exiting Music Folder"},
+    {&Settings::reverseSort,
+     SettingsState::ROW_REVERSE_SORT,
+     "reverse_sort",
+     "Reverse Sort",
+     [](InfoState &) { fileController.resortPending = true; }},
     {&Settings::loopFolder, SettingsState::ROW_REPEAT, "loop_folder", "Loop Folder"},
     {&Settings::linkedSpeedPitch,
      SettingsState::ROW_LINK_SPEED_PITCH,

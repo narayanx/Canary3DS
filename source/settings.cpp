@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "audio_engine.h"
+#include "filebrowser.h"
 #include "gfx.h"
 #include "toggle_settings.h"
 
@@ -79,6 +80,13 @@ bool loadSettings() {
                     val += '/';
                 }
                 g_settings.startPath = val;
+            }
+        } else if (key == "sort_by") {
+            for (size_t i = 0; i < SORT_MODE_NAMES.size(); i++) {
+                if (val == SORT_MODE_NAMES[i]) {
+                    g_settings.sortBy = val;
+                    break;
+                }
             }
         } else if (key == "brightness") {
             try {
@@ -191,7 +199,7 @@ bool saveSettings() {
     ensureDir();
 
     // In default write order
-    static constexpr std::array<std::string_view, 23> KEYS = {{
+    static constexpr std::array<std::string_view, 25> KEYS = {{
         "volume_percent",
         "brightness",
         "seek_seconds",
@@ -200,6 +208,8 @@ bool saveSettings() {
         "linked_speed_pitch",
         "music_folder",
         "lock_to_music_folder",
+        "sort_by",
+        "reverse_sort",
         "loop_folder",
         "show_cover_art",
         "allow_closed_lid_playback",
@@ -236,6 +246,9 @@ bool saveSettings() {
         }
         if (key == "music_folder") {
             return g_settings.startPath;
+        }
+        if (key == "sort_by") {
+            return g_settings.sortBy;
         }
         if (key == "brightness") {
             return std::to_string(g_settings.brightness);

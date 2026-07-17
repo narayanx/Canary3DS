@@ -13,6 +13,8 @@ struct Settings {
     bool linkedSpeedPitch = false;  // when true, pitch follows speed
     std::string startPath = "sdmc:/Music/";
     bool lockToStartPath = true;  // prevent navigating above start path
+    std::string sortBy = "Name";  // one of SORT_MODE_NAMES
+    bool reverseSort = false;     // reverse the chosen sort order
     bool loopFolder = true;
     bool showCoverArt = true;
     bool allowClosedLidPlayback = true;

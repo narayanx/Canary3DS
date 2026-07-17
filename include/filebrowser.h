@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <deque>
 #include <dirent.h>
 #include <string>
@@ -14,6 +15,9 @@ inline constexpr size_t MAX_QUEUE_SIZE = 500;
 inline constexpr size_t FILE_LAZY_THRESHOLD = 200;
 // Number of files revealed per page when lazy loading
 inline constexpr size_t FILE_PAGE_SIZE = 50;
+
+// Values for filebrowser sort
+inline constexpr std::array<std::string_view, 2> SORT_MODE_NAMES{"Name", "Date Modified"};
 
 struct FileController {
     std::string cwd;
@@ -36,6 +40,8 @@ struct FileController {
     std::vector<std::string> playbackOrder;
     // shuffled order of upcoming autoplay songs in playingFiles, used when shuffleEnabled
     std::vector<std::string> shuffledAutoplay;
+    // Set when a sort related setting changes
+    bool resortPending = false;
 };
 
 // stop saving depth after this many directories (conserve memory)

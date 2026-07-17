@@ -631,6 +631,7 @@ void handleAButton(u32 &kDown,
                 applyAccentColor();
                 applySecondaryColor();
                 aptSetSleepAllowed(!g_settings.allowClosedLidPlayback);
+                fileController.resortPending = true;
                 saveSettings();
                 st.sel = 0;
                 st.scrollOffset = 0;
@@ -1464,6 +1465,28 @@ void handleSettingsInput(u32 kDown,
 
                 case SettingsState::ROW_START_PATH:
                     break;
+
+                case SettingsState::ROW_SORT_BY:
+                    {
+                        int n = SORT_MODE_NAMES.size();
+                        int curIdx = -1;
+                        for (int i = 0; i < n; i++) {
+                            if (g_settings.sortBy == SORT_MODE_NAMES[i]) {
+                                curIdx = i;
+                                break;
+                            }
+                        }
+                        if (right) {
+                            g_settings.sortBy = SORT_MODE_NAMES[curIdx < 0 ? 0 : (curIdx + 1) % n];
+                        }
+                        if (left) {
+                            g_settings.sortBy =
+                                SORT_MODE_NAMES[curIdx < 0 ? n - 1 : (curIdx + n - 1) % n];
+                        }
+                        fileController.resortPending = true;
+                        changed = true;
+                        break;
+                    }
 
                 case SettingsState::ROW_ACCENT:
                     {

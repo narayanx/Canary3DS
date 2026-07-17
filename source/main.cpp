@@ -85,6 +85,14 @@ int main(int argc, char *argv[]) {
             updateFiles = true;
         }
 
+        // Re sort the current folder listing if sorting setting changed
+        if (fileController.resortPending && screenState != TopScreenState::FILEBROWSER) {
+            fileController.selectedFile = 0;
+            fb.scroll = 0;
+            fileController.resortPending = false;
+            updateFiles = true;
+        }
+
         if (updateFiles) {
             fileController.files = getFiles(fileController.cwd.c_str());
             fileController.filesShown = (fileController.files.size() > FILE_LAZY_THRESHOLD)

@@ -88,6 +88,8 @@ struct SettingsState {
         ROW_LINK_SPEED_PITCH,
         ROW_START_PATH,
         ROW_LOCK_START,
+        ROW_SORT_BY,
+        ROW_REVERSE_SORT,
         ROW_REPEAT,
         ROW_COVER_ART,
         ROW_SLEEP,
@@ -119,8 +121,8 @@ struct SettingsState {
     static std::vector<std::string> buildRows() {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
 
-        char vol[48], bri[48], seek[48], spd[48], pit[48], acc[48], sec[48], qsz[48], hsz[48],
-            dep[48];
+        char vol[48], bri[48], seek[48], spd[48], pit[48], srt[48], acc[48], sec[48], qsz[48],
+            hsz[48], dep[48];
 
         std::vector<std::string> rows(ROW_COUNT);
 
@@ -159,6 +161,8 @@ struct SettingsState {
 
         std::string pathRow = "Music Folder:   " + g_settings.startPath;
 
+        snprintf(srt, sizeof(srt), "Sort By:  %s", g_settings.sortBy.c_str());
+
         if (g_settings.accentColor == "custom") {
             snprintf(
                 acc, sizeof(acc), "Accent Color:  #%06X", g_settings.accentColorHex & 0xFFFFFFu);
@@ -187,6 +191,7 @@ struct SettingsState {
         rows[ROW_SPEED] = spd;
         rows[ROW_PITCH] = pit;
         rows[ROW_START_PATH] = pathRow;
+        rows[ROW_SORT_BY] = srt;
         rows[ROW_ACCENT] = acc;
         rows[ROW_SECONDARY] = sec;
         rows[ROW_ADV_HEADER] = advHeader;
