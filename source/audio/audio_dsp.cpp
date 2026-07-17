@@ -133,19 +133,37 @@ bool SpeedPitchProcessor::wsolaProduceHop(const SourceFn &source) {
         int64_t maxCand = avail - kCompareLen;
         int64_t lo = std::clamp<int64_t>(basePos - kSearchRadius, 0, maxCand);
         int64_t hi = std::clamp<int64_t>(basePos + kSearchRadius, 0, maxCand);
-        double bestDiff = 0.0;
-        bool found = false;
-        for (int64_t cand = lo; cand <= hi; ++cand) {
+
+        auto sadAt = [&](int64_t cand) {
             double diff = 0.0;
             for (int64_t n = 0; n < kCompareLen; ++n) {
                 int64_t idx = (cand + n) * kChannels;
                 int mono = wsolaIn_[(size_t) idx] + wsolaIn_[(size_t) idx + 1];
                 diff += std::abs(mono - lastTail_[(size_t) n]);
             }
+            return diff;
+        };
+
+        double bestDiff = 0.0;
+        bool found = false;
+        for (int64_t cand = lo; cand <= hi; cand += kCoarseStride) {
+            double diff = sadAt(cand);
             if (!found || diff < bestDiff) {
                 bestDiff = diff;
                 bestPos = cand;
                 found = true;
+            }
+        }
+
+        if (found) {
+            int64_t fineLo = std::clamp<int64_t>(bestPos - kFineRadius, lo, maxCand);
+            int64_t fineHi = std::clamp<int64_t>(bestPos + kFineRadius, lo, maxCand);
+            for (int64_t cand = fineLo; cand <= fineHi; ++cand) {
+                double diff = sadAt(cand);
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestPos = cand;
+                }
             }
         }
     }

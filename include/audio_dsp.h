@@ -42,12 +42,18 @@ class SpeedPitchProcessor {
     static constexpr int kChannels = 2;
     static constexpr int kFrameSize = 1024;  // analysis/synthesis window, frames
     static constexpr int kSynthHop = kFrameSize / 2;
-    // WSOLA search: kept deliberately small since this runs on a 268 MHz
-    // ARM11 with no float SIMD. A short mono-downmixed comparison window is
-    // enough to avoid most phase-cancellation artifacts at a fraction of the
-    // cost of comparing the full hop in stereo.
-    static constexpr int kSearchRadius = 64;
-    static constexpr int kCompareLen = 128;
+    // WSOLA search: a mono-downmixed comparison keeps this affordable on a
+    // 268 MHz ARM11 with no float SIMD. kCompareLen/kSearchRadius need to
+    // span at least one pitch period of typical speech (down to ~100 Hz,
+    // i.e. ~440 samples at 44.1 kHz) or the search can't find a phase-aligned
+    // splice point, which shows up as a periodic buzz/static riding on voice
+    // audio (most audible on audiobooks/podcasts). kCompareStride subsamples
+    // the comparison so the window can be widened without a proportional
+    // rise in per-hop cost.
+    static constexpr int kSearchRadius = 320;
+    static constexpr int kCompareLen = 576;
+    static constexpr int kCoarseStride = 5;
+    static constexpr int kFineRadius = 8;
     static constexpr int kCompactThreshold = kFrameSize * 8;
 
     void recomputeAlpha();
