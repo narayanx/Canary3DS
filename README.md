@@ -75,3 +75,4 @@ A 3DS music player with modern features.
 - [Video_player_for_3DS](https://github.com/Core-2-Extreme/Video_player_for_3DS)/[FFmpeg for 3DS](https://github.com/Core-2-Extreme/FFmpeg_for_3DS) by [@Core-2-Extreme](https://github.com/Core-2-Extreme) for the instructions for building FFmpeg which allows aac/m4a support
 - [RIP](https://github.com/kynex7510/RIP) by [@kynex7510](https://github.com/kynex7510) for the library to convert decoded images into the 3DS internal image format
 - [stb_image](https://github.com/nothings/stb) by [@nothings](https://github.com/nothings) for the image decoding library
+- [soundtouch](https://codeberg.org/soundtouch/soundtouch) for the speed and pitch changing library
