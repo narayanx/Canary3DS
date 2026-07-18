@@ -59,7 +59,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE
-  -g -O2 -Wall
+  -g -O2 -Wall -Wno-unknown-pragmas
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
