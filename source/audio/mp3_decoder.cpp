@@ -1,3 +1,5 @@
+#include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <mpg123.h>
 #include <string>
@@ -9,6 +11,110 @@
 // ---------------------------------------------------------------------------
 // Mp3Decoder – wraps libmpg123 (3ds-mpg123)
 // ---------------------------------------------------------------------------
+
+// mpg123 treats APIC frames that share the same picture type and description as updates to one
+// picture and keeps only the last one it parses. Songs tagged with several front covers therefore
+// end up showing the last embedded image instead of the first. Read the ID3v2 tag ourselves to
+// recover the true first APIC frame.
+static std::string extractFirstApicPicture(const std::string &path) {
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f) {
+        return {};
+    }
+
+    unsigned char hdr[10];
+    if (fread(hdr, 1, sizeof(hdr), f) != sizeof(hdr) || memcmp(hdr, "ID3", 3) != 0) {
+        fclose(f);
+        return {};
+    }
+
+    int major = hdr[3];
+    bool unsynced = (hdr[5] & 0x80) != 0;
+    bool hasExtHeader = (hdr[5] & 0x40) != 0;
+    uint32_t tagSize = ((uint32_t) hdr[6] << 21) | ((uint32_t) hdr[7] << 14) |
+                       ((uint32_t) hdr[8] << 7) | (uint32_t) hdr[9];
+
+    if ((major != 3 && major != 4) || unsynced) {
+        fclose(f);
+        return {};
+    }
+
+    std::string tag(tagSize, '\0');
+    bool ok = fread(&tag[0], 1, tagSize, f) == tagSize;
+    fclose(f);
+    if (!ok) {
+        return {};
+    }
+
+    auto plain32 = [](const char *p) -> uint32_t {
+        return ((uint8_t) p[0] << 24) | ((uint8_t) p[1] << 16) | ((uint8_t) p[2] << 8) |
+               (uint8_t) p[3];
+    };
+    auto synchsafe = [](const char *p) -> uint32_t {
+        return ((uint8_t) p[0] << 21) | ((uint8_t) p[1] << 14) | ((uint8_t) p[2] << 7) |
+               (uint8_t) p[3];
+    };
+
+    size_t pos = 0;
+    if (hasExtHeader) {
+        if (pos + 4 > tag.size()) {
+            return {};
+        }
+        uint32_t extSize = (major == 3) ? plain32(&tag[pos]) : synchsafe(&tag[pos]);
+        pos += (major == 3) ? (extSize + 4) : extSize;
+    }
+
+    while (pos + 10 <= tag.size()) {
+        if (tag[pos] == '\0') {
+            break;  // padding
+        }
+        std::string id = tag.substr(pos, 4);
+        uint32_t frameSize = (major == 3) ? plain32(&tag[pos + 4]) : synchsafe(&tag[pos + 4]);
+        size_t dataPos = pos + 10;
+        if (frameSize == 0 || dataPos + frameSize > tag.size()) {
+            break;
+        }
+
+        unsigned char flagsHi = (unsigned char) tag[pos + 8];
+        unsigned char flagsLo = (unsigned char) tag[pos + 9];
+        if (id == "APIC" && flagsHi == 0 && flagsLo == 0) {
+            const char *fd = tag.data() + dataPos;
+            size_t fs = frameSize;
+            if (fs >= 2) {
+                unsigned char encoding = (unsigned char) fd[0];
+                size_t mimeEnd = 1;
+                while (mimeEnd < fs && fd[mimeEnd] != '\0') {
+                    ++mimeEnd;
+                }
+                size_t typePos = mimeEnd + 1;
+                if (mimeEnd < fs && typePos < fs) {
+                    size_t descTermWidth = (encoding == 1 || encoding == 2) ? 2 : 1;
+                    size_t descEnd = typePos + 1;
+                    while (descEnd + descTermWidth <= fs) {
+                        bool isTerm = true;
+                        for (size_t k = 0; k < descTermWidth; ++k) {
+                            if (fd[descEnd + k] != '\0') {
+                                isTerm = false;
+                                break;
+                            }
+                        }
+                        if (isTerm) {
+                            break;
+                        }
+                        descEnd += descTermWidth;
+                    }
+                    size_t dataStart = descEnd + descTermWidth;
+                    if (dataStart < fs) {
+                        return std::string(fd + dataStart, fs - dataStart);
+                    }
+                }
+            }
+        }
+
+        pos = dataPos + frameSize;
+    }
+    return {};
+}
 
 class Mp3Decoder final : public IAudioDecoder {
   public:
@@ -55,7 +161,7 @@ class Mp3Decoder final : public IAudioDecoder {
         off_t total = mpg123_length(mh_);
         duration_ = (total > 0 && sampleRate_ > 0) ? (double) total / (double) sampleRate_ : -1.0;
 
-        cacheTags();
+        cacheTags(path);
         return true;
     }
 
@@ -142,7 +248,7 @@ class Mp3Decoder final : public IAudioDecoder {
     std::string artist_;
     std::string trackNumber_;
 
-    void cacheTags() {
+    void cacheTags(const std::string &path) {
         if (!mh_) {
             return;
         }
@@ -173,6 +279,9 @@ class Mp3Decoder final : public IAudioDecoder {
             }
 
             // Cover art (APIC frames)
+            if (coverArtBytes_.empty()) {
+                coverArtBytes_ = extractFirstApicPicture(path);
+            }
             if (coverArtBytes_.empty()) {
                 for (size_t i = 0; i < v2->pictures; ++i) {
                     mpg123_picture &pic = v2->picture[i];
