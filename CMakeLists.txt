@@ -39,6 +39,23 @@ add_executable(${PROJECT_NAME}
 target_sources(${PROJECT_NAME} PRIVATE
   external/stb/stb_image.cpp
   external/base64/base64.cpp
+
+  external/soundtouch/source/SoundTouch/AAFilter.cpp
+  external/soundtouch/source/SoundTouch/cpu_detect_x86.cpp
+  external/soundtouch/source/SoundTouch/FIFOSampleBuffer.cpp
+  external/soundtouch/source/SoundTouch/FIRFilter.cpp
+  external/soundtouch/source/SoundTouch/InterpolateCubic.cpp
+  external/soundtouch/source/SoundTouch/InterpolateLinear.cpp
+  external/soundtouch/source/SoundTouch/InterpolateShannon.cpp
+  external/soundtouch/source/SoundTouch/RateTransposer.cpp
+  external/soundtouch/source/SoundTouch/SoundTouch.cpp
+  external/soundtouch/source/SoundTouch/TDStretch.cpp
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  # int16 samples throughout, matches the decoder/NDSP PCM format and avoids
+  # a float<->int16 conversion pass on every buffer.
+  SOUNDTOUCH_INTEGER_SAMPLES
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE
@@ -52,6 +69,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_SOURCE_DIR}/external/base64/
   ${CMAKE_SOURCE_DIR}/external/dr_wav/
   ${CMAKE_SOURCE_DIR}/external/ffmpeg/
+  ${CMAKE_SOURCE_DIR}/external/soundtouch/include/
+  ${CMAKE_SOURCE_DIR}/external/soundtouch/source/SoundTouch/
 
   $ENV{DEVKITPRO}/libctru/include
   $ENV{DEVKITPRO}/portlibs/3ds/include

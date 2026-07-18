@@ -118,7 +118,7 @@ static void resetChannel(int sampleRate) {
     // The decode stream position just changed discontinuously (new song or
     // seek); any audio buffered inside the processor referred to the old
     // position and must be discarded.
-    audioController.speedPitch.reset();
+    audioController.speedPitch.reset(sampleRate);
     for (auto &wb : s_waveBufs) {
         wb.status = NDSP_WBUF_DONE;
     }
