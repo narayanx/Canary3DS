@@ -17,7 +17,8 @@ inline constexpr size_t FILE_LAZY_THRESHOLD = 200;
 inline constexpr size_t FILE_PAGE_SIZE = 50;
 
 // Values for filebrowser sort
-inline constexpr std::array<std::string_view, 2> SORT_MODE_NAMES{"Name", "Date Modified"};
+inline constexpr std::array<std::string_view, 3> SORT_MODE_NAMES{
+    "Name", "Date Modified", "Numerical"};
 
 struct FileController {
     std::string cwd;

@@ -1,6 +1,7 @@
 #include "filebrowser.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <dirent.h>
 #include <string>
@@ -18,6 +19,75 @@ FileController fileController = {.cwd = "sdmc:/Music/",
                                  .selectedQueueItem = 0};
 
 namespace {
+    // Leading number(s) parsed from the start of a file name
+    struct LeadingNumber {
+        bool hasNumber = false;
+        long primary = 0;  // track number, or disc number
+        bool hasSecondary = false;
+        long secondary = 0;  // track number when the name starts
+    };
+
+    // Caps accumulated digit runs to avoid overflow
+    constexpr long MAX_PARSED_NUMBER = 1000000000L;
+
+    // Parses a run of digits starting at a position. Returns the parsed value
+    // and advances position past the digits.
+    long consumeDigits(const std::string &name, size_t &pos) {
+        long value = 0;
+        while (pos < name.size() && std::isdigit((unsigned char) name[pos])) {
+            if (value < MAX_PARSED_NUMBER) {
+                value = value * 10 + (name[pos] - '0');
+            }
+            ++pos;
+        }
+        return value;
+    }
+
+    LeadingNumber parseLeadingNumber(const std::string &name) {
+        LeadingNumber result;
+        size_t pos = 0;
+        if (pos >= name.size() || !std::isdigit((unsigned char) name[pos])) {
+            return result;
+        }
+
+        result.hasNumber = true;
+        result.primary = consumeDigits(name, pos);
+
+        if (pos < name.size() && name[pos] != ' ' && !std::isdigit((unsigned char) name[pos])) {
+            size_t afterDelim = pos + 1;
+            if (afterDelim < name.size() && std::isdigit((unsigned char) name[afterDelim])) {
+                size_t secPos = afterDelim;
+                result.hasSecondary = true;
+                result.secondary = consumeDigits(name, secPos);
+            }
+        }
+
+        return result;
+    }
+
+    // Orders by leading track or disc-track number (numerically, so "9" sorts
+    // before "10"), falling back to alphabetical order when numbers are
+    // equal, missing, or tied.
+    bool compareByTrackNumber(const dirent &a, const dirent &b) {
+        LeadingNumber na = parseLeadingNumber(a.d_name);
+        LeadingNumber nb = parseLeadingNumber(b.d_name);
+
+        if (na.hasNumber != nb.hasNumber) {
+            return na.hasNumber;  // numbered entries come first
+        }
+        if (na.hasNumber) {
+            if (na.primary != nb.primary) {
+                return na.primary < nb.primary;
+            }
+            long secA = na.hasSecondary ? na.secondary : -1;
+            long secB = nb.hasSecondary ? nb.secondary : -1;
+            if (secA != secB) {
+                return secA < secB;
+            }
+        }
+        return strcasecmp(a.d_name, b.d_name) < 0;
+    }
+
     // dirPath (trailing slash) is needed to stat() entries for date sorting.
     void sortFiles(std::vector<dirent> &files, const std::string &dirPath) {
         if (g_settings.sortBy == "Date Modified") {
@@ -44,6 +114,8 @@ namespace {
                 sorted.push_back(files[i]);
             }
             files = std::move(sorted);
+        } else if (g_settings.sortBy == "Numerical") {
+            std::stable_sort(files.begin(), files.end(), compareByTrackNumber);
         } else {
             // "Name" (and any unrecognised stored value) sorts alphabetically.
             std::stable_sort(files.begin(), files.end(), [](const dirent &a, const dirent &b) {
