@@ -50,11 +50,11 @@ const ToggleSetting TOGGLE_SETTINGS[] = {
      SettingsState::ROW_SCROBBLING,
      "enable_scrobbling",
      "Scrobble Log"},
-    {&Settings::showDebugScreen, SettingsState::ROW_DEBUG, "show_debug", "Enable Dev Debug Screen"},
     {&Settings::cacheCoverArt,
      SettingsState::ROW_CACHE_COVER_ART,
      "cache_cover_art",
      "Cache Cover Art"},
+    {&Settings::showDebugScreen, SettingsState::ROW_DEBUG, "show_debug", "Enable Dev Debug Screen"},
 };
 
 const size_t TOGGLE_SETTINGS_COUNT = sizeof(TOGGLE_SETTINGS) / sizeof(TOGGLE_SETTINGS[0]);

@@ -105,9 +105,9 @@ struct SettingsState {
         ROW_QUEUE_SIZE,
         ROW_HISTORY_SIZE,
         ROW_MAX_DEPTH,
-        ROW_DEBUG,
         ROW_CACHE_COVER_ART,
         ROW_CLEAR_COVER_CACHE,
+        ROW_DEBUG,
         ROW_RESET,
         ROW_COUNT,
     };
