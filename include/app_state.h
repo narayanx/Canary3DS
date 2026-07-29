@@ -3,6 +3,7 @@
 #include <citro2d.h>
 #include <citro3d.h>
 
+#include <cstdint>
 #include <cstdio>
 #include <deque>
 #include <string>
@@ -10,6 +11,7 @@
 #include <vector>
 
 #include "gfx.h"
+#include "image.h"
 #include "playlist.h"
 #include "settings.h"
 #include "toggle_settings.h"
@@ -104,6 +106,8 @@ struct SettingsState {
         ROW_HISTORY_SIZE,
         ROW_MAX_DEPTH,
         ROW_DEBUG,
+        ROW_CACHE_COVER_ART,
+        ROW_CLEAR_COVER_CACHE,
         ROW_RESET,
         ROW_COUNT,
     };
@@ -117,6 +121,18 @@ struct SettingsState {
     // Sentinel bytes appended to a row's label to indicate to draw toggle icon
     static constexpr char TOGGLE_ON = '\x01';
     static constexpr char TOGGLE_OFF = '\x02';
+
+    static std::string formatCacheSize(uint64_t bytes) {
+        char buf[32];
+        if (bytes >= 1024ull * 1024ull) {
+            snprintf(buf, sizeof(buf), "%.1f MB", bytes / (1024.0 * 1024.0));
+        } else if (bytes >= 1024ull) {
+            snprintf(buf, sizeof(buf), "%.0f KB", bytes / 1024.0);
+        } else {
+            snprintf(buf, sizeof(buf), "%llu B", (unsigned long long) bytes);
+        }
+        return buf;
+    }
 
     static std::vector<std::string> buildRows() {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
@@ -185,6 +201,14 @@ struct SettingsState {
         snprintf(hsz, sizeof(hsz), "Max History Size:  %d", g_settings.historySize);
         snprintf(dep, sizeof(dep), "Max Depth:  %d", g_settings.maxDepth);
 
+        CoverCacheStats cacheStats = getCoverCacheStats();
+        char clearCache[80];
+        snprintf(clearCache,
+                 sizeof(clearCache),
+                 "Clear Cover Cache  (%zu, %s)",
+                 cacheStats.fileCount,
+                 formatCacheSize(cacheStats.totalBytes).c_str());
+
         rows[ROW_VOLUME] = vol;
         rows[ROW_BRIGHTNESS] = bri;
         rows[ROW_SEEK] = seek;
@@ -198,6 +222,7 @@ struct SettingsState {
         rows[ROW_QUEUE_SIZE] = qsz;
         rows[ROW_HISTORY_SIZE] = hsz;
         rows[ROW_MAX_DEPTH] = dep;
+        rows[ROW_CLEAR_COVER_CACHE] = clearCache;
         rows[ROW_RESET] = "Reset to Defaults";
         return rows;
     }

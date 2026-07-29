@@ -32,6 +32,7 @@ struct Settings {
     int historySize = 30;          // max entries in playHistory
     int maxDepth = 20;             // max entries saved in fileHistory
     bool showDebugScreen = false;  // initial value for showLog on startup
+    bool cacheCoverArt = true;     // persist downscaled oversized covers to disk
 };
 
 inline constexpr int SEEK_PRESETS[4] = {1, 5, 10, 30};

@@ -38,6 +38,7 @@ add_executable(${PROJECT_NAME}
 
 target_sources(${PROJECT_NAME} PRIVATE
   external/stb/stb_image.cpp
+  external/stb/stb_image_resize2.cpp
   external/base64/base64.cpp
 
   external/soundtouch/source/SoundTouch/AAFilter.cpp
@@ -96,6 +97,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   FLAC
   vorbisidec
   ogg
+
+  # Scaled JPEG decode for oversized cover art
+  jpeg
 
   # Cover art (convert images to 3ds format)
   rip

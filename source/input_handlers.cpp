@@ -13,6 +13,7 @@
 #include "audio_engine.h"
 #include "filebrowser.h"
 #include "gfx.h"
+#include "image.h"
 #include "playlist.h"
 #include "settings.h"
 #include "toggle_settings.h"
@@ -635,6 +636,14 @@ void handleAButton(u32 &kDown,
                 saveSettings();
                 st.sel = 0;
                 st.scrollOffset = 0;
+                s_ctx.close();
+            });
+            s_ctx.open(60.0f, 60.0f);
+        } else if (st.sel == SettingsState::ROW_CLEAR_COVER_CACHE) {
+            s_ctx.close();
+            s_ctx.add("Cancel", [&s_ctx]() { s_ctx.close(); });
+            s_ctx.add("Yes, clear", [&s_ctx]() {
+                clearCoverCache();
                 s_ctx.close();
             });
             s_ctx.open(60.0f, 60.0f);
