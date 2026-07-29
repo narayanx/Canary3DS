@@ -93,6 +93,7 @@ struct SettingsState {
         ROW_SORT_BY,
         ROW_REVERSE_SORT,
         ROW_REPEAT,
+        ROW_AUTOPLAY_NEXT_FOLDER,
         ROW_COVER_ART,
         ROW_SLEEP,
         ROW_AUTO_SWITCH_PLAYER,

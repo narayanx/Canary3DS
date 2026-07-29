@@ -16,6 +16,7 @@ struct Settings {
     std::string sortBy = "Name";  // one of SORT_MODE_NAMES
     bool reverseSort = false;     // reverse the chosen sort order
     bool loopFolder = true;
+    bool autoplayNextInFolder = true;  // autoplay folder's next song when started from filebrowser
     bool showCoverArt = true;
     bool allowClosedLidPlayback = true;
     bool autoSwitchToPlayer = true;    // switch to player screen automatically

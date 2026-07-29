@@ -199,7 +199,7 @@ bool saveSettings() {
     ensureDir();
 
     // In default write order
-    static constexpr std::array<std::string_view, 25> KEYS = {{
+    static constexpr std::array<std::string_view, 26> KEYS = {{
         "volume_percent",
         "brightness",
         "seek_seconds",
@@ -211,6 +211,7 @@ bool saveSettings() {
         "sort_by",
         "reverse_sort",
         "loop_folder",
+        "autoplay_next_in_folder",
         "show_cover_art",
         "allow_closed_lid_playback",
         "auto_switch_to_player",

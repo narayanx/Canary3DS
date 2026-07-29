@@ -686,7 +686,11 @@ void handleAButton(u32 &kDown,
                 }
                 fileController.playingFile = fileController.selectedFile;
                 fileController.playingCwd = fileController.cwd;
-                fileController.playingFiles = fileController.files;
+                if (g_settings.autoplayNextInFolder) {
+                    fileController.playingFiles = fileController.files;
+                } else {
+                    fileController.playingFiles.clear();
+                }
                 if (fileController.shuffleEnabled) {
                     reshuffleAutoplay(false);
                 }
