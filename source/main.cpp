@@ -165,7 +165,7 @@ int main(int argc, char *argv[]) {
             if (kDown & KEY_A) {
                 handleAButton(kDown, screenState, fb, pl, info, st, s_ctx, s_sub);
             }
-            if (kDown & KEY_X) {
+            if ((kDown & KEY_X) && !(kHeld & KEY_SELECT)) {
                 handleXButton(kDown, screenState, fb, pl, info, s_ctx, s_sub);
             }
             if (kDown & KEY_B) {
@@ -179,7 +179,7 @@ int main(int argc, char *argv[]) {
                     handleYButton(kDown, screenState, info);
                 }
             }
-            if (kDown & KEY_SELECT && g_settings.showDebugScreen) {
+            if ((kDown & KEY_X) && (kHeld & KEY_SELECT) && g_settings.showDebugScreen) {
                 showLog = !showLog;
             }
             bool seekLeftRepeat = (kHeld & KEY_DLEFT) && leftPressMs != 0 &&

@@ -706,7 +706,7 @@ void renderLogOverlay() {
     C2D_TextBufClear(g_dynamicBuf);
 
     // Header
-    drawStr("Log  (SELECT to hide)",
+    drawStr("Log  (SELECT+X to hide)",
             PAD + 6.0f,
             PAD + 4.0f,
             0.92f,
