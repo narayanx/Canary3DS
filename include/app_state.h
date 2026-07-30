@@ -97,6 +97,7 @@ struct SettingsState {
         ROW_COVER_ART,
         ROW_SLEEP,
         ROW_AUTO_SWITCH_PLAYER,
+        ROW_SWAP_SELECT_Y,
         ROW_LOCK_SHOULDER_BUTTONS,
         ROW_PAUSE_ON_HEADPHONE_DISCONNECT,
         ROW_SCROBBLING,

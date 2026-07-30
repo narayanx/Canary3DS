@@ -73,7 +73,7 @@ void handleBButton(u32 kDown,
                    PlaylistState &pl,
                    InfoState &info);
 
-void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info);
+void handleViewToggle(u32 kDown, TopScreenState &screenState, InfoState &info);
 
 void enterFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb);
 void exitFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb, bool confirmPath);

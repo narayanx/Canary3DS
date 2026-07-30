@@ -175,9 +175,13 @@ int main(int argc, char *argv[]) {
                 // In folder-picker mode Y confirms the selected directory.
                 if (fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER) {
                     exitFolderPickerMode(screenState, fb, true);
-                } else {
-                    handleYButton(kDown, screenState, info);
+                } else if (g_settings.swapSelectAndYButton) {
+                    handleViewToggle(kDown, screenState, info);
                 }
+            }
+            if ((kDown & KEY_SELECT) && !g_settings.swapSelectAndYButton &&
+                !(fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER)) {
+                handleViewToggle(kDown, screenState, info);
             }
             if ((kDown & KEY_X) && (kHeld & KEY_SELECT) && g_settings.showDebugScreen) {
                 showLog = !showLog;

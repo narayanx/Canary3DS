@@ -19,8 +19,9 @@ struct Settings {
     bool autoplayNextInFolder = true;  // autoplay folder's next song when started from filebrowser
     bool showCoverArt = true;
     bool allowClosedLidPlayback = true;
-    bool autoSwitchToPlayer = true;    // switch to player screen automatically
-    bool lockShoulderButtons = false;  // disable L/R multi-tap shortcuts
+    bool autoSwitchToPlayer = true;     // switch to player screen automatically
+    bool swapSelectAndYButton = false;  // when true, Y switches filebrowser/player, not SELECT
+    bool lockShoulderButtons = false;   // disable L/R multi-tap shortcuts
     bool pauseOnHeadphoneDisconnect = true;
     bool enableScrobbling = false;       // write finished tracks to .scrobbler.log
     std::string accentColor = "Blue";    // palette name or "custom"

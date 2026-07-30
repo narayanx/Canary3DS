@@ -510,7 +510,7 @@ bool handleContextMenu(u32 kDown, CtxMenu &s_ctx, CtxMenu &s_sub) {
         if (n >= 3) {
             actions[2]();
         } else {
-            // No third item: close menu and let the Y view-switch run below
+            // No third item: just close the menu
             s_sub.active = false;
             s_ctx.close();
             ctxHandled = false;
@@ -1323,7 +1323,7 @@ void handleBButton(u32 kDown,
     }
 }
 
-void handleYButton(u32 kDown, TopScreenState &screenState, InfoState &info) {
+void handleViewToggle(u32 kDown, TopScreenState &screenState, InfoState &info) {
     if (screenState == TopScreenState::FILEBROWSER) {
         screenState = TopScreenState::INFO;
         fileController.selectedQueueItem = 0;

@@ -26,6 +26,7 @@ static C2D_SpriteSheet s_playlistIcon = nullptr;
 static C2D_SpriteSheet s_settingsIcon = nullptr;
 static C2D_SpriteSheet s_dashboardIcon = nullptr;
 static C2D_SpriteSheet s_xmarkIcon = nullptr;
+static C2D_SpriteSheet s_selectIcon = nullptr;
 
 u32 g_accentColor = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
 u32 g_secondaryColor = C2D_Color32(0x33, 0xCC, 0x55, 0xFF);
@@ -57,6 +58,7 @@ void sceneInit() {
     s_dashboardIcon =
         C2D_SpriteSheetLoad("romfs:/icons/dashboard-speed-white-24size-1.5weight.t3x");
     s_xmarkIcon = C2D_SpriteSheetLoad("romfs:/icons/xmark-white-24size-1.5weight.t3x");
+    s_selectIcon = C2D_SpriteSheetLoad("romfs:/icons/select-button-white-custom.t3x");
 }
 
 void sceneExit() {
@@ -97,6 +99,10 @@ void sceneExit() {
     if (s_xmarkIcon) {
         C2D_SpriteSheetFree(s_xmarkIcon);
         s_xmarkIcon = nullptr;
+    }
+    if (s_selectIcon) {
+        C2D_SpriteSheetFree(s_selectIcon);
+        s_selectIcon = nullptr;
     }
 }
 
@@ -651,17 +657,47 @@ void drawScreenPillIndicator(bool leftFilled) {
     C2D_DrawCircleSolid(CX - DOT_OFFSET, CY, 0.55f, DOT_R, leftFilled ? g_accentColor : dimDot);
     C2D_DrawCircleSolid(CX + DOT_OFFSET, CY, 0.55f, DOT_R, leftFilled ? dimDot : g_accentColor);
 
-    // in case there is text underneath Y button hint on filebrowser
-    C2D_DrawCircleSolid(
-        CX - (PILL_W * 0.5f) - PILL_H - 6.0f, CY, 0.5f, (PILL_H * 0.5) + 1.0f, pillBg);
-    drawStr("\uE003",
-            CX - (PILL_W * 0.5f) - PILL_H - 6.0f,
-            CY - 7.0f,
-            0.55f,
-            0.5f,
-            0.5f,
-            C2D_Color32f(.8f, .8f, .8f, 0xFF),
-            C2D_AlignCenter | C2D_WithColor);
+    if (g_settings.swapSelectAndYButton) {
+        // in case there is text underneath the view-toggle button hint on filebrowser
+        C2D_DrawCircleSolid(
+            CX - (PILL_W * 0.5f) - PILL_H - 6.0f, CY, 0.5f, (PILL_H * 0.5) + 1.0f, pillBg);
+        const float hintX = CX - (PILL_W * 0.5f) - PILL_H - 6.0f;
+        // Y performs the toggle in this mode.
+        drawStr("\uE003",
+                hintX,
+                CY - 7.0f,
+                0.55f,
+                0.5f,
+                0.5f,
+                C2D_Color32f(.8f, .8f, .8f, 0xFF),
+                C2D_AlignCenter | C2D_WithColor);
+    } else {
+        // SELECT performs the toggle.
+        const float IMAGE_WIDTH = 52.0f;
+        const float IMAGE_HEIGHT = 16.0f;
+
+        const float SCALE = 0.9f;
+        const float SELECT_WIDTH = IMAGE_WIDTH * SCALE;
+        const float SELECT_HEIGHT = IMAGE_HEIGHT * SCALE;
+        const float SELECT_X_TOP_LEFT = 130;
+        const float SELECT_Y_TOP_LEFT = CY - (SELECT_HEIGHT / 2);
+        const float MARGIN = 2.0f;
+
+        C2D_DrawRectSolid(SELECT_X_TOP_LEFT - MARGIN,
+                          SELECT_Y_TOP_LEFT - MARGIN,
+                          0.5f,
+                          SELECT_WIDTH + 2 * MARGIN,
+                          SELECT_HEIGHT + 2 * MARGIN,
+                          pillBg);
+
+        C2D_DrawImageAt(C2D_SpriteSheetGetImage(s_selectIcon, 0),
+                        SELECT_X_TOP_LEFT,
+                        SELECT_Y_TOP_LEFT,
+                        0.5f,
+                        nullptr,
+                        SCALE,
+                        SCALE);
+    }
 }
 
 static std::string fmtTime(double secs) {
