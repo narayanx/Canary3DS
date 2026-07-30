@@ -310,7 +310,7 @@ void printFiles(std::vector<dirent> files,
                     const float CHECK_SCALE = 0.5f;  // icons are 24x24, scale to 12x12
                     C2D_DrawImageAt(C2D_SpriteSheetGetImage(sheet, 0),
                                     6.0f,
-                                    y + 2.0f,
+                                    y + 1.0f,
                                     0.5f,
                                     nullptr,
                                     CHECK_SCALE,
