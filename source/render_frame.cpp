@@ -30,6 +30,10 @@ void renderFrame(TopScreenState screenState,
     if (screenState == TopScreenState::FILEBROWSER) {
         if (fb.folderPickerMode) {
             printC2DText("Pick folder   Y=Confirm   B=Up/Cancel", 0);
+        } else if (!fileController.selectedSongs.empty()) {
+            printC2DText(fileController.cwd + "  (" +
+                             std::to_string(fileController.selectedSongs.size()) + " selected)",
+                         0);
         } else {
             printC2DText(fileController.cwd, 0);
         }
@@ -38,7 +42,9 @@ void renderFrame(TopScreenState screenState,
                    fb.scroll,
                    fileController.filesShown,
                    1,
-                   fileController.files.size());
+                   fileController.files.size(),
+                   fileController.cwd,
+                   fileController.selectedSongs);
         // hack to cover up lines that go off screen
         const float MARGIN = 10.0f;
         C2D_DrawRectSolid(400 - MARGIN, 0.0f, 0.6f, MARGIN, 240.0f, CLEAR_COLOR);

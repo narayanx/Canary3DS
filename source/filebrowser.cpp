@@ -147,6 +147,16 @@ std::vector<dirent> getFiles(const char *path) {
     return fileList;
 }
 
+void toggleSongSelection(const std::string &path) {
+    auto &sel = fileController.selectedSongs;
+    auto it = std::find(sel.begin(), sel.end(), path);
+    if (it != sel.end()) {
+        sel.erase(it);
+    } else {
+        sel.push_back(path);
+    }
+}
+
 void initFileHistory(const std::string &startPath) {
     DIR *tmp = opendir(startPath.c_str());
     if (!tmp) {

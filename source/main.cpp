@@ -175,8 +175,22 @@ int main(int argc, char *argv[]) {
                 // In folder-picker mode Y confirms the selected directory.
                 if (fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER) {
                     exitFolderPickerMode(screenState, fb, true);
-                } else if (g_settings.swapSelectAndYButton) {
-                    handleViewToggle(kDown, screenState, info);
+                } else {
+                    bool toggled = false;
+                    if (screenState == TopScreenState::FILEBROWSER &&
+                        !fileController.files.empty()) {
+                        auto &f = fileController.files[fileController.selectedFile];
+                        if (f.d_type == DT_REG) {
+                            std::string path = fileController.cwd + f.d_name;
+                            if (isSupportedAudioFile(path)) {
+                                toggleSongSelection(path);
+                                toggled = true;
+                            }
+                        }
+                    }
+                    if (!toggled && g_settings.swapSelectAndYButton) {
+                        handleViewToggle(kDown, screenState, info);
+                    }
                 }
             }
             if ((kDown & KEY_SELECT) && !g_settings.swapSelectAndYButton &&

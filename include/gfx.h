@@ -110,7 +110,9 @@ void printFiles(std::vector<dirent> files,
                 size_t scrollOffset,
                 size_t shownCount,
                 size_t lineOffset,
-                size_t totalFiles = 0);
+                size_t totalFiles = 0,
+                const std::string &cwd = "",
+                const std::vector<std::string> &selectedSongs = {});
 
 void printNowPlayingList(const std::deque<std::string> &history,
                          const std::vector<std::string> &queue,

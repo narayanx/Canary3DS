@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "audio_decoder.h"
 #include "settings.h"
 
 C3D_RenderTarget *top = nullptr;
@@ -27,6 +28,8 @@ static C2D_SpriteSheet s_settingsIcon = nullptr;
 static C2D_SpriteSheet s_dashboardIcon = nullptr;
 static C2D_SpriteSheet s_xmarkIcon = nullptr;
 static C2D_SpriteSheet s_selectIcon = nullptr;
+static C2D_SpriteSheet s_checkboxOffIcon = nullptr;
+static C2D_SpriteSheet s_checkboxOnIcon = nullptr;
 
 u32 g_accentColor = C2D_Color32(0x30, 0x7A, 0xB8, 0xFF);
 u32 g_secondaryColor = C2D_Color32(0x33, 0xCC, 0x55, 0xFF);
@@ -59,6 +62,9 @@ void sceneInit() {
         C2D_SpriteSheetLoad("romfs:/icons/dashboard-speed-white-24size-1.5weight.t3x");
     s_xmarkIcon = C2D_SpriteSheetLoad("romfs:/icons/xmark-white-24size-1.5weight.t3x");
     s_selectIcon = C2D_SpriteSheetLoad("romfs:/icons/select-button-white-custom.t3x");
+    s_checkboxOffIcon = C2D_SpriteSheetLoad("romfs:/icons/check-square-white-24size-1.5weight.t3x");
+    s_checkboxOnIcon =
+        C2D_SpriteSheetLoad("romfs:/icons/check-square-solid-white-24size-1.5weight.t3x");
 }
 
 void sceneExit() {
@@ -103,6 +109,14 @@ void sceneExit() {
     if (s_selectIcon) {
         C2D_SpriteSheetFree(s_selectIcon);
         s_selectIcon = nullptr;
+    }
+    if (s_checkboxOffIcon) {
+        C2D_SpriteSheetFree(s_checkboxOffIcon);
+        s_checkboxOffIcon = nullptr;
+    }
+    if (s_checkboxOnIcon) {
+        C2D_SpriteSheetFree(s_checkboxOnIcon);
+        s_checkboxOnIcon = nullptr;
     }
 }
 
@@ -253,9 +267,16 @@ void printFiles(std::vector<dirent> files,
                 size_t scrollOffset,
                 size_t shownCount,
                 size_t lineOffset,
-                size_t totalFiles) {
+                size_t totalFiles,
+                const std::string &cwd,
+                const std::vector<std::string> &selectedSongs) {
     const float LINE_H = 16.0f;
     C2D_TextBufClear(g_dynamicBuf);
+
+    // Once anything is selected, every row shifts right to make room for the
+    // checkbox column (only drawn next to selectable songs).
+    const bool selectionActive = !selectedSongs.empty();
+    const float TEXT_X = selectionActive ? 26.0f : 10.0f;
 
     size_t iter = 0;
     for (size_t i = scrollOffset; i < std::min(shownCount, scrollOffset + (size_t) MAX_FILES);
@@ -278,7 +299,27 @@ void printFiles(std::vector<dirent> files,
 
         u32 col =
             (i == selectedFile) ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
-        drawStr(name.c_str(), 10, y, 0.5f, 0.5f, 0.5f, col);
+
+        if (selectionActive && files[i].d_type == DT_REG) {
+            std::string path = cwd + files[i].d_name;
+            if (isSupportedAudioFile(path)) {
+                bool checked = std::find(selectedSongs.begin(), selectedSongs.end(), path) !=
+                               selectedSongs.end();
+                C2D_SpriteSheet sheet = checked ? s_checkboxOnIcon : s_checkboxOffIcon;
+                if (sheet) {
+                    const float CHECK_SCALE = 0.5f;  // icons are 24x24, scale to 12x12
+                    C2D_DrawImageAt(C2D_SpriteSheetGetImage(sheet, 0),
+                                    6.0f,
+                                    y + 2.0f,
+                                    0.5f,
+                                    nullptr,
+                                    CHECK_SCALE,
+                                    CHECK_SCALE);
+                }
+            }
+        }
+
+        drawStr(name.c_str(), TEXT_X, y, 0.5f, 0.5f, 0.5f, col);
         ++iter;
     }
 

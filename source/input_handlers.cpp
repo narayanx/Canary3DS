@@ -822,7 +822,31 @@ void handleXButton(u32 kDown,
                    CtxMenu &s_ctx,
                    CtxMenu &s_sub) {
     if (screenState == TopScreenState::FILEBROWSER) {
-        if (!fileController.files.empty()) {
+        if (!fileController.selectedSongs.empty()) {
+            std::vector<std::string> songs(fileController.selectedSongs.begin(),
+                                           fileController.selectedSongs.end());
+            float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
+            s_ctx.close();
+            s_ctx.add("Play selected next", [&s_ctx, songs]() {
+                for (int i = (int) songs.size() - 1; i >= 0; --i) {
+                    queuePlayNext(songs[i]);
+                }
+                fileController.selectedSongs.clear();
+                s_ctx.close();
+            });
+            s_ctx.add("Add selected to queue", [&s_ctx, songs]() {
+                for (const auto &s : songs) {
+                    enqueueSong(s);
+                }
+                fileController.selectedSongs.clear();
+                s_ctx.close();
+            });
+            s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
+                fileController.selectedSongs.clear();
+                openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
+            });
+            s_ctx.open(50.0f, 16.0f * row);
+        } else if (!fileController.files.empty()) {
             auto &f = fileController.files[fileController.selectedFile];
             std::string songPath = fileController.cwd + f.d_name;
             if (f.d_type == DT_REG && isSupportedAudioFile(songPath)) {
@@ -1289,6 +1313,12 @@ void handleBButton(u32 kDown,
                         ? std::min(fileController.files.size(), FILE_PAGE_SIZE)
                         : fileController.files.size();
             }
+            return;
+        }
+
+        // Clear an active multi-selection before navigating up a directory
+        if (!fileController.selectedSongs.empty()) {
+            fileController.selectedSongs.clear();
             return;
         }
 
