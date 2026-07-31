@@ -149,6 +149,7 @@ static void openAddSongsToPlaylistSub(PlaylistState &pl,
             }
             logToDebugScreen("Added " + std::to_string(added) + " song(s) to \"" +
                              pl.playlists[i].name + "\"");
+            fileController.selectedIndices.clear();
             s_sub.active = false;
             s_ctx.close();
         });
@@ -911,7 +912,6 @@ void handleXButton(u32 kDown,
                 s_ctx.close();
             });
             s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
-                fileController.selectedIndices.clear();
                 openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
             });
             s_ctx.open(50.0f, 16.0f * row);
@@ -1089,7 +1089,6 @@ void handleXButton(u32 kDown,
                 });
             }
             s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
-                fileController.selectedIndices.clear();
                 openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
             });
             s_ctx.open(212.0f, 10.0f + 24.0f + 16.0f * row);
@@ -1423,7 +1422,6 @@ void handleXButton(u32 kDown,
                 s_ctx.close();
             });
             s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
-                fileController.selectedIndices.clear();
                 openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
             });
             s_ctx.open(50.0f, menu_y);
@@ -1638,6 +1636,19 @@ void handleSelectionDrag(u32 kDown,
 
     int idx = currentRowIndex(screenState, pl);
     if (idx == range.lastCursorIndex) {
+        return;
+    }
+
+    // Treat wraparound like releasing and re-pressing Y at the new row
+    if (std::abs(idx - range.lastCursorIndex) > 1) {
+        range.anchorIndex = idx;
+        range.lastCursorIndex = idx;
+        range.originalState.clear();
+        std::string path = pathAtIndex(idx, screenState, fb, info, pl);
+        if (!path.empty()) {
+            range.originalState[idx] = isIndexSelected(idx);
+            setIndexSelected(idx, range.selecting);
+        }
         return;
     }
 
