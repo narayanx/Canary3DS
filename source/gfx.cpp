@@ -269,13 +269,13 @@ void printFiles(std::vector<dirent> files,
                 size_t lineOffset,
                 size_t totalFiles,
                 const std::string &cwd,
-                const std::vector<std::string> &selectedSongs) {
+                const std::vector<int> &selectedIndices) {
     const float LINE_H = 16.0f;
     C2D_TextBufClear(g_dynamicBuf);
 
     // Once anything is selected, every row shifts right to make room for the
     // checkbox column (only drawn next to selectable songs).
-    const bool selectionActive = !selectedSongs.empty();
+    const bool selectionActive = !selectedIndices.empty();
     const float TEXT_X = selectionActive ? 26.0f : 10.0f;
 
     size_t iter = 0;
@@ -303,14 +303,14 @@ void printFiles(std::vector<dirent> files,
         if (selectionActive && files[i].d_type == DT_REG) {
             std::string path = cwd + files[i].d_name;
             if (isSupportedAudioFile(path)) {
-                bool checked = std::find(selectedSongs.begin(), selectedSongs.end(), path) !=
-                               selectedSongs.end();
+                bool checked = std::find(selectedIndices.begin(), selectedIndices.end(), (int) i) !=
+                               selectedIndices.end();
                 C2D_SpriteSheet sheet = checked ? s_checkboxOnIcon : s_checkboxOffIcon;
                 if (sheet) {
                     const float CHECK_SCALE = 0.5f;  // icons are 24x24, scale to 12x12
                     C2D_DrawImageAt(C2D_SpriteSheetGetImage(sheet, 0),
                                     6.0f,
-                                    y + 1.0f,
+                                    y + 2.0f,
                                     0.5f,
                                     nullptr,
                                     CHECK_SCALE,
@@ -345,7 +345,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                          const std::string &nowPlayingArtist,
                          const std::string &nowPlayingTrack,
                          bool reorderMode,
-                         bool reorderPicked) {
+                         bool reorderPicked,
+                         const std::vector<int> &selectedIndices) {
     const float START_X = 210.0f;
     const float BASE_Y = 8.0f;
     const float LINE_H = 16.0f;
@@ -355,6 +356,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
     const int histSz = (int) history.size();
     const int qSz = (int) queue.size();
     const int aSz = (int) autoplay.size();
+    const bool selectionActive = !selectedIndices.empty();
 
     C2D_TextBufClear(g_dynamicBuf);
 
@@ -524,7 +526,7 @@ void printNowPlayingList(const std::deque<std::string> &history,
         if (sl != std::string::npos) {
             name = name.substr(sl + 1);
         }
-        name = fitTextWidth(name, 180.0f, 0.45f);
+        name = fitTextWidth(name, selectionActive ? 164.0f : 180.0f, 0.45f);
 
         if (isSelected) {
             u32 hl = (reorderMode && reorderPicked)
@@ -539,7 +541,25 @@ void printNowPlayingList(const std::deque<std::string> &history,
         u32 col = isSelected ? C2D_Color32f(1.00f, 1.00f, 1.00f, 1.0f)
                              : C2D_Color32f(0.70f, 0.70f, 0.70f, 1.0f);
 
-        drawStr(name.c_str(), START_X + 4.0f, y, 0.5f, 0.45f, 0.45f, col);
+        float textX = START_X + 4.0f;
+        if (selectionActive) {
+            bool checked = std::find(selectedIndices.begin(), selectedIndices.end(), virtIdx) !=
+                           selectedIndices.end();
+            C2D_SpriteSheet sheet = checked ? s_checkboxOnIcon : s_checkboxOffIcon;
+            if (sheet) {
+                const float CHECK_SCALE = 0.5f;  // icons are 24x24, scale to 12x12
+                C2D_DrawImageAt(C2D_SpriteSheetGetImage(sheet, 0),
+                                START_X + 2.0f,
+                                y + 2.0f,
+                                0.5f,
+                                nullptr,
+                                CHECK_SCALE,
+                                CHECK_SCALE);
+            }
+            textX = START_X + 20.0f;
+        }
+
+        drawStr(name.c_str(), textX, y, 0.5f, 0.45f, 0.45f, col);
         ++virtIdx;
         y += LINE_H;
     }
@@ -852,7 +872,8 @@ void printPlaylistView(const std::string &playlistName,
                        int headerBtnSel,
                        bool reorderMode,
                        bool reorderPicked,
-                       C2D_Image *coverImage) {
+                       C2D_Image *coverImage,
+                       const std::vector<int> &selectedIndices) {
     const float LINE_H = 16.0f;
     const float BTN_H = 14.0f;
     const float BTN1_X = 120.0f;
@@ -965,7 +986,25 @@ void printPlaylistView(const std::string &playlistName,
             C2D_DrawRectSolid(0, y - 1, 0.4f, 400, LINE_H, C2D_Color32(0x2D, 0x2D, 0x2D, 0xFF));
         }
         u32 col = sel ? C2D_Color32f(1, 1, 1, 1) : C2D_Color32f(0.7f, 0.7f, 0.7f, 1);
-        drawStr(songNames[i].c_str(), 10.0f, y, 0.5f, 0.5f, 0.5f, col);
+
+        float textX = 10.0f;
+        if (!selectedIndices.empty()) {
+            bool checked = std::find(selectedIndices.begin(), selectedIndices.end(), (int) i) !=
+                           selectedIndices.end();
+            C2D_SpriteSheet sheet = checked ? s_checkboxOnIcon : s_checkboxOffIcon;
+            if (sheet) {
+                const float CHECK_SCALE = 0.5f;  // icons are 24x24, scale to 12x12
+                C2D_DrawImageAt(C2D_SpriteSheetGetImage(sheet, 0),
+                                6.0f,
+                                y + 2.0f,
+                                0.5f,
+                                nullptr,
+                                CHECK_SCALE,
+                                CHECK_SCALE);
+            }
+            textX = 26.0f;
+        }
+        drawStr(songNames[i].c_str(), textX, y, 0.5f, 0.5f, 0.5f, col);
         ++iter;
     }
 }

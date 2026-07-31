@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <deque>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -74,6 +75,15 @@ struct InfoState {
 struct SpeedPitchPadState {
     bool active = false;
     bool dragging = false;
+};
+
+struct SelectionRangeState {
+    bool active = false;
+    bool selecting = true;  // action decided by the anchor row's state when Y was first pressed
+    int anchorIndex = 0;
+    int lastCursorIndex = 0;
+    // Selection state of each row index the drag has touched (used to revert rows that leave range)
+    std::map<int, bool> originalState;
 };
 
 struct SettingsState {

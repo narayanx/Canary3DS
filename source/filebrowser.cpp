@@ -147,13 +147,19 @@ std::vector<dirent> getFiles(const char *path) {
     return fileList;
 }
 
-void toggleSongSelection(const std::string &path) {
-    auto &sel = fileController.selectedSongs;
-    auto it = std::find(sel.begin(), sel.end(), path);
-    if (it != sel.end()) {
+bool isIndexSelected(int idx) {
+    auto &sel = fileController.selectedIndices;
+    return std::find(sel.begin(), sel.end(), idx) != sel.end();
+}
+
+void setIndexSelected(int idx, bool selected) {
+    auto &sel = fileController.selectedIndices;
+    auto it = std::find(sel.begin(), sel.end(), idx);
+    bool has = it != sel.end();
+    if (selected && !has) {
+        sel.push_back(idx);
+    } else if (!selected && has) {
         sel.erase(it);
-    } else {
-        sel.push_back(path);
     }
 }
 

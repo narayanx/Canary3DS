@@ -73,6 +73,21 @@ void handleBButton(u32 kDown,
                    PlaylistState &pl,
                    InfoState &info);
 
+void handleYButton(u32 kDown,
+                   TopScreenState &screenState,
+                   FileBrowserState &fb,
+                   InfoState &info,
+                   PlaylistState &pl);
+
+// Call once per frame, after nav input has been processed.
+void handleSelectionDrag(u32 kDown,
+                         u32 kHeld,
+                         TopScreenState screenState,
+                         FileBrowserState &fb,
+                         InfoState &info,
+                         PlaylistState &pl,
+                         SelectionRangeState &range);
+
 void handleViewToggle(u32 kDown, TopScreenState &screenState, InfoState &info);
 
 void enterFolderPickerMode(TopScreenState &screenState, FileBrowserState &fb);

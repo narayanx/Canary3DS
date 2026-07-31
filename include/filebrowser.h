@@ -25,8 +25,7 @@ struct FileController {
     std::vector<dirent> files;
     std::deque<std::pair<size_t, size_t>> fileHistory;  // { selectedFile, fileBrowserScrollOffset }
     size_t selectedFile;
-    // Full paths of songs multi selected in the browser
-    std::vector<std::string> selectedSongs;
+    std::vector<int> selectedIndices;
     size_t playingFile;
     // Stored when playing song, so browsing elsewhere doesn't affect autoplay
     std::string playingCwd;
@@ -57,5 +56,6 @@ std::vector<dirent> getFiles(const char *path);
 // walk start path and push history entries so going up restores the correct selection
 void initFileHistory(const std::string &startPath);
 
-// Adds path to fileController.selectedSongs if absent, removes it if present
-void toggleSongSelection(const std::string &path);
+bool isIndexSelected(int idx);
+
+void setIndexSelected(int idx, bool selected);

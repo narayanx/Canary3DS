@@ -112,7 +112,7 @@ void printFiles(std::vector<dirent> files,
                 size_t lineOffset,
                 size_t totalFiles = 0,
                 const std::string &cwd = "",
-                const std::vector<std::string> &selectedSongs = {});
+                const std::vector<int> &selectedIndices = {});
 
 void printNowPlayingList(const std::deque<std::string> &history,
                          const std::vector<std::string> &queue,
@@ -123,7 +123,8 @@ void printNowPlayingList(const std::deque<std::string> &history,
                          const std::string &nowPlayingArtist,
                          const std::string &nowPlayingTrack,
                          bool reorderMode = false,
-                         bool reorderPicked = false);
+                         bool reorderPicked = false,
+                         const std::vector<int> &selectedIndices = {});
 
 void printStringList(const std::vector<std::string> &items,
                      size_t selectedIdx,
@@ -186,7 +187,8 @@ void printPlaylistView(const std::string &playlistName,
                        int headerBtnSel,
                        bool reorderMode,
                        bool reorderPicked,
-                       C2D_Image *coverImage = nullptr);
+                       C2D_Image *coverImage = nullptr,
+                       const std::vector<int> &selectedIndices = {});
 
 // Render the entire bottom screen.  Call this inside C3D_FrameBegin/End after
 // C2D_TargetClear(bottom, …) and C2D_SceneBegin(bottom).

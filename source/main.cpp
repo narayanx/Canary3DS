@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
     SettingsState st;
     CtxMenu s_ctx, s_sub;
     SpeedPitchPadState sp;
+    SelectionRangeState selRange;
 
     initFileHistory(g_settings.startPath);
 
@@ -50,6 +51,7 @@ int main(int argc, char *argv[]) {
     bool wasTouched = false;
     bool showLog = false;
     bool prevHeadphonesConnected = true;
+    TopScreenState prevScreenState = screenState;
 
     while (aptMainLoop()) {
         hidScanInput();
@@ -172,26 +174,7 @@ int main(int argc, char *argv[]) {
                 handleBButton(kDown, screenState, fb, pl, info);
             }
             if (kDown & KEY_Y) {
-                // In folder-picker mode Y confirms the selected directory.
-                if (fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER) {
-                    exitFolderPickerMode(screenState, fb, true);
-                } else {
-                    bool toggled = false;
-                    if (screenState == TopScreenState::FILEBROWSER &&
-                        !fileController.files.empty()) {
-                        auto &f = fileController.files[fileController.selectedFile];
-                        if (f.d_type == DT_REG) {
-                            std::string path = fileController.cwd + f.d_name;
-                            if (isSupportedAudioFile(path)) {
-                                toggleSongSelection(path);
-                                toggled = true;
-                            }
-                        }
-                    }
-                    if (!toggled && g_settings.swapSelectAndYButton) {
-                        handleViewToggle(kDown, screenState, info);
-                    }
-                }
+                handleYButton(kDown, screenState, fb, info, pl);
             }
             if ((kDown & KEY_SELECT) && !g_settings.swapSelectAndYButton &&
                 !(fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER)) {
@@ -213,6 +196,13 @@ int main(int argc, char *argv[]) {
             if (seekRightRepeat) {
                 rightRepeatMs = now;
             }
+        }
+
+        // Selection is scoped to whichever screen it was made on
+        if (screenState != prevScreenState) {
+            fileController.selectedIndices.clear();
+            selRange.active = false;
+            prevScreenState = screenState;
         }
 
         handleShoulderTaps(kDown, now, lTapTime, lTapCount, rTapTime, rTapCount);
@@ -287,6 +277,11 @@ int main(int argc, char *argv[]) {
         if (!ctxHandled && screenState != TopScreenState::SETTINGS &&
             ((kDown & KEY_DOWN) || downRepeat)) {
             handleDownNav(kDown, downRepeat, downRepeatMs, screenState, fb, pl, info, maxInfoIdx);
+        }
+
+        // Must run after nav so it sees the new cursor row.
+        if (!ctxHandled) {
+            handleSelectionDrag(kDown, kHeld, screenState, fb, info, pl, selRange);
         }
 
         // New song started

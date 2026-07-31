@@ -176,6 +176,70 @@ static std::vector<std::string> getFolderSongs(const std::string &folderPath) {
     return songs;
 }
 
+// Resolves the full path of the song at a given virtual row index
+static std::string pathAtInfoIndex(int idx, const InfoState &info) {
+    if (idx == 0) {
+        return "";
+    }
+    const int qSz = (int) fileController.playbackOrder.size();
+    const int hSz = (int) fileController.playHistory.size();
+    const int aSz = (int) info.autoplayItems.size();
+
+    if (idx < 0) {
+        int hi = -(idx + 1);
+        return hi < hSz ? fileController.playHistory[(size_t) hi] : std::string();
+    }
+    if (idx <= qSz) {
+        return fileController.playbackOrder[(size_t) (idx - 1)];
+    }
+    int ai = idx - qSz - 1;
+    return ai < aSz ? info.autoplayItems[(size_t) ai] : std::string();
+}
+
+// Returns the cursor's current row index for range-select purposes
+static int currentRowIndex(TopScreenState screenState, PlaylistState &pl) {
+    if (screenState == TopScreenState::FILEBROWSER) {
+        return (int) fileController.selectedFile;
+    }
+    if (screenState == TopScreenState::INFO) {
+        return fileController.selectedQueueItem;
+    }
+    if (screenState == TopScreenState::PLAYLIST_VIEW) {
+        return (int) pl.selSong;
+    }
+    return 0;
+}
+
+// Used to turn a stored selection index back into a path for bulk actions
+static std::string pathAtIndex(
+    int idx, TopScreenState screenState, FileBrowserState &fb, InfoState &info, PlaylistState &pl) {
+    if (screenState == TopScreenState::FILEBROWSER && !fb.folderPickerMode) {
+        if (idx < 0 || (size_t) idx >= fileController.files.size()) {
+            return "";
+        }
+        auto &f = fileController.files[(size_t) idx];
+        if (f.d_type == DT_REG) {
+            std::string p = fileController.cwd + f.d_name;
+            if (isSupportedAudioFile(p)) {
+                return p;
+            }
+        }
+        return "";
+    }
+    if (screenState == TopScreenState::INFO) {
+        return pathAtInfoIndex(idx, info);
+    }
+    if (screenState == TopScreenState::PLAYLIST_VIEW && !pl.reorderMode && !pl.inHeader &&
+        !pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+        auto &songs = pl.playlists[pl.sel].songs;
+        if (idx < 0 || (size_t) idx >= songs.size()) {
+            return "";
+        }
+        return songs[(size_t) idx];
+    }
+    return "";
+}
+
 static void openSeekKeyboard() {
     SwkbdState swkbd;
     char buf[16] = {};
@@ -822,27 +886,32 @@ void handleXButton(u32 kDown,
                    CtxMenu &s_ctx,
                    CtxMenu &s_sub) {
     if (screenState == TopScreenState::FILEBROWSER) {
-        if (!fileController.selectedSongs.empty()) {
-            std::vector<std::string> songs(fileController.selectedSongs.begin(),
-                                           fileController.selectedSongs.end());
+        if (!fileController.selectedIndices.empty()) {
+            std::vector<std::string> songs;
+            for (int idx : fileController.selectedIndices) {
+                std::string p = pathAtIndex(idx, screenState, fb, info, pl);
+                if (!p.empty()) {
+                    songs.push_back(p);
+                }
+            }
             float row = (float) (fileController.selectedFile - fb.scroll) + 1.0f;
             s_ctx.close();
             s_ctx.add("Play selected next", [&s_ctx, songs]() {
                 for (int i = (int) songs.size() - 1; i >= 0; --i) {
                     queuePlayNext(songs[i]);
                 }
-                fileController.selectedSongs.clear();
+                fileController.selectedIndices.clear();
                 s_ctx.close();
             });
             s_ctx.add("Add selected to queue", [&s_ctx, songs]() {
                 for (const auto &s : songs) {
                     enqueueSong(s);
                 }
-                fileController.selectedSongs.clear();
+                fileController.selectedIndices.clear();
                 s_ctx.close();
             });
             s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
-                fileController.selectedSongs.clear();
+                fileController.selectedIndices.clear();
                 openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
             });
             s_ctx.open(50.0f, 16.0f * row);
@@ -937,6 +1006,95 @@ void handleXButton(u32 kDown,
         }
 
     } else if (screenState == TopScreenState::INFO) {
+        if (!fileController.selectedIndices.empty()) {
+            std::vector<std::string> songs;
+            for (int idx : fileController.selectedIndices) {
+                std::string p = pathAtIndex(idx, screenState, fb, info, pl);
+                if (!p.empty()) {
+                    songs.push_back(p);
+                }
+            }
+            const int qSz = (int) fileController.playbackOrder.size();
+            bool hasAutoplaySelected = false;
+            for (int idx : fileController.selectedIndices) {
+                if (idx > qSz) {
+                    hasAutoplaySelected = true;
+                    break;
+                }
+            }
+            float row = (float) (fileController.selectedQueueItem - info.scrollTop) + 1.0f;
+            s_ctx.close();
+            s_ctx.add("Play selected next", [&s_ctx, songs]() {
+                for (int i = (int) songs.size() - 1; i >= 0; --i) {
+                    queuePlayNext(songs[i]);
+                }
+                fileController.selectedIndices.clear();
+                s_ctx.close();
+            });
+            s_ctx.add("Add selected to queue", [&s_ctx, songs]() {
+                for (const auto &s : songs) {
+                    enqueueSong(s);
+                }
+                fileController.selectedIndices.clear();
+                s_ctx.close();
+            });
+            if (!hasAutoplaySelected) {
+                s_ctx.add("Remove selected", [&s_ctx, &info]() {
+                    // Snapshot then clear so nothing shifts mid-removal.
+                    std::vector<int> indices(fileController.selectedIndices.begin(),
+                                             fileController.selectedIndices.end());
+                    fileController.selectedIndices.clear();
+
+                    std::vector<int> histIdx;   // indices into playHistory
+                    std::vector<int> queueIdx;  // indices into playbackOrder
+                    for (int idx : indices) {
+                        if (idx < 0) {
+                            histIdx.push_back(-(idx + 1));
+                        } else if (idx >= 1) {
+                            queueIdx.push_back(idx - 1);
+                        }
+                    }
+                    // Remove highest index first so earlier removals don't
+                    // shift the indices still to be removed.
+                    std::sort(histIdx.rbegin(), histIdx.rend());
+                    for (int hi : histIdx) {
+                        if (hi < (int) fileController.playHistory.size()) {
+                            fileController.playHistory.erase(fileController.playHistory.begin() +
+                                                             hi);
+                        }
+                    }
+                    std::sort(queueIdx.rbegin(), queueIdx.rend());
+                    for (int qi : queueIdx) {
+                        if (qi < (int) fileController.playbackOrder.size()) {
+                            removeQueueItem((size_t) qi);
+                        }
+                    }
+
+                    int minIdx = -((int) fileController.playHistory.size());
+                    int maxIdx =
+                        (int) fileController.playbackOrder.size() + (int) info.autoplayItems.size();
+                    if (fileController.selectedQueueItem < minIdx) {
+                        fileController.selectedQueueItem = minIdx;
+                    } else if (fileController.selectedQueueItem > maxIdx) {
+                        fileController.selectedQueueItem = maxIdx > 0 ? maxIdx : 0;
+                    }
+                    if (info.scrollTop < minIdx) {
+                        info.scrollTop = minIdx;
+                    }
+                    if (info.scrollTop > fileController.selectedQueueItem) {
+                        info.scrollTop = fileController.selectedQueueItem;
+                    }
+                    logToDebugScreen("Removed selected songs");
+                    s_ctx.close();
+                });
+            }
+            s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
+                fileController.selectedIndices.clear();
+                openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
+            });
+            s_ctx.open(212.0f, 10.0f + 24.0f + 16.0f * row);
+            return;
+        }
         const int sel = fileController.selectedQueueItem;
         const int qSz = (int) fileController.playbackOrder.size();
         const int hSz = (int) fileController.playHistory.size();
@@ -1207,6 +1365,68 @@ void handleXButton(u32 kDown,
                     logToDebugScreen("Failed to save playlist order");
                 }
             }
+        } else if (!pl.inHeader && !fileController.selectedIndices.empty()) {
+            std::vector<std::string> songs;
+            for (int idx : fileController.selectedIndices) {
+                std::string p = pathAtIndex(idx, screenState, fb, info, pl);
+                if (!p.empty()) {
+                    songs.push_back(p);
+                }
+            }
+            const size_t pv_header_steps = std::min(pl.viewScroll, (size_t) 12);
+            const size_t pv_song_offset = pl.viewScroll - pv_header_steps;
+            float menu_y = 192.0f - (float) pv_header_steps * 16.0f +
+                           16.0f * (float) (pl.selSong - pv_song_offset);
+            s_ctx.close();
+            s_ctx.add("Play selected next", [&s_ctx, songs]() {
+                for (int i = (int) songs.size() - 1; i >= 0; --i) {
+                    queuePlayNext(songs[i]);
+                }
+                fileController.selectedIndices.clear();
+                s_ctx.close();
+            });
+            s_ctx.add("Add selected to queue", [&s_ctx, songs]() {
+                for (const auto &s : songs) {
+                    enqueueSong(s);
+                }
+                fileController.selectedIndices.clear();
+                s_ctx.close();
+            });
+            s_ctx.add("Remove selected from playlist", [&pl, &s_ctx]() {
+                if (!pl.playlists.empty() && pl.sel < pl.playlists.size()) {
+                    std::vector<int> indices(fileController.selectedIndices.begin(),
+                                             fileController.selectedIndices.end());
+                    fileController.selectedIndices.clear();
+
+                    auto &curSongs = pl.playlists[pl.sel].songs;
+                    std::vector<std::string> newSongs;
+                    for (size_t i = 0; i < curSongs.size(); ++i) {
+                        bool removed =
+                            std::find(indices.begin(), indices.end(), (int) i) != indices.end();
+                        if (!removed) {
+                            newSongs.push_back(curSongs[i]);
+                        }
+                    }
+                    if (writePlaylistSongOrder(pl.playlists[pl.sel].path, newSongs)) {
+                        pl.playlists[pl.sel].songs = newSongs;
+                        if (pl.selSong > 0 && pl.selSong >= newSongs.size()) {
+                            --pl.selSong;
+                        }
+                        if (newSongs.empty() || pl.viewScroll + 2 >= newSongs.size()) {
+                            pl.viewScroll = newSongs.size() > 2 ? newSongs.size() - 3 : 0;
+                        }
+                        logToDebugScreen("Removed selected songs from playlist");
+                    } else {
+                        logToDebugScreen("Failed to remove selected songs");
+                    }
+                }
+                s_ctx.close();
+            });
+            s_ctx.add("Add selected to playlist >", [&pl, &s_ctx, &s_sub, songs]() {
+                fileController.selectedIndices.clear();
+                openAddSongsToPlaylistSub(pl, s_ctx, s_sub, songs);
+            });
+            s_ctx.open(50.0f, menu_y);
         } else if (!pl.playlists.empty() && pl.sel < pl.playlists.size() &&
                    !pl.playlists[pl.sel].songs.empty() && !pl.inHeader) {
             std::string songPath = pl.playlists[pl.sel].songs[pl.selSong];
@@ -1277,6 +1497,8 @@ void handleBButton(u32 kDown,
             info.reorderMode = false;
             info.reorderPicked = false;
             info.reorderFromIdx = -1;
+        } else if (!fileController.selectedIndices.empty()) {
+            fileController.selectedIndices.clear();
         } else {
             screenState = TopScreenState::FILEBROWSER;
             ndspChnSetPaused(0, true);
@@ -1287,6 +1509,8 @@ void handleBButton(u32 kDown,
             pl.reorderMode = false;
             pl.reorderPicked = false;
             pl.reorderDirty = false;
+        } else if (!fileController.selectedIndices.empty()) {
+            fileController.selectedIndices.clear();
         } else {
             screenState = TopScreenState::PLAYLIST_BROWSER;
         }
@@ -1317,8 +1541,8 @@ void handleBButton(u32 kDown,
         }
 
         // Clear an active multi-selection before navigating up a directory
-        if (!fileController.selectedSongs.empty()) {
-            fileController.selectedSongs.clear();
+        if (!fileController.selectedIndices.empty()) {
+            fileController.selectedIndices.clear();
             return;
         }
 
@@ -1364,6 +1588,89 @@ void handleViewToggle(u32 kDown, TopScreenState &screenState, InfoState &info) {
         info.reorderFromIdx = -1;
         screenState = TopScreenState::FILEBROWSER;
     }
+}
+
+void handleYButton(u32 kDown,
+                   TopScreenState &screenState,
+                   FileBrowserState &fb,
+                   InfoState &info,
+                   PlaylistState &pl) {
+    // In folder-picker mode Y confirms the selected directory
+    if (fb.folderPickerMode && screenState == TopScreenState::FILEBROWSER) {
+        exitFolderPickerMode(screenState, fb, true);
+        return;
+    }
+
+    std::string path = pathAtIndex(currentRowIndex(screenState, pl), screenState, fb, info, pl);
+    if (path.empty() && g_settings.swapSelectAndYButton) {
+        handleViewToggle(kDown, screenState, info);
+    }
+}
+
+// While Y stays held, moving the cursor extends the same action to rows in between, rows unselected
+// will revert to original state.
+void handleSelectionDrag(u32 kDown,
+                         u32 kHeld,
+                         TopScreenState screenState,
+                         FileBrowserState &fb,
+                         InfoState &info,
+                         PlaylistState &pl,
+                         SelectionRangeState &range) {
+    if (kDown & KEY_Y) {
+        int idx = currentRowIndex(screenState, pl);
+        if (pathAtIndex(idx, screenState, fb, info, pl).empty()) {
+            range.active = false;
+            return;
+        }
+        range.active = true;
+        range.selecting = !isIndexSelected(idx);  // anchor's pre press state decides the action
+        range.anchorIndex = idx;
+        range.lastCursorIndex = idx;
+        range.originalState.clear();
+        range.originalState[idx] = isIndexSelected(idx);
+        setIndexSelected(idx, range.selecting);
+        return;
+    }
+    if (!(kHeld & KEY_Y) || !range.active) {
+        range.active = false;
+        return;
+    }
+
+    int idx = currentRowIndex(screenState, pl);
+    if (idx == range.lastCursorIndex) {
+        return;
+    }
+
+    int lo = std::min(range.anchorIndex, idx);
+    int hi = std::max(range.anchorIndex, idx);
+    int oldLo = std::min(range.anchorIndex, range.lastCursorIndex);
+    int oldHi = std::max(range.anchorIndex, range.lastCursorIndex);
+
+    // Apply the action to every row now within [anchor, cursor]
+    for (int i = lo; i <= hi; ++i) {
+        if (pathAtIndex(i, screenState, fb, info, pl).empty()) {
+            continue;
+        }
+        if (range.originalState.find(i) == range.originalState.end()) {
+            range.originalState[i] = isIndexSelected(i);
+        }
+        setIndexSelected(i, range.selecting);
+    }
+    // Revert rows that were in the old range but have now fallen out of it
+    for (int i = oldLo; i <= oldHi; ++i) {
+        if (i >= lo && i <= hi) {
+            continue;
+        }
+        auto it = range.originalState.find(i);
+        if (it == range.originalState.end()) {
+            continue;
+        }
+        if (!pathAtIndex(i, screenState, fb, info, pl).empty()) {
+            setIndexSelected(i, it->second);
+        }
+    }
+
+    range.lastCursorIndex = idx;
 }
 
 void handleSettingsInput(u32 kDown,
