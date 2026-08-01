@@ -611,7 +611,10 @@ void handleAButton(u32 &kDown,
                    CtxMenu &s_ctx,
                    CtxMenu &s_sub) {
     if (screenState == TopScreenState::SETTINGS) {
-        if (st.sel == SettingsState::ROW_START_PATH) {
+        if (SettingsState::isCategoryHeaderRow(st.sel)) {
+            st.toggleCategoryFold(st.sel);
+            st.clampScroll();
+        } else if (st.sel == SettingsState::ROW_START_PATH) {
             s_ctx.close();
             s_ctx.add("Browse folders", [&screenState, &fb, &s_ctx]() {
                 s_ctx.close();
@@ -1952,34 +1955,18 @@ void handleSettingsInput(u32 kDown,
         }
     }
 
-    // UP / DOWN navigation with section-header skipping
-    if (kDown & KEY_UP) {
-        if (st.sel > 0) {
-            size_t next = st.sel - 1;
-            while (next > 0 && SettingsState::isHeaderRow(next)) {
-                --next;
-            }
-            if (!SettingsState::isHeaderRow(next)) {
-                st.sel = next;
-            }
-            if (st.sel < st.scrollOffset) {
-                st.scrollOffset = st.sel;
-            }
+    // UP / DOWN navigation, skipping rows hidden inside folded categories
+    if ((kDown & KEY_UP) || (kDown & KEY_DOWN)) {
+        std::vector<size_t> visible = st.visibleRows();
+        auto it = std::find(visible.begin(), visible.end(), st.sel);
+        size_t pos = (it != visible.end()) ? (size_t) (it - visible.begin()) : 0;
+        if ((kDown & KEY_UP) && pos > 0) {
+            --pos;
+        } else if ((kDown & KEY_DOWN) && pos + 1 < visible.size()) {
+            ++pos;
         }
-    }
-    if (kDown & KEY_DOWN) {
-        if (st.sel + 1 < SettingsState::ROW_COUNT) {
-            size_t next = st.sel + 1;
-            while (next < SettingsState::ROW_COUNT - 1 && SettingsState::isHeaderRow(next)) {
-                ++next;
-            }
-            if (!SettingsState::isHeaderRow(next)) {
-                st.sel = next;
-            }
-            if (st.sel >= st.scrollOffset + SettingsState::VISIBLE_ROWS) {
-                st.scrollOffset = st.sel - SettingsState::VISIBLE_ROWS + 1;
-            }
-        }
+        st.sel = visible[pos];
+        st.clampScroll();
     }
 }
 

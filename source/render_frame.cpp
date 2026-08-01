@@ -123,7 +123,7 @@ void renderFrame(TopScreenState screenState,
                               fileController.selectedIndices);
         }
     } else if (screenState == TopScreenState::SETTINGS) {
-        printSettingsMenu(SettingsState::buildRows(), st.sel, st.scrollOffset);
+        printSettingsMenu(st.buildRows(), st.visibleRows(), st.sel, st.scrollOffset);
     }
 
     // Context menu overlay

@@ -166,7 +166,8 @@ void printAudioInitError();
 
 // Draw the settings screen on the top screen.
 void printSettingsMenu(const std::vector<std::string> &items,
-                       size_t selectedIdx,
+                       const std::vector<size_t> &visibleRows,
+                       size_t selectedRow,
                        size_t scrollOffset);
 
 // Draw a fallback cover art scaled to targetW x targetH.

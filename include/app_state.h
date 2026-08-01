@@ -3,6 +3,7 @@
 #include <citro2d.h>
 #include <citro3d.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <deque>
@@ -90,8 +91,9 @@ struct SettingsState {
     size_t sel = 0;
     size_t scrollOffset = 0;
 
-    // Row indices
+    // Row indices, grouped by the foldable category they belong to
     enum : size_t {
+        ROW_CAT_GENERAL,
         ROW_VOLUME,
         ROW_BRIGHTNESS,
         ROW_SEEK,
@@ -99,12 +101,6 @@ struct SettingsState {
         ROW_PITCH,
         ROW_LINK_SPEED_PITCH,
         ROW_START_PATH,
-        ROW_LOCK_START,
-        ROW_SORT_BY,
-        ROW_REVERSE_SORT,
-        ROW_REPEAT,
-        ROW_AUTOPLAY_NEXT_FOLDER,
-        ROW_COVER_ART,
         ROW_SLEEP,
         ROW_AUTO_SWITCH_PLAYER,
         ROW_SWAP_SELECT_Y,
@@ -113,7 +109,18 @@ struct SettingsState {
         ROW_SCROBBLING,
         ROW_ACCENT,
         ROW_SECONDARY,
-        ROW_ADV_HEADER,
+
+        ROW_CAT_FILEBROWSER,
+        ROW_LOCK_START,
+        ROW_SORT_BY,
+        ROW_REVERSE_SORT,
+        ROW_REPEAT,
+        ROW_AUTOPLAY_NEXT_FOLDER,
+
+        ROW_CAT_PLAYER,
+        ROW_COVER_ART,
+
+        ROW_CAT_ADVANCED,
         ROW_QUEUE_SIZE,
         ROW_HISTORY_SIZE,
         ROW_MAX_DEPTH,
@@ -126,13 +133,78 @@ struct SettingsState {
 
     static constexpr size_t VISIBLE_ROWS = 11;
 
-    static bool isHeaderRow(size_t row) {
-        return row == ROW_ADV_HEADER;
+    enum class Category : int { GENERAL, FILEBROWSER, PLAYER, ADVANCED, COUNT };
+
+    // Whether each category's rows are hidden. General starts open, the rest start folded.
+    bool categoryFolded[(int) Category::COUNT] = {false, true, true, true};
+
+    static bool isCategoryHeaderRow(size_t row) {
+        return row == ROW_CAT_GENERAL || row == ROW_CAT_FILEBROWSER || row == ROW_CAT_PLAYER ||
+               row == ROW_CAT_ADVANCED;
+    }
+
+    static Category headerCategory(size_t row) {
+        switch (row) {
+            case ROW_CAT_GENERAL:
+                return Category::GENERAL;
+            case ROW_CAT_FILEBROWSER:
+                return Category::FILEBROWSER;
+            case ROW_CAT_PLAYER:
+                return Category::PLAYER;
+            default:
+                return Category::ADVANCED;
+        }
+    }
+
+    // Category a (non header) row belongs to, based on which header block it falls after
+    static Category categoryForRow(size_t row) {
+        if (row > ROW_CAT_GENERAL && row < ROW_CAT_FILEBROWSER) {
+            return Category::GENERAL;
+        }
+        if (row > ROW_CAT_FILEBROWSER && row < ROW_CAT_PLAYER) {
+            return Category::FILEBROWSER;
+        }
+        if (row > ROW_CAT_PLAYER && row < ROW_CAT_ADVANCED) {
+            return Category::PLAYER;
+        }
+        return Category::ADVANCED;
+    }
+
+    void toggleCategoryFold(size_t headerRow) {
+        categoryFolded[(int) headerCategory(headerRow)] =
+            !categoryFolded[(int) headerCategory(headerRow)];
+    }
+
+    std::vector<size_t> visibleRows() const {
+        std::vector<size_t> v;
+        v.reserve(ROW_COUNT);
+        for (size_t r = 0; r < ROW_COUNT; ++r) {
+            if (isCategoryHeaderRow(r) || r == ROW_RESET ||
+                !categoryFolded[(int) categoryForRow(r)]) {
+                v.push_back(r);
+            }
+        }
+        return v;
+    }
+
+    void clampScroll() {
+        std::vector<size_t> visible = visibleRows();
+        auto it = std::find(visible.begin(), visible.end(), sel);
+        size_t pos = (it != visible.end()) ? (size_t) (it - visible.begin()) : 0;
+        if (pos < scrollOffset) {
+            scrollOffset = pos;
+        } else if (pos >= scrollOffset + VISIBLE_ROWS) {
+            scrollOffset = pos - VISIBLE_ROWS + 1;
+        }
     }
 
     // Sentinel bytes appended to a row's label to indicate to draw toggle icon
     static constexpr char TOGGLE_ON = '\x01';
     static constexpr char TOGGLE_OFF = '\x02';
+
+    // Sentinel bytes appended to a category header's label to indicate fold state
+    static constexpr char CAT_OPEN = '\x03';
+    static constexpr char CAT_FOLDED = '\x04';
 
     static std::string formatCacheSize(uint64_t bytes) {
         char buf[32];
@@ -146,8 +218,11 @@ struct SettingsState {
         return buf;
     }
 
-    static std::vector<std::string> buildRows() {
+    std::vector<std::string> buildRows() const {
         auto toggle = [](bool b) -> char { return b ? TOGGLE_ON : TOGGLE_OFF; };
+        auto catLabel = [&](const char *name, Category c) -> std::string {
+            return std::string(name) + (categoryFolded[(int) c] ? CAT_FOLDED : CAT_OPEN);
+        };
 
         char vol[48], bri[48], seek[48], spd[48], pit[48], srt[48], acc[48], sec[48], qsz[48],
             hsz[48], dep[48];
@@ -207,8 +282,6 @@ struct SettingsState {
                 sec, sizeof(sec), "Secondary Accent Color:  %s", g_settings.accentColor2.c_str());
         }
 
-        const std::string advHeader = "--- Advanced";
-
         snprintf(qsz, sizeof(qsz), "Max Queue Size:  %d", g_settings.queueSize);
         snprintf(hsz, sizeof(hsz), "Max History Size:  %d", g_settings.historySize);
         snprintf(dep, sizeof(dep), "Max Depth:  %d", g_settings.maxDepth);
@@ -230,7 +303,10 @@ struct SettingsState {
         rows[ROW_SORT_BY] = srt;
         rows[ROW_ACCENT] = acc;
         rows[ROW_SECONDARY] = sec;
-        rows[ROW_ADV_HEADER] = advHeader;
+        rows[ROW_CAT_GENERAL] = catLabel("General", Category::GENERAL);
+        rows[ROW_CAT_FILEBROWSER] = catLabel("Filebrowser", Category::FILEBROWSER);
+        rows[ROW_CAT_PLAYER] = catLabel("Player", Category::PLAYER);
+        rows[ROW_CAT_ADVANCED] = catLabel("Advanced", Category::ADVANCED);
         rows[ROW_QUEUE_SIZE] = qsz;
         rows[ROW_HISTORY_SIZE] = hsz;
         rows[ROW_MAX_DEPTH] = dep;

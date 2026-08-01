@@ -1053,9 +1053,21 @@ static void drawToggle(float x, float y, float w, float h, float z, bool on, u32
     C2D_DrawCircleSolid(knobX, y + r, z + 0.01f, knobR, C2D_Color32(0xFF, 0xFF, 0xFF, 0xFF));
 }
 
+// Triangle pointing right when folded, pointing down when open
+static void drawFoldArrow(float cx, float cy, float s, bool folded, u32 col) {
+    if (folded) {
+        C2D_DrawTriangle(
+            cx - s * 0.6f, cy - s, col, cx - s * 0.6f, cy + s, col, cx + s * 0.7f, cy, col, 0.56f);
+    } else {
+        C2D_DrawTriangle(
+            cx - s, cy - s * 0.6f, col, cx + s, cy - s * 0.6f, col, cx, cy + s * 0.7f, col, 0.56f);
+    }
+}
+
 // Settings screen
 void printSettingsMenu(const std::vector<std::string> &items,
-                       size_t selectedIdx,
+                       const std::vector<size_t> &visibleRows,
+                       size_t selectedRow,
                        size_t scrollOffset) {
     C2D_TextBufClear(g_dynamicBuf);
 
@@ -1076,30 +1088,17 @@ void printSettingsMenu(const std::vector<std::string> &items,
     // Separator line
     C2D_DrawRectSolid(X_LABEL, 14.0f, 0.5f, 372.0f, 1.0f, C2D_Color32(0x2A, 0x2A, 0x2A, 0xFF));
 
-    size_t safeScroll = (scrollOffset < items.size()) ? scrollOffset : 0;
-    size_t end = std::min(items.size(), safeScroll + VISIBLE);
+    size_t safeScroll = (scrollOffset < visibleRows.size()) ? scrollOffset : 0;
+    size_t end = std::min(visibleRows.size(), safeScroll + VISIBLE);
 
-    for (size_t i = safeScroll; i < end; ++i) {
-        float y = Y_START + LINE_H * (float) (i - safeScroll);
-        bool sel = (i == selectedIdx);
+    for (size_t vi = safeScroll; vi < end; ++vi) {
+        size_t row = visibleRows[vi];
+        const std::string &item = items[row];
+        float y = Y_START + LINE_H * (float) (vi - safeScroll);
+        bool sel = (row == selectedRow);
 
-        bool isHeader = (items[i].size() >= 3 && items[i].substr(0, 3) == "---");
-        if (isHeader) {
-            drawStr(items[i].c_str() + 3,
-                    X_LABEL + 4.0f,
-                    y + 2.0f,
-                    0.55f,
-                    0.40f,
-                    0.40f,
-                    C2D_Color32(0x50, 0x50, 0x50, 0xFF));
-            C2D_DrawRectSolid(X_LABEL,
-                              y + LINE_H - 1.0f,
-                              0.5f,
-                              372.0f,
-                              1.0f,
-                              C2D_Color32(0x28, 0x28, 0x28, 0xFF));
-            continue;
-        }
+        char last = item.empty() ? '\0' : item.back();
+        bool isCatHeader = (last == '\x03' || last == '\x04');
 
         if (sel) {
             u32 hlBg = C2D_Color32((u8) ((g_accentColor & 0xFF) / 3),
@@ -1112,11 +1111,20 @@ void printSettingsMenu(const std::vector<std::string> &items,
 
         u32 col =
             sel ? C2D_Color32f(1.0f, 1.0f, 1.0f, 1.0f) : C2D_Color32f(0.65f, 0.65f, 0.65f, 1.0f);
+
+        if (isCatHeader) {
+            std::string label = item.substr(0, item.size() - 1);
+            drawFoldArrow(X_LABEL + 6.0f, y + LINE_H * 0.5f - 3.0f, 4.0f, last == '\x04', col);
+            drawStr(label.c_str(), X_LABEL + 18.0f, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+            continue;
+        }
+
+        // Indent rows under their category header for a tree-like look
+        const float TEXT_X = X_LABEL + 18.0f;
+
         // Toggle rows end with a sentinel byte marking their boolean state, draw a switch instead
-        char last = items[i].empty() ? '\0' : items[i].back();
         if (last == '\x01' || last == '\x02') {
-            std::string label = items[i].substr(0, items[i].size() - 1);
-            const float TEXT_X = X_LABEL + 4.0f;
+            std::string label = item.substr(0, item.size() - 1);
             drawStr(label.c_str(), TEXT_X, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
             float lw = textWidth(label, 0.44f);
 
@@ -1129,18 +1137,17 @@ void printSettingsMenu(const std::vector<std::string> &items,
                        last == '\x01',
                        g_accentColor);
         } else {
-            drawStr(items[i].c_str(), X_LABEL + 4.0f, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
+            drawStr(item.c_str(), TEXT_X, y + 2.0f, 0.55f, 0.44f, 0.44f, col);
         }
     }
 
     // Scroll nub on the right edge when there are more rows than fit.
-    if (items.size() > VISIBLE) {
+    if (visibleRows.size() > VISIBLE) {
         const float TRACK_X = 396.0f;
         const float TRACK_Y = Y_START;
         const float TRACK_H = LINE_H * (float) VISIBLE;
-        const float NUB_H = std::max(8.0f, TRACK_H * (float) VISIBLE / (float) items.size());
-        float nubFrac =
-            (items.size() > VISIBLE) ? (float) safeScroll / (float) (items.size() - VISIBLE) : 0.0f;
+        const float NUB_H = std::max(8.0f, TRACK_H * (float) VISIBLE / (float) visibleRows.size());
+        float nubFrac = (float) safeScroll / (float) (visibleRows.size() - VISIBLE);
         float NUB_Y = TRACK_Y + (TRACK_H - NUB_H) * nubFrac;
         C2D_DrawRectSolid(
             TRACK_X, TRACK_Y, 0.5f, 3.0f, TRACK_H, C2D_Color32(0x22, 0x22, 0x22, 0xFF));
