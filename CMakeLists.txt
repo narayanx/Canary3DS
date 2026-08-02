@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-project(Canary LANGUAGES CXX VERSION 1.2.1)
+project(Canary LANGUAGES CXX VERSION 1.3.0)
 
 include(cmake/CPM.cmake)
 
