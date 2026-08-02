@@ -4,6 +4,7 @@
 #include <citro2d.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <dirent.h>
@@ -696,6 +697,43 @@ void drawProgressBar(float x, float y, float w, float h, float progress) {
     C2D_DrawRectSolid(thumbX, y - 2, 0.65f, 6, h + 4, C2D_Color32(0xFF, 0xFF, 0xFF, 0xCC));
 }
 
+void C2D_DrawRoundedRect(
+    float x, float y, float z, float w, float h, float r, u32 color, int segments = 16) {
+    if (r > w / 2.0f) {
+        r = w / 2.0f;
+    }
+    if (r > h / 2.0f) {
+        r = h / 2.0f;
+    }
+
+    // Center cross, split into 3 rects to avoid corner overlap
+    C2D_DrawRectSolid(x + r, y, z, w - 2 * r, h, color);          // vertical strip
+    C2D_DrawRectSolid(x, y + r, z, r, h - 2 * r, color);          // left strip
+    C2D_DrawRectSolid(x + w - r, y + r, z, r, h - 2 * r, color);  // right strip
+
+    // Fan triangulate a quarter circle
+    auto drawCorner = [&](float cx, float cy, float startAngle) {
+        float prevX = cx + r * cosf(startAngle);
+        float prevY = cy + r * sinf(startAngle);
+
+        for (int i = 1; i <= segments; i++) {
+            float angle = startAngle + (M_PI / 2.0f) * (static_cast<float>(i) / segments);
+            float curX = cx + r * cosf(angle);
+            float curY = cy + r * sinf(angle);
+
+            C2D_DrawTriangle(cx, cy, color, prevX, prevY, color, curX, curY, color, z);
+
+            prevX = curX;
+            prevY = curY;
+        }
+    };
+
+    drawCorner(x + r, y + r, M_PI);
+    drawCorner(x + w - r, y + r, -M_PI / 2.0f);
+    drawCorner(x + w - r, y + h - r, 0.0f);
+    drawCorner(x + r, y + h - r, M_PI / 2.0f);
+}
+
 void drawScreenPillIndicator(bool leftFilled) {
     const float CX = 200.0f;
     const float CY = 226.0f;
@@ -741,12 +779,13 @@ void drawScreenPillIndicator(bool leftFilled) {
         const float SELECT_Y_TOP_LEFT = CY - (SELECT_HEIGHT / 2);
         const float MARGIN = 2.0f;
 
-        C2D_DrawRectSolid(SELECT_X_TOP_LEFT - MARGIN,
-                          SELECT_Y_TOP_LEFT - MARGIN,
-                          0.5f,
-                          SELECT_WIDTH + 2 * MARGIN,
-                          SELECT_HEIGHT + 2 * MARGIN,
-                          pillBg);
+        C2D_DrawRoundedRect(SELECT_X_TOP_LEFT - MARGIN,
+                            SELECT_Y_TOP_LEFT - MARGIN,
+                            0.5f,
+                            SELECT_WIDTH + 2 * MARGIN,
+                            SELECT_HEIGHT + 2 * MARGIN,
+                            4.0f,
+                            pillBg);
 
         C2D_DrawImageAt(C2D_SpriteSheetGetImage(s_selectIcon, 0),
                         SELECT_X_TOP_LEFT,
